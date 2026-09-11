@@ -218,7 +218,9 @@ socket.on("activity", (entry) => {
 socket.on("connect_error", () => toast("Se perdió la conexión con el panel local.", "error"));
 const donationSound = new Audio("/sounds/au.mp3");
 
-socket.on("gift:sound", () => {
+socket.on("gift:sound", (data) => {
+  if (data?.giftId !== "5655") return;
+
   donationSound.currentTime = 0;
   donationSound.play().catch(() => {});
 });
