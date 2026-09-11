@@ -216,3 +216,9 @@ socket.on("activity", (entry) => {
   if (appState) { appState.activity.unshift(entry); appState.activity = appState.activity.slice(0, 100); renderActivity(appState.activity); }
 });
 socket.on("connect_error", () => toast("Se perdió la conexión con el panel local.", "error"));
+const donationSound = new Audio("/sounds/au.mp3");
+
+socket.on("gift:sound", () => {
+  donationSound.currentTime = 0;
+  donationSound.play().catch(() => {});
+});
