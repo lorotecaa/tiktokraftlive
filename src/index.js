@@ -10,7 +10,7 @@ import { ServerTapClient } from "./services/servertap.js";
 import { TikTokClient } from "./services/tiktok.js";
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
-const host = process.env.HOST || "127.0.0.1";
+const host = process.env.HOST || "0.0.0.0";
 const port = Number(process.env.PORT || 3180);
 const commandsPerSecond = Number(process.env.COMMANDS_PER_SECOND || 5);
 let config = await loadConfig();
