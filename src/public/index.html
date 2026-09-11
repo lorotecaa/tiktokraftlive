@@ -1,0 +1,108 @@
+<!doctype html>
+<html lang="es">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <meta name="theme-color" content="#10190f" />
+    <title>TikTokraft Live</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com" />
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+    <link href="https://fonts.googleapis.com/css2?family=DM+Mono:wght@400;500&family=Press+Start+2P&family=Space+Grotesk:wght@400;500;600;700&display=swap" rel="stylesheet" />
+    <link rel="stylesheet" href="/style.css" />
+  </head>
+  <body>
+    <div class="noise"></div>
+    <header class="topbar">
+      <a href="#inicio" class="brand" aria-label="TikTokraft Live, inicio">
+        <span class="brand-mark"><i></i><i></i><i></i></span>
+        <span>TIKTOKRAFT<span class="lime">LIVE</span></span>
+      </a>
+      <div class="live-pill"><span class="pulse"></span><span id="global-status">PANEL LOCAL</span></div>
+    </header>
+
+    <main id="inicio">
+      <section class="hero">
+        <div>
+          <p class="eyebrow">TIKTOK LIVE × MINECRAFT</p>
+          <h1>Los regalos<br />entran al <em>juego.</em></h1>
+          <p class="hero-copy">Conecta tu directo, asigna acciones y deja que tu comunidad cambie el mundo en tiempo real.</p>
+        </div>
+        <div class="hero-art" aria-hidden="true">
+          <div class="sun"></div><div class="cloud cloud-a"></div><div class="cloud cloud-b"></div>
+          <div class="mountain back"></div><div class="mountain front"></div><div class="grass"></div>
+          <div class="creeper"><span></span><span></span><b></b></div>
+          <div class="heart heart-a">♥</div><div class="heart heart-b">♥</div>
+        </div>
+      </section>
+
+      <section class="connection-grid" aria-label="Conexiones">
+        <article class="connection-card minecraft-card">
+          <div class="card-top"><span class="pixel-icon cube"></span><div><p class="card-kicker">MUNDO</p><h2>Minecraft · ServerTap</h2></div><span class="status-dot" id="minecraft-dot"></span></div>
+          <p class="status-copy" id="minecraft-detail">Sin conectar</p>
+          <div class="connection-actions">
+            <button class="button primary" id="minecraft-connect">Conectar servidor</button>
+            <button class="button text" id="minecraft-disconnect">Desconectar</button>
+          </div>
+        </article>
+        <article class="connection-card tiktok-card">
+          <div class="card-top"><span class="pixel-icon gift">✦</span><div><p class="card-kicker">DIRECTO</p><h2>TikTok LIVE</h2></div><span class="status-dot" id="tiktok-dot"></span></div>
+          <p class="status-copy" id="tiktok-detail">Sin conectar</p>
+          <label class="live-username">Usuario del LIVE que quieres conectar <input id="tiktok-live-username" name="tiktokUsername" placeholder="usuario_en_live" maxlength="80" autocomplete="off" /></label>
+          <label class="live-username">Euler Stream API Key · plan Community <input id="euler-stream-api-key" name="eulerStreamApiKey" type="password" placeholder="Pega aquí tu API Key" autocomplete="new-password" /><small id="euler-key-state">Usa el WebSocket Cloud oficial de Euler Stream.</small></label>
+          <div class="connection-actions">
+            <button class="button pink" id="tiktok-connect">Conectar LIVE</button>
+            <button class="button text" id="tiktok-disconnect">Desconectar</button>
+          </div>
+        </article>
+      </section>
+
+      <section class="workspace">
+        <div class="section-heading"><div><p class="eyebrow">CONTROL CENTRAL</p><h2>Conexión</h2></div><span class="hint">La clave nunca sale de este equipo</span></div>
+        <form id="settings-form" class="settings-card">
+          <label>IP o dominio de ServerTap <input id="servertap-host" name="serverTapHost" placeholder="127.0.0.1 o 192.168.1.50" autocomplete="off" required /></label>
+          <label>Puerto <input id="servertap-port" name="serverTapPort" type="number" min="1" max="65535" value="4567" placeholder="4567" required /></label>
+          <label>Protocolo <select id="servertap-protocol" name="serverTapProtocol"><option value="http:">HTTP</option><option value="https:">HTTPS / TLS</option></select></label>
+          <label>Clave de ServerTap <input id="servertap-key" name="serverTapKey" type="password" placeholder="Se guarda localmente" autocomplete="new-password" /><small id="key-state"></small></label>
+          <button class="button primary" type="submit">Guardar conexión</button>
+        </form>
+      </section>
+
+      <section class="workspace mappings-section" id="acciones">
+        <div class="section-heading"><div><p class="eyebrow">AUTOMATIZACIÓN</p><h2>Regalos → acciones</h2></div><span class="hint">Coincide por ID o por nombre</span></div>
+        <div class="mapping-layout">
+          <form id="mapping-form" class="mapping-editor">
+            <input type="hidden" id="mapping-id" />
+            <div class="editor-title"><span class="pixel-icon wand">✦</span><h3 id="editor-heading">Nueva acción</h3></div>
+            <div class="two-columns">
+              <label>Nombre del regalo <input id="gift-name" placeholder="Rosa" maxlength="80" /></label>
+              <label>ID del regalo <input id="gift-id" placeholder="5655" maxlength="80" /></label>
+            </div>
+            <label>Comando de Minecraft <textarea id="mapping-command" rows="3" placeholder="effect give @a minecraft:speed 10 1 true" maxlength="256" required></textarea></label>
+            <p class="variables">Variables: <code>{usuario}</code> <code>{apodo}</code> <code>{regalo}</code> <code>{regalo_id}</code> <code>{cantidad}</code></p>
+            <div class="editor-bottom"><label class="cooldown">Enfriamiento (ms)<input id="cooldown" type="number" min="0" max="3600000" value="0" /></label><label class="toggle"><input id="mapping-enabled" type="checkbox" checked /><span></span> Activa</label></div>
+            <div class="editor-actions"><button class="button primary" type="submit">Guardar acción</button><button class="button text" type="button" id="cancel-edit" hidden>Cancelar</button></div>
+          </form>
+          <div class="mapping-list-wrap"><div class="mapping-list" id="mapping-list"></div><p class="empty-state" id="mapping-empty">Todavía no hay acciones. Crea una a la izquierda.</p></div>
+        </div>
+      </section>
+
+      <section class="workspace test-section">
+        <div class="section-heading"><div><p class="eyebrow">PRUEBA SEGURA</p><h2>Simular un regalo</h2></div><span class="hint">Requiere Minecraft conectado para ejecutar</span></div>
+        <form id="simulate-form" class="simulate-card">
+          <label>Nombre o ID<input id="simulate-gift" placeholder="Rosa o 5655" maxlength="80" /></label>
+          <label>Cantidad<input id="simulate-count" type="number" min="1" max="100" value="1" /></label>
+          <button class="button pink" type="submit">Enviar simulación</button>
+        </form>
+      </section>
+
+      <section class="workspace activity-section" id="actividad">
+        <div class="section-heading"><div><p class="eyebrow">TIEMPO REAL</p><h2>Actividad</h2></div><button class="button text" id="clear-activity" type="button">Limpiar vista</button></div>
+        <div class="activity-log" id="activity-log"><p class="empty-state" id="activity-empty">Aquí verás regalos, acciones y mensajes de la consola.</p></div>
+      </section>
+    </main>
+
+    <div class="toast-stack" id="toasts" aria-live="polite"></div>
+    <script src="/socket.io/socket.io.js"></script>
+    <script src="/app.js"></script>
+  </body>
+</html>

@@ -1,0 +1,22 @@
+{
+  "name": "tiktokraft-live",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "description": "Panel local para convertir regalos de TikTok LIVE en acciones de Minecraft mediante ServerTap.",
+  "scripts": {
+    "start": "node src/index.js",
+    "dev": "node --watch src/index.js",
+    "check": "node --check src/index.js && node --check src/services/servertap.js && node --check src/services/tiktok.js && node --check src/services/rule-engine.js"
+  },
+  "engines": {
+    "node": ">=20"
+  },
+  "dependencies": {
+    "dotenv": "^16.6.1",
+    "express": "^5.1.0",
+    "socket.io": "^4.8.1",
+    "tiktok-live-connector": "^2.4.4",
+    "ws": "^8.18.3"
+  }
+}

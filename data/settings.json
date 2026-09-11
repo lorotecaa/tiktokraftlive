@@ -1,0 +1,178 @@
+{
+  "tiktokUsername": "warrorq",
+  "eulerStreamApiKey": "euler_ZmYyYWQzYmQ3ZmIwMTMzYmVjYTRiODQxMmNmMTRjNDkwZTFiYjg4ZWRiYjIzNDM4N2RjZGRk",
+  "serverTap": {
+    "url": "http://45.92.16.146:19018",
+    "key": "lorotec123"
+  },
+  "mappings": [
+    {
+      "id": "rose",
+      "enabled": true,
+      "giftId": "5655",
+      "giftName": "Rosa",
+      "command": "sudo loroteca /rosa",
+      "cooldownMs": 0
+    },
+    {
+      "id": "heart-me",
+      "enabled": true,
+      "giftId": "15095",
+      "giftName": "ciervo",
+      "command": "sudo loroteca /kick loroteca",
+      "cooldownMs": 0
+    },
+    {
+      "id": "rule-5b5ee8dd-f9c5-4e7a-bd50-3ef48b1db360",
+      "enabled": true,
+      "giftId": "5269",
+      "giftName": "rayo",
+      "command": "sudo loroteca /rayo",
+      "cooldownMs": 0
+    },
+    {
+      "id": "rule-67981f86-2de5-405d-9966-eb4acf53b435",
+      "enabled": true,
+      "giftId": "5879",
+      "giftName": "rosquilla",
+      "command": "sudo loroteca /boom",
+      "cooldownMs": 0
+    },
+    {
+      "id": "rule-f0b02a46-01b7-4182-89b3-7b751d44d348",
+      "enabled": true,
+      "giftId": "5576",
+      "giftName": "corazon10",
+      "command": "sudo loroteca /jaob",
+      "cooldownMs": 0
+    },
+    {
+      "id": "rule-27224bdb-4506-4d78-875c-c465026236bf",
+      "enabled": true,
+      "giftId": "5487",
+      "giftName": "corazoncoreano",
+      "command": "sudo loroteca /silverfish",
+      "cooldownMs": 0
+    },
+    {
+      "id": "rule-5f3e427a-bf13-4c75-a0bc-c3fef43ec75d",
+      "enabled": true,
+      "giftId": "7934",
+      "giftName": "quiereme",
+      "command": "sudo loroteca /electrocreeper",
+      "cooldownMs": 0
+    },
+    {
+      "id": "rule-d9543a74-f7e1-4c98-b8de-38d88db9e9d7",
+      "enabled": true,
+      "giftId": "5658",
+      "giftName": "perfume",
+      "command": "sudo loroteca /waterdrop",
+      "cooldownMs": 0
+    },
+    {
+      "id": "rule-bee75523-9547-4dd5-af9a-2a0f45b180a7",
+      "enabled": true,
+      "giftId": "8913",
+      "giftName": "rosagrande",
+      "command": "sudo loroteca /totes",
+      "cooldownMs": 0
+    },
+    {
+      "id": "rule-2d297dd5-e8ca-4303-909b-5bde17a9248e",
+      "enabled": true,
+      "giftId": "13776",
+      "giftName": "capibara",
+      "command": "sudo loroteca /jaulatela",
+      "cooldownMs": 0
+    },
+    {
+      "id": "rule-a4462e08-8561-4142-851c-619ca66e5753",
+      "enabled": true,
+      "giftId": "19443",
+      "giftName": "animado",
+      "command": "sudo loroteca /rtp world survipro",
+      "cooldownMs": 0
+    },
+    {
+      "id": "rule-8aafeac5-4657-4d8c-ad2a-0c630ff37334",
+      "enabled": true,
+      "giftId": "6104",
+      "giftName": "gorra",
+      "command": "sudo loroteca /meteoro",
+      "cooldownMs": 0
+    },
+    {
+      "id": "rule-a8e167c2-022d-4ef3-b70b-21f3758bceee",
+      "enabled": true,
+      "giftId": "6007",
+      "giftName": "guantes",
+      "command": "sudo loroteca /am",
+      "cooldownMs": 0
+    },
+    {
+      "id": "rule-12ffde87-f64d-4954-b849-1092584a7339",
+      "enabled": true,
+      "giftId": "5731",
+      "giftName": "coral",
+      "command": "sudo loroteca /evo",
+      "cooldownMs": 0
+    },
+    {
+      "id": "rule-be291993-07bb-4d3b-8fe6-f4768e79d80c",
+      "enabled": true,
+      "giftId": "5585",
+      "giftName": "confeti",
+      "command": "sudo loroteca /killer",
+      "cooldownMs": 0
+    },
+    {
+      "id": "rule-67c49541-590d-4762-8ac7-9488cd666709",
+      "enabled": true,
+      "giftId": "5509",
+      "giftName": "gafassoll",
+      "command": "sudo loroteca /ecc",
+      "cooldownMs": 0
+    },
+    {
+      "id": "rule-2912551a-89b6-4c32-9fd2-74d9175e96d3",
+      "enabled": true,
+      "giftId": "5586",
+      "giftName": "herobrinecorazon",
+      "command": "sudo loroteca /hero",
+      "cooldownMs": 0
+    },
+    {
+      "id": "rule-48dccab9-1266-42c1-82dd-f8dd2225a4df",
+      "enabled": true,
+      "giftId": "7168",
+      "giftName": "pistola",
+      "command": "sudo loroteca /pistola",
+      "cooldownMs": 0
+    },
+    {
+      "id": "rule-90dac4f6-7c82-42b9-aa09-30cf0522db01",
+      "enabled": true,
+      "giftId": "6820",
+      "giftName": "balllena",
+      "command": "sudo loroteca /peque",
+      "cooldownMs": 0
+    },
+    {
+      "id": "rule-beb1c623-941c-4698-b3b5-8b95d702b93b",
+      "enabled": true,
+      "giftId": "6267",
+      "giftName": "corgi",
+      "command": "sudo loroteca /jaula",
+      "cooldownMs": 0
+    },
+    {
+      "id": "rule-dc2fce55-4956-4f64-9862-a93fde354b5f",
+      "enabled": true,
+      "giftId": "11046",
+      "giftName": "galaxia",
+      "command": "sudo loroteca /deleteinv",
+      "cooldownMs": 0
+    }
+  ]
+}
