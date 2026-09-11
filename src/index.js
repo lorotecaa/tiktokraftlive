@@ -69,13 +69,17 @@ const tiktok = new TikTokClient({
     broadcastState();
   },
   onGift: (event) => {
-    addActivity({ type: "gift", event, message: `${event.nickname} envió ${event.giftName}` });
-    try {
-      ruleEngine.process(event, config.mappings);
-    } catch (error) {
-      reportError(`No se pudo ejecutar la acción: ${error.message}`);
-    }
-  },
+  addActivity({ type: "gift", event, message: `${event.nickname} envió ${event.giftName}` });
+  if (String(event.giftId) === "5655") {
+    io.emit("gift:sound", { giftId: "5655" });
+  }
+
+  try {
+    ruleEngine.process(event, config.mappings);
+  } catch (error) {
+    reportError(`No se pudo ejecutar la acción: ${error.message}`);
+  }
+},
   onError: reportError
 });
 
