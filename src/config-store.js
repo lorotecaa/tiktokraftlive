@@ -5,6 +5,8 @@ import { fileURLToPath } from "node:url";
 const directory = path.dirname(fileURLToPath(import.meta.url));
 const dataDirectory = path.resolve(directory, "../data");
 const settingsPath = path.join(dataDirectory, "settings.json");
+const soundsDirectory = path.join(directory, "public", "sounds");
+const audioExtensions = new Set([".aac", ".m4a", ".mp3", ".ogg", ".wav", ".webm"]);
 
 const defaultConfig = {
   tiktokUsername: "",
@@ -20,6 +22,7 @@ const defaultConfig = {
       giftId: "5655",
       giftName: "Rosa",
       command: "say Gracias {usuario} por {cantidad} {regalo}!",
+      audio: "",
       cooldownMs: 0
     },
     {
@@ -28,6 +31,7 @@ const defaultConfig = {
       giftId: "",
       giftName: "Corazón",
       command: "effect give @a minecraft:regeneration 5 1 true",
+      audio: "",
       cooldownMs: 3000
     }
   ]
@@ -43,14 +47,29 @@ function stringOrEmpty(value) {
 
 function normalizeMapping(mapping, index) {
   const command = stringOrEmpty(mapping?.command).replace(/[\r\n\0]/g, "");
+  const audio = stringOrEmpty(mapping?.audio).replace(/[\\/\0]/g, "").slice(0, 160);
   return {
     id: stringOrEmpty(mapping?.id) || `rule-${Date.now()}-${index}`,
     enabled: mapping?.enabled !== false,
     giftId: stringOrEmpty(mapping?.giftId),
     giftName: stringOrEmpty(mapping?.giftName),
     command: command.slice(0, 256),
+    audio,
     cooldownMs: Math.max(0, Math.min(Number(mapping?.cooldownMs) || 0, 3_600_000))
   };
+}
+
+export async function listAvailableSounds() {
+  try {
+    const entries = await fs.readdir(soundsDirectory, { withFileTypes: true });
+    return entries
+      .filter((entry) => entry.isFile() && audioExtensions.has(path.extname(entry.name).toLowerCase()))
+      .map((entry) => entry.name)
+      .sort((left, right) => left.localeCompare(right, "es"));
+  } catch (error) {
+    if (error.code === "ENOENT") return [];
+    throw error;
+  }
 }
 
 export function sanitizeConfig(raw = {}) {

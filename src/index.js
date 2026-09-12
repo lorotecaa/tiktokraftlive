@@ -4,7 +4,7 @@ import path from "node:path";
 import { fileURLToPath } from "node:url";
 import express from "express";
 import { Server } from "socket.io";
-import { loadConfig, publicConfig, saveConfig, sanitizeConfig } from "./config-store.js";
+import { listAvailableSounds, loadConfig, publicConfig, saveConfig, sanitizeConfig } from "./config-store.js";
 import { RuleEngine } from "./services/rule-engine.js";
 import { ServerTapClient } from "./services/servertap.js";
 import { TikTokClient } from "./services/tiktok.js";
@@ -24,6 +24,13 @@ const state = {
 const app = express();
 app.use(express.static(path.join(__dirname, "public")));
 app.get("/api/health", (_request, response) => response.json({ ok: true, state: publicState() }));
+app.get("/api/sounds", async (_request, response, next) => {
+  try {
+    response.json({ sounds: await listAvailableSounds() });
+  } catch (error) {
+    next(error);
+  }
+});
 const server = http.createServer(app);
 const io = new Server(server, { serveClient: true });
 
@@ -48,6 +55,12 @@ function reportError(message) {
   addActivity({ type: "error", message });
 }
 
+function playMappingSound(mapping) {
+  if (mapping?.audio) {
+    io.emit("mapping:sound", { audio: mapping.audio, mappingId: mapping.id });
+  }
+}
+
 const serverTap = new ServerTapClient({
   commandsPerSecond,
   onState: (next) => {
@@ -60,7 +73,10 @@ const serverTap = new ServerTapClient({
 
 const ruleEngine = new RuleEngine({
   sendCommand: (command, context) => serverTap.enqueue(command, context),
-  onActivity: (entry) => addActivity(entry)
+  onActivity: (entry) => {
+    addActivity(entry);
+    if (entry.type === "action") playMappingSound(entry.mapping);
+  }
 });
 
 const tiktok = new TikTokClient({
@@ -70,9 +86,6 @@ const tiktok = new TikTokClient({
   },
   onGift: (event) => {
   addActivity({ type: "gift", event, message: `${event.nickname} envió ${event.giftName}` });
-  if (String(event.giftId) === "5655") {
-    io.emit("gift:sound", { giftId: "5655" });
-  }
 
   try {
     ruleEngine.process(event, config.mappings);
@@ -154,6 +167,9 @@ io.on("connection", (socket) => {
   socket.on("mapping:save", (input, ack) => safeAck(ack, async () => {
     const mapping = sanitizeConfig({ mappings: [input] }).mappings[0];
     if (!mapping) throw new Error("Añade un comando a la acción.");
+    if (mapping.audio && !(await listAvailableSounds()).includes(mapping.audio)) {
+      throw new Error("El audio seleccionado ya no está disponible.");
+    }
     const existing = config.mappings.findIndex((entry) => entry.id === mapping.id);
     const mappings = [...config.mappings];
     if (existing >= 0) mappings[existing] = mapping;
@@ -176,6 +192,7 @@ io.on("connection", (socket) => {
     const command = ruleEngine.render(mapping.command, event);
     serverTap.enqueue(command, { test: true, mappingId: mapping.id });
     addActivity({ type: "action", event, mapping, command, message: "Prueba enviada a Minecraft" });
+    playMappingSound(mapping);
     return { command };
   }));
 

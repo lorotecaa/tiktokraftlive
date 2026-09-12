@@ -13,11 +13,12 @@ const elements = {
   tiktokDetail: $("#tiktok-detail"), tiktokDot: $("#tiktok-dot"),
   globalStatus: $("#global-status"),
   mappingForm: $("#mapping-form"), mappingId: $("#mapping-id"), giftName: $("#gift-name"), giftId: $("#gift-id"),
-  command: $("#mapping-command"), cooldown: $("#cooldown"), enabled: $("#mapping-enabled"), editorHeading: $("#editor-heading"),
+  command: $("#mapping-command"), audio: $("#mapping-audio"), audioTest: $("#audio-test"), audioState: $("#audio-state"), cooldown: $("#cooldown"), enabled: $("#mapping-enabled"), editorHeading: $("#editor-heading"),
   cancelEdit: $("#cancel-edit"), mappingList: $("#mapping-list"), mappingEmpty: $("#mapping-empty"),
   simulateForm: $("#simulate-form"), simulateGift: $("#simulate-gift"), simulateCount: $("#simulate-count"),
   activityLog: $("#activity-log"), activityEmpty: $("#activity-empty"), toasts: $("#toasts")
 };
+let availableSounds = [];
 
 function request(event, payload) {
   return new Promise((resolve, reject) => {
@@ -88,6 +89,42 @@ function renderMappings(mappings) {
   elements.mappingEmpty.hidden = mappings.length > 0;
 }
 
+function soundUrl(filename) {
+  return `/sounds/${encodeURIComponent(filename)}`;
+}
+
+function playSound(filename) {
+  if (!filename) return;
+  const audio = new Audio(soundUrl(filename));
+  audio.play().catch(() => toast("El navegador bloqueó la reproducción de audio.", "error"));
+}
+
+function renderSoundOptions(selectedAudio = elements.audio.value) {
+  const selected = selectedAudio || "";
+  elements.audio.replaceChildren(new Option("Sin audio", ""));
+  for (const filename of availableSounds) elements.audio.add(new Option(filename, filename));
+  if (selected && !availableSounds.includes(selected)) {
+    elements.audio.add(new Option(`${selected} (no disponible)`, selected));
+  }
+  elements.audio.value = selected;
+  elements.audioTest.disabled = !selected || !availableSounds.includes(selected);
+  elements.audioState.textContent = availableSounds.length
+    ? `${availableSounds.length} audio(s) disponible(s) en src/public/sounds/.`
+    : "No hay audios disponibles. Colócalos en src/public/sounds/.";
+}
+
+async function loadSounds() {
+  try {
+    const response = await fetch("/api/sounds");
+    if (!response.ok) throw new Error();
+    const payload = await response.json();
+    availableSounds = Array.isArray(payload.sounds) ? payload.sounds : [];
+    renderSoundOptions();
+  } catch {
+    elements.audioState.textContent = "No se pudo cargar la lista de audios.";
+  }
+}
+
 function symbolFor(entry) {
   if (entry.type === "gift" || entry.type === "gift-unmapped") return ["♥", "gift"];
   if (entry.type === "action") return ["⚡", "action"];
@@ -118,6 +155,7 @@ function resetEditor() {
   elements.mappingId.value = "";
   elements.cooldown.value = 0;
   elements.enabled.checked = true;
+  renderSoundOptions("");
   elements.editorHeading.textContent = "Nueva acción";
   elements.cancelEdit.hidden = true;
 }
@@ -127,6 +165,7 @@ function openEditor(mapping) {
   elements.giftName.value = mapping.giftName;
   elements.giftId.value = mapping.giftId;
   elements.command.value = mapping.command;
+  renderSoundOptions(mapping.audio);
   elements.cooldown.value = mapping.cooldownMs;
   elements.enabled.checked = mapping.enabled;
   elements.editorHeading.textContent = "Editar acción";
@@ -177,13 +216,17 @@ elements.mappingForm.addEventListener("submit", async (event) => {
   event.preventDefault();
   const data = {
     id: elements.mappingId.value || `rule-${crypto.randomUUID()}`,
-    giftName: elements.giftName.value.trim(), giftId: elements.giftId.value.trim(), command: elements.command.value.trim(),
+    giftName: elements.giftName.value.trim(), giftId: elements.giftId.value.trim(), command: elements.command.value.trim(), audio: elements.audio.value,
     cooldownMs: Number(elements.cooldown.value), enabled: elements.enabled.checked
   };
   if (!data.giftName && !data.giftId) return toast("Indica al menos el nombre o ID del regalo.", "error");
   try { await request("mapping:save", data); toast("Acción guardada", "success"); resetEditor(); } catch (error) { toast(error.message, "error"); }
 });
 elements.cancelEdit.addEventListener("click", resetEditor);
+elements.audio.addEventListener("change", () => {
+  elements.audioTest.disabled = !elements.audio.value || !availableSounds.includes(elements.audio.value);
+});
+elements.audioTest.addEventListener("click", () => playSound(elements.audio.value));
 
 elements.mappingList.addEventListener("click", async (event) => {
   const button = event.target.closest("button[data-action]");
@@ -216,11 +259,5 @@ socket.on("activity", (entry) => {
   if (appState) { appState.activity.unshift(entry); appState.activity = appState.activity.slice(0, 100); renderActivity(appState.activity); }
 });
 socket.on("connect_error", () => toast("Se perdió la conexión con el panel local.", "error"));
-const donationSound = new Audio("/sounds/au.mp3");
-
-socket.on("gift:sound", (data) => {
-  if (data?.giftId !== "5655") return;
-
-  donationSound.currentTime = 0;
-  donationSound.play().catch(() => {});
-});
+socket.on("mapping:sound", (data) => playSound(data?.audio));
+loadSounds();
