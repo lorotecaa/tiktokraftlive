@@ -134,19 +134,9 @@ function symbolFor(entry) {
   return ["·", ""];
 }
 
-function giftActivityName(event) {
-  const giftName = event.giftName || "Regalo";
-  const giftId = String(event.giftId || "");
-  const mapping = appState?.config?.mappings?.find((item) =>
-    item.giftId && String(item.giftId) === giftId && item.giftName
-  );
-  if (!mapping || giftName.trim().toLocaleLowerCase() === mapping.giftName.trim().toLocaleLowerCase()) return giftName;
-  return `${giftName} (${mapping.giftName})`;
-}
-
 function entryText(entry) {
-  if (entry.type === "gift") return `${entry.event.nickname} regaló ${giftActivityName(entry.event)}${entry.event.repeatCount > 1 ? ` ×${entry.event.repeatCount}` : ""}`;
-  if (entry.type === "gift-unmapped") return `${entry.event.nickname} regaló ${giftActivityName(entry.event)}; no hay acción configurada`;
+  if (entry.type === "gift") return `${entry.event.nickname} regaló ${entry.event.giftName}${entry.event.repeatCount > 1 ? ` ×${entry.event.repeatCount}` : ""}`;
+  if (entry.type === "gift-unmapped") return `${entry.event.nickname} regaló ${entry.event.giftName}; no hay acción configurada`;
   if (entry.type === "action") return `${entry.mapping?.giftName || entry.event.giftName} → ${entry.command}`;
   return entry.message || "Evento";
 }
