@@ -140,7 +140,7 @@ function giftActivityName(event) {
   const mapping = appState?.config?.mappings?.find((item) =>
     item.giftId && String(item.giftId) === giftId && item.giftName
   );
-  if (!mapping || giftName !== `Regalo #${giftId}`) return giftName;
+  if (!mapping || giftName.trim().toLocaleLowerCase() === mapping.giftName.trim().toLocaleLowerCase()) return giftName;
   return `${giftName} (${mapping.giftName})`;
 }
 
