@@ -19,20 +19,29 @@ function normalizeText(value, fallback) {
   return typeof value === "string" && value.trim() ? value.trim() : fallback;
 }
 
+function normalizeBoolean(value) {
+  return value === true || value === 1 || value === "1" || value === "true";
+}
+
 function normalizeGift(message) {
   const data = message?.data || message || {};
   const user = data.user || data.sender || data.fromUser || {};
-  const gift = data.gift || data.giftInfo || {};
-  const giftId = String(data.giftId ?? data.gift_id ?? gift.id ?? gift.giftId ?? "");
+  const gift = data.gift || data.giftInfo || data.giftDetails || {};
+  const giftId = String(data.giftId ?? data.gift_id ?? gift.id ?? gift.giftId ?? gift.gift_id ?? "");
+
+  const repeatCount = Math.max(1, Number(data.repeatCount ?? data.repeat_count ?? data.comboCount ?? data.combo_count ?? gift.repeatCount ?? gift.repeat_count ?? data.giftCount ?? data.gift_count ?? data.count) || 1);
+  const coinValue = Math.max(0, Number(data.diamondCount ?? data.diamond_count ?? data.coinCount ?? data.coin_count ?? gift.diamondCount ?? gift.diamond_count ?? gift.coinCount ?? gift.coin_count ?? gift.price ?? data.price) || 0);
 
   return {
     giftId,
-    giftName: normalizeText(data.giftName || data.gift_name || gift.name, giftId ? `Regalo #${giftId}` : "Regalo"),
-    repeatCount: Math.max(1, Number(data.giftCount ?? data.gift_count ?? data.repeatCount ?? data.repeat_count ?? data.count) || 1),
-    repeatEnd: data.repeatEnd ?? data.repeat_end,
-    giftType: data.giftType ?? data.gift_type,
-    coins: Math.max(0, Number(data.diamondCount ?? data.diamond_count ?? data.coinCount ?? data.coin_count ?? gift.diamondCount ?? gift.diamond_count ?? gift.coinCount ?? gift.coin_count ?? gift.price ?? data.price) || 0)
-      * Math.max(1, Number(data.giftCount ?? data.gift_count ?? data.repeatCount ?? data.repeat_count ?? data.count) || 1),
+    giftName: normalizeText(data.giftName || data.gift_name || gift.giftName || gift.gift_name || gift.name, giftId ? `Regalo #${giftId}` : "Regalo"),
+    repeatCount,
+    repeatEnd: normalizeBoolean(data.repeatEnd ?? data.repeat_end ?? gift.repeatEnd ?? gift.repeat_end),
+    giftType: data.giftType ?? data.gift_type ?? gift.giftType ?? gift.gift_type,
+    coinValue,
+    coins: coinValue * repeatCount,
+    groupId: normalizeText(data.groupId || data.group_id || gift.groupId || gift.group_id, ""),
+    messageId: normalizeText(data.msgId || data.msg_id || data.messageId || data.message_id, ""),
     username: normalizeText(user.uniqueId || user.unique_id || user.username || user.userId, "espectador"),
     nickname: normalizeText(user.nickname || user.displayName || user.display_name || user.uniqueId, "espectador")
   };
@@ -126,6 +135,8 @@ export function isAllowedTtsUser(comment, allowed = {}) {
 }
 
 function giftOccurrenceKey(gift) {
+  const eventId = gift.groupId || gift.messageId;
+  if (eventId) return `event:${eventId}`;
   return [
     gift.username,
     gift.giftId || gift.giftName
@@ -209,7 +220,7 @@ export class TikTokClient {
       if (!isGiftMessage(message)) continue;
       const gift = normalizeGift(message);
       // Los regalos de racha envían actualizaciones; solo ejecutamos al finalizar la racha.
-      if (Number(gift.giftType) === 1 && gift.repeatEnd !== true) continue;
+      if (Number(gift.giftType) === 1 && !gift.repeatEnd) continue;
       // TikTok reentrega cada regalo una segunda vez poco después. Procesamos solo la primera lectura.
       if (!this.isFirstGiftOccurrence(gift)) continue;
       if (gift.coins) this.onMetric("coins", gift.coins);
