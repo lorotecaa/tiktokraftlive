@@ -133,6 +133,7 @@ function normalizeGiftOverlayRecord(record) {
   return {
     giftId: stringOrEmpty(record.giftId).slice(0, 80),
     giftName,
+    giftImageUrl: stringOrEmpty(record.giftImageUrl).slice(0, 2_048),
     username: stringOrEmpty(record.username).slice(0, 80),
     nickname: stringOrEmpty(record.nickname).slice(0, 80),
     coins: Math.max(0, Math.min(Math.floor(Number(record.coins) || 0), 1_000_000_000)),
