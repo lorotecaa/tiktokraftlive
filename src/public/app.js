@@ -12,6 +12,7 @@ const elements = {
   keyState: $("#key-state"),
   ttsSettings: $("#tts-settings-form"), ttsEnabled: $("#tts-enabled"), ttsLanguage: $("#tts-language"), ttsVolume: $("#tts-volume"), ttsVolumeValue: $("#tts-volume-value"),
   voiceTester: $("#voice-tester-form"), voiceTesterText: $("#voice-tester-text"),
+  allowedUsers: $("#allowed-users-form"), allowAllUsers: $("#tts-allow-all-users"), allowFollowers: $("#tts-allow-followers"), allowSubscribers: $("#tts-allow-subscribers"), allowModerators: $("#tts-allow-moderators"), allowTeamMembers: $("#tts-allow-team-members"), teamMembersMinLevel: $("#tts-team-members-min-level"), allowTopGifters: $("#tts-allow-top-gifters"), topGiftersTop: $("#tts-top-gifters-top"), allowList: $("#tts-allow-list"), manageAllowedUsers: $("#manage-allowed-users"), allowedUsersListEditor: $("#allowed-users-list-editor"), allowedUsernames: $("#tts-allowed-usernames"),
   minecraftDetail: $("#minecraft-detail"), minecraftDot: $("#minecraft-dot"),
   tiktokDetail: $("#tiktok-detail"), tiktokDot: $("#tiktok-dot"),
   globalStatus: $("#global-status"),
@@ -75,6 +76,19 @@ function renderState(next) {
     elements.ttsVolume.value = String(config.tts?.volume ?? 1);
     elements.ttsVolumeValue.textContent = `${Math.round((config.tts?.volume ?? 1) * 100)}%`;
   }
+  if (!elements.allowedUsers.contains(document.activeElement)) {
+    const allowed = config.tts?.allowedUsers || {};
+    elements.allowAllUsers.checked = allowed.allUsers !== false;
+    elements.allowFollowers.checked = Boolean(allowed.followers);
+    elements.allowSubscribers.checked = Boolean(allowed.subscribers);
+    elements.allowModerators.checked = Boolean(allowed.moderators);
+    elements.allowTeamMembers.checked = Boolean(allowed.teamMembers);
+    elements.teamMembersMinLevel.value = String(allowed.teamMembersMinLevel || 1);
+    elements.allowTopGifters.checked = Boolean(allowed.topGifters);
+    elements.topGiftersTop.value = String(allowed.topGiftersTop || 3);
+    elements.allowList.checked = Boolean(allowed.listEnabled);
+    elements.allowedUsernames.value = (allowed.usernames || []).join("\n");
+  }
   setStatus(elements.minecraftDetail, elements.minecraftDot, minecraft);
   setStatus(elements.tiktokDetail, elements.tiktokDot, tiktok);
   elements.globalStatus.textContent = minecraft.status === "connected" && tiktok.status === "connected" ? "INTERACTIVO EN VIVO" : "PANEL LOCAL";
@@ -114,6 +128,21 @@ function currentTtsSettings() {
     enabled: Boolean(appState?.config?.tts?.enabled),
     language: appState?.config?.tts?.language || "es-CO",
     volume: Number(appState?.config?.tts?.volume ?? 1)
+  };
+}
+
+function allowedUsersSettings() {
+  return {
+    allUsers: elements.allowAllUsers.checked,
+    followers: elements.allowFollowers.checked,
+    subscribers: elements.allowSubscribers.checked,
+    moderators: elements.allowModerators.checked,
+    teamMembers: elements.allowTeamMembers.checked,
+    teamMembersMinLevel: Number(elements.teamMembersMinLevel.value),
+    topGifters: elements.allowTopGifters.checked,
+    topGiftersTop: Number(elements.topGiftersTop.value),
+    listEnabled: elements.allowList.checked,
+    usernames: elements.allowedUsernames.value.split(/[\n,]/).map((value) => value.trim()).filter(Boolean)
   };
 }
 
@@ -270,6 +299,14 @@ elements.ttsSettings.addEventListener("submit", async (event) => {
 elements.voiceTester.addEventListener("submit", (event) => {
   event.preventDefault();
   playTts(elements.voiceTesterText.value, { allowWhenDisabled: true });
+});
+elements.manageAllowedUsers.addEventListener("click", () => {
+  elements.allowedUsersListEditor.hidden = !elements.allowedUsersListEditor.hidden;
+  if (!elements.allowedUsersListEditor.hidden) elements.allowedUsernames.focus();
+});
+elements.allowedUsers.addEventListener("submit", async (event) => {
+  event.preventDefault();
+  await control(event.submitter, "tts:save", { allowedUsers: allowedUsersSettings() }, "Usuarios permitidos guardados");
 });
 
 elements.mappingForm.addEventListener("submit", async (event) => {

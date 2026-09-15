@@ -84,12 +84,39 @@
         </form>
       </section>
 
-      <section class="workspace voice-tester-section">
-        <div class="section-heading"><div><p class="eyebrow">PRUEBA DE VOZ</p><h2>Voice Tester</h2></div></div>
-        <form id="voice-tester-form" class="voice-tester-card">
-          <label>Frase para reproducir<textarea id="voice-tester-text" rows="3" placeholder="Escribe cualquier frase para probar la voz."></textarea></label>
-          <button class="button pink" type="submit">Play</button>
-        </form>
+      <section class="workspace tts-tools-section">
+        <div class="tts-tools-grid">
+          <article class="tts-utility-card voice-tester-card">
+            <h3>Voice Tester</h3>
+            <form id="voice-tester-form" class="voice-tester-form">
+              <label class="sr-only" for="voice-tester-text">Frase para reproducir</label>
+              <textarea id="voice-tester-text" rows="2" placeholder="Escribe cualquier frase para probar la voz."></textarea>
+              <button class="button pink" type="submit">Play</button>
+            </form>
+          </article>
+
+          <article class="tts-utility-card allowed-users-card">
+            <h3>Allowed Users</h3>
+            <form id="allowed-users-form">
+              <div class="allowed-users-options">
+                <label class="allowed-option"><input id="tts-allow-all-users" type="checkbox" /><span></span>All Users</label>
+                <label class="allowed-option"><input id="tts-allow-followers" type="checkbox" /><span></span>Followers</label>
+                <label class="allowed-option"><input id="tts-allow-subscribers" type="checkbox" /><span></span>Super Fans / Subscribers</label>
+                <label class="allowed-option"><input id="tts-allow-moderators" type="checkbox" /><span></span>Moderators</label>
+                <label class="allowed-option"><input id="tts-allow-team-members" type="checkbox" /><span></span>Team Members</label>
+                <label class="allowed-subsetting">⚙ Min. Level<input id="tts-team-members-min-level" type="number" min="1" max="100" value="1" /></label>
+                <label class="allowed-option"><input id="tts-allow-top-gifters" type="checkbox" /><span></span>Top Gifters</label>
+                <label class="allowed-subsetting">⚙ Top<input id="tts-top-gifters-top" type="number" min="1" max="100" value="3" /></label>
+                <label class="allowed-option"><input id="tts-allow-list" type="checkbox" /><span></span>Allowed Users from list</label>
+              </div>
+              <button class="button text manage-allowed-users" id="manage-allowed-users" type="button">⚙ Manage List</button>
+              <div class="allowed-users-list-editor" id="allowed-users-list-editor" hidden>
+                <label>Usuarios permitidos<textarea id="tts-allowed-usernames" rows="4" placeholder="usuario1&#10;usuario2"></textarea></label>
+              </div>
+              <button class="button primary allowed-users-save" type="submit">Guardar usuarios</button>
+            </form>
+          </article>
+        </div>
       </section>
 
       <section class="workspace mappings-section" id="acciones">
