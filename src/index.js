@@ -274,7 +274,13 @@ io.on("connection", (socket) => {
     addActivity({ type: "system", message: `TikTok LIVE conectado: @${config.tiktokUsername}` });
     return { roomId: connection.roomId };
   }));
-  socket.on("tiktok:disconnect", (_input, ack) => safeAck(ack, () => tiktok.disconnect()));
+  socket.on("tiktok:disconnect", (_input, ack) => safeAck(ack, async () => {
+    tiktok.disconnect();
+    giftOverlayEngine.reset();
+    await saveLiveStateNow();
+    broadcastState();
+    return config.giftOverlays;
+  }));
 
   socket.on("mapping:save", (input, ack) => safeAck(ack, async () => {
     const mapping = sanitizeConfig({ mappings: [input] }).mappings[0];
