@@ -11,6 +11,7 @@ function recordFromGift(gift) {
   return {
     giftId: gift.giftId,
     giftName: gift.giftName,
+    giftImageUrl: gift.giftImageUrl || "",
     username: gift.username,
     nickname: gift.nickname,
     coins: individualCoinValue(gift),

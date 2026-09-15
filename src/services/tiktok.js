@@ -23,6 +23,32 @@ function normalizeBoolean(value) {
   return value === true || value === 1 || value === "1" || value === "true";
 }
 
+function firstUrl(...values) {
+  for (const value of values) {
+    if (typeof value === "string" && value.trim()) return value.trim();
+  }
+  return "";
+}
+
+function giftImageUrl(data, gift) {
+  const image = data.giftImage || data.gift_image || gift.giftImage || gift.gift_image || gift.image || {};
+  return firstUrl(
+    data.giftPictureUrl,
+    data.gift_picture_url,
+    data.giftImageUrl,
+    data.gift_image_url,
+    gift.giftPictureUrl,
+    gift.gift_picture_url,
+    gift.giftImageUrl,
+    gift.gift_image_url,
+    image.giftPictureUrl,
+    image.gift_picture_url,
+    image.url,
+    image.urlList?.[0],
+    image.url_list?.[0]
+  );
+}
+
 function normalizeGift(message) {
   const data = message?.data || message || {};
   const user = data.user || data.sender || data.fromUser || {};
@@ -40,6 +66,7 @@ function normalizeGift(message) {
     giftType: data.giftType ?? data.gift_type ?? gift.giftType ?? gift.gift_type,
     coinValue,
     coins: coinValue * repeatCount,
+    giftImageUrl: giftImageUrl(data, gift),
     groupId: normalizeText(data.groupId || data.group_id || gift.groupId || gift.group_id, ""),
     messageId: normalizeText(data.msgId || data.msg_id || data.messageId || data.message_id, ""),
     username: normalizeText(user.uniqueId || user.unique_id || user.username || user.userId, "espectador"),
