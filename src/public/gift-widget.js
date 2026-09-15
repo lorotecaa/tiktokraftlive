@@ -1,6 +1,7 @@
 const kind = decodeURIComponent(location.pathname.split("/").filter(Boolean).at(-1) || "");
 const widget = document.querySelector("#gift-widget");
 const titleElement = document.querySelector("#gift-widget-title");
+const imageElement = document.querySelector("#gift-widget-image");
 const userElement = document.querySelector("#gift-widget-user");
 const nameElement = document.querySelector("#gift-widget-name");
 const valueElement = document.querySelector("#gift-widget-value");
@@ -15,10 +16,22 @@ function render(overlay) {
   titleElement.textContent = overlay.title.toUpperCase();
   const record = overlay.record;
   if (!record) {
+    widget.dataset.hasImage = "false";
+    imageElement.hidden = true;
+    imageElement.removeAttribute("src");
     userElement.textContent = kind === "best-gift" ? "Esperando regalo" : "Esperando racha";
     nameElement.textContent = "—";
     valueElement.textContent = "—";
     return;
+  }
+  const imageUrl = String(record.giftImageUrl || "").trim();
+  widget.dataset.hasImage = String(Boolean(imageUrl));
+  imageElement.hidden = !imageUrl;
+  if (imageUrl) {
+    imageElement.src = imageUrl;
+    imageElement.alt = record.giftName || "Regalo";
+  } else {
+    imageElement.removeAttribute("src");
   }
   userElement.textContent = record.nickname || record.username || "Alguien";
   nameElement.textContent = record.giftName;
@@ -32,5 +45,6 @@ async function loadOverlay() {
   render(overlay);
 }
 
+imageElement.addEventListener("error", () => { imageElement.hidden = true; });
 loadOverlay().catch(() => { widget.hidden = true; });
 io().on("gift-overlay:update", render);

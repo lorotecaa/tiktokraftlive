@@ -146,12 +146,23 @@ function renderGiftOverlay(kind, record) {
   const card = giftOverlayCard(kind);
   if (!card) return;
   card.querySelector(".gift-overlay-url-input").value = giftOverlayUrl(kind);
+  const image = card.querySelector(".gift-overlay-preview-image");
   const name = card.querySelector(".gift-overlay-preview-name");
   const value = card.querySelector(".gift-overlay-preview-value");
   if (!record) {
+    image.hidden = true;
+    image.removeAttribute("src");
     name.textContent = kind === "best-gift" ? "Esperando regalo" : "Esperando racha";
     value.textContent = "—";
     return;
+  }
+  const imageUrl = String(record.giftImageUrl || "").trim();
+  image.hidden = !imageUrl;
+  if (imageUrl) {
+    image.src = imageUrl;
+    image.alt = record.giftName || "Regalo";
+  } else {
+    image.removeAttribute("src");
   }
   name.textContent = `${record.nickname || record.username || "Alguien"} · ${record.giftName}`;
   value.textContent = kind === "best-gift" ? `${numberFormat(record.coins)} coins` : `× ${numberFormat(record.repeatCount)}`;
@@ -402,6 +413,7 @@ elements.giftOverlaysForm.addEventListener("submit", async (event) => {
 });
 elements.giftOverlaysResetNow.addEventListener("click", (event) => control(event.currentTarget, "gift-overlays:reset", null, "Récords restablecidos"));
 for (const card of elements.giftOverlayCards) {
+  card.querySelector(".gift-overlay-preview-image").addEventListener("error", (event) => { event.currentTarget.hidden = true; });
   const kind = card.dataset.giftOverlayKind;
   card.querySelector(".gift-overlay-copy").addEventListener("click", async () => {
     const input = card.querySelector(".gift-overlay-url-input");
