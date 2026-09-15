@@ -25,14 +25,17 @@ function normalizeGift(message) {
   const gift = data.gift || data.giftInfo || {};
   const giftId = String(data.giftId ?? data.gift_id ?? gift.id ?? gift.giftId ?? "");
 
+  const repeatCount = Math.max(1, Number(data.giftCount ?? data.gift_count ?? data.repeatCount ?? data.repeat_count ?? data.count) || 1);
+  const coinValue = Math.max(0, Number(data.diamondCount ?? data.diamond_count ?? data.coinCount ?? data.coin_count ?? gift.diamondCount ?? gift.diamond_count ?? gift.coinCount ?? gift.coin_count ?? gift.price ?? data.price) || 0);
+
   return {
     giftId,
     giftName: normalizeText(data.giftName || data.gift_name || gift.name, giftId ? `Regalo #${giftId}` : "Regalo"),
-    repeatCount: Math.max(1, Number(data.giftCount ?? data.gift_count ?? data.repeatCount ?? data.repeat_count ?? data.count) || 1),
+    repeatCount,
     repeatEnd: data.repeatEnd ?? data.repeat_end,
     giftType: data.giftType ?? data.gift_type,
-    coins: Math.max(0, Number(data.diamondCount ?? data.diamond_count ?? data.coinCount ?? data.coin_count ?? gift.diamondCount ?? gift.diamond_count ?? gift.coinCount ?? gift.coin_count ?? gift.price ?? data.price) || 0)
-      * Math.max(1, Number(data.giftCount ?? data.gift_count ?? data.repeatCount ?? data.repeat_count ?? data.count) || 1),
+    coinValue,
+    coins: coinValue * repeatCount,
     username: normalizeText(user.uniqueId || user.unique_id || user.username || user.userId, "espectador"),
     nickname: normalizeText(user.nickname || user.displayName || user.display_name || user.uniqueId, "espectador")
   };
