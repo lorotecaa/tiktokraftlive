@@ -8,6 +8,7 @@ import { Server } from "socket.io";
 import { listAvailableSounds, loadConfig, publicConfig, saveConfig, sanitizeConfig } from "./config-store.js";
 import { RuleEngine } from "./services/rule-engine.js";
 import { GoalEngine } from "./services/goal-engine.js";
+import { GiftOverlayEngine } from "./services/gift-overlay-engine.js";
 import { ServerTapClient } from "./services/servertap.js";
 import { TikTokClient, isAllowedTtsUser } from "./services/tiktok.js";
 
@@ -22,16 +23,22 @@ const state = {
   tiktok: { status: "disconnected", detail: "Sin conectar" },
   activity: []
 };
-let goalSaveTimer = null;
-let goalSavePromise = Promise.resolve();
+let liveStateSaveTimer = null;
+let liveStateSavePromise = Promise.resolve();
 
 const app = express();
 app.get("/widget/goal/:id", (_request, response) => response.sendFile(path.join(__dirname, "public", "goal-widget.html")));
+app.get("/widget/gift/:kind", (_request, response) => response.sendFile(path.join(__dirname, "public", "gift-widget.html")));
 app.get("/api/health", (_request, response) => response.json({ ok: true, state: publicState() }));
 app.get("/api/goals/:id", (request, response) => {
   const goal = config.goals.find((item) => item.id === request.params.id);
   if (!goal) return response.status(404).json({ error: "No existe esa meta." });
   return response.json({ goal: publicGoal(goal) });
+});
+app.get("/api/gift-overlays/:kind", (request, response) => {
+  const overlay = publicGiftOverlay(request.params.kind);
+  if (!overlay) return response.status(404).json({ error: "No existe ese overlay." });
+  return response.json({ overlay });
 });
 app.get("/api/sounds", async (_request, response, next) => {
   try {
@@ -50,6 +57,16 @@ function publicState() {
 
 function publicGoal(goal) {
   return { id: goal.id, type: goal.type, name: goal.name, target: goal.target, current: goal.current, enabled: goal.enabled };
+}
+
+function publicGiftOverlay(kind) {
+  const definitions = {
+    "best-gift": { key: "bestGift", title: "Mejor Regalo" },
+    "best-streak": { key: "bestStreak", title: "Mejor Racha" }
+  };
+  const definition = definitions[kind];
+  if (!definition) return null;
+  return { kind, title: definition.title, record: config.giftOverlays[definition.key] };
 }
 
 function broadcastState() {
@@ -75,28 +92,33 @@ function playMappingSound(mapping) {
   }
 }
 
-function queueGoalSave() {
-  if (goalSaveTimer) return;
-  goalSaveTimer = setTimeout(() => {
-    goalSaveTimer = null;
-    goalSavePromise = goalSavePromise
+function queueLiveStateSave() {
+  if (liveStateSaveTimer) return;
+  liveStateSaveTimer = setTimeout(() => {
+    liveStateSaveTimer = null;
+    liveStateSavePromise = liveStateSavePromise
       .then(async () => { config = await saveConfig(config); })
-      .catch((error) => reportError(`No se pudo guardar el progreso de las metas: ${error.message}`));
+      .catch((error) => reportError(`No se pudo guardar el estado en vivo: ${error.message}`));
   }, 500);
 }
 
-async function saveGoalsNow() {
-  if (goalSaveTimer) {
-    clearTimeout(goalSaveTimer);
-    goalSaveTimer = null;
+async function saveLiveStateNow() {
+  if (liveStateSaveTimer) {
+    clearTimeout(liveStateSaveTimer);
+    liveStateSaveTimer = null;
   }
-  goalSavePromise = goalSavePromise.then(async () => { config = await saveConfig(config); });
-  await goalSavePromise;
+  liveStateSavePromise = liveStateSavePromise.then(async () => { config = await saveConfig(config); });
+  await liveStateSavePromise;
 }
 
 const goalEngine = new GoalEngine({
   getGoals: () => config.goals,
   onUpdate: (goal) => io.emit("goal:update", publicGoal(goal))
+});
+
+const giftOverlayEngine = new GiftOverlayEngine({
+  getOverlays: () => config.giftOverlays,
+  onUpdate: ({ kind, record }) => io.emit("gift-overlay:update", { ...publicGiftOverlay(kind), record })
 });
 
 const serverTap = new ServerTapClient({
@@ -123,16 +145,17 @@ const tiktok = new TikTokClient({
     broadcastState();
   },
   onGift: (event) => {
-  addActivity({ type: "gift", event, message: `${event.nickname} envió ${event.giftName}` });
+    if (giftOverlayEngine.process(event).length) queueLiveStateSave();
+    addActivity({ type: "gift", event, message: `${event.nickname} envió ${event.giftName}` });
 
-  try {
-    ruleEngine.process(event, config.mappings);
-  } catch (error) {
-    reportError(`No se pudo ejecutar la acción: ${error.message}`);
-  }
-},
+    try {
+      ruleEngine.process(event, config.mappings);
+    } catch (error) {
+      reportError(`No se pudo ejecutar la acción: ${error.message}`);
+    }
+  },
   onMetric: (metric, amount) => {
-    if (goalEngine.process(metric, amount).length) queueGoalSave();
+    if (goalEngine.process(metric, amount).length) queueLiveStateSave();
   },
   onComment: (event) => {
     if (config.tts.enabled) io.emit("tiktok:comment", event);
@@ -201,6 +224,19 @@ io.on("connection", (socket) => {
     return config.tts;
   }));
 
+  socket.on("gift-overlays:save", (input, ack) => safeAck(ack, async () => {
+    config = await saveConfig({ ...config, giftOverlays: { ...config.giftOverlays, resetOnNewLive: input?.resetOnNewLive === true } });
+    broadcastState();
+    return config.giftOverlays;
+  }));
+
+  socket.on("gift-overlays:reset", (_input, ack) => safeAck(ack, async () => {
+    giftOverlayEngine.reset();
+    await saveLiveStateNow();
+    broadcastState();
+    return config.giftOverlays;
+  }));
+
   socket.on("goal:save", (input, ack) => safeAck(ack, async () => {
     const requestedType = String(input?.type || "").toLowerCase();
     const existing = config.goals.find((goal) => goal.id === input?.id || goal.type === requestedType);
@@ -230,6 +266,11 @@ io.on("connection", (socket) => {
 
   socket.on("tiktok:connect", (_input, ack) => safeAck(ack, async () => {
     const connection = await tiktok.connect(config.tiktokUsername, config.eulerStreamApiKey);
+    if (config.giftOverlays.resetOnNewLive) {
+      giftOverlayEngine.reset();
+      await saveLiveStateNow();
+      broadcastState();
+    }
     addActivity({ type: "system", message: `TikTok LIVE conectado: @${config.tiktokUsername}` });
     return { roomId: connection.roomId };
   }));
@@ -289,7 +330,7 @@ async function shutdown() {
   tiktok.disconnect("Aplicación detenida");
   serverTap.disconnect("Aplicación detenida");
   try {
-    await saveGoalsNow();
+    await saveLiveStateNow();
   } finally {
     server.close(() => process.exit(0));
   }
