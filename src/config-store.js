@@ -7,6 +7,7 @@ const dataDirectory = path.resolve(directory, "../data");
 const settingsPath = path.join(dataDirectory, "settings.json");
 const soundsDirectory = path.join(directory, "public", "sounds");
 const audioExtensions = new Set([".aac", ".m4a", ".mp3", ".ogg", ".wav", ".webm"]);
+const ttsLanguages = new Set(["es-CO", "es-ES", "en-US", "pt-BR"]);
 
 const defaultConfig = {
   tiktokUsername: "",
@@ -14,6 +15,11 @@ const defaultConfig = {
   serverTap: {
     url: "http://127.0.0.1:4567",
     key: ""
+  },
+  tts: {
+    enabled: false,
+    language: "es-CO",
+    volume: 1
   },
   mappings: [
     {
@@ -59,6 +65,16 @@ function normalizeMapping(mapping, index) {
   };
 }
 
+function normalizeTts(raw) {
+  const language = stringOrEmpty(raw?.language);
+  const volume = Number(raw?.volume);
+  return {
+    enabled: raw?.enabled === true,
+    language: ttsLanguages.has(language) ? language : defaultConfig.tts.language,
+    volume: Number.isFinite(volume) ? Math.max(0, Math.min(volume, 1)) : defaultConfig.tts.volume
+  };
+}
+
 export async function listAvailableSounds() {
   try {
     const entries = await fs.readdir(soundsDirectory, { withFileTypes: true });
@@ -81,6 +97,7 @@ export function sanitizeConfig(raw = {}) {
       url: stringOrEmpty(raw.serverTap?.url || defaultConfig.serverTap.url).replace(/\/$/, ""),
       key: stringOrEmpty(raw.serverTap?.key)
     },
+    tts: normalizeTts(raw.tts),
     mappings: mappings.map(normalizeMapping).filter((mapping) => mapping.command)
   };
 }

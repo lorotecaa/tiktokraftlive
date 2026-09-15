@@ -93,6 +93,9 @@ const tiktok = new TikTokClient({
     reportError(`No se pudo ejecutar la acción: ${error.message}`);
   }
 },
+  onComment: (event) => {
+    if (config.tts.enabled) io.emit("tiktok:comment", event);
+  },
   onError: reportError
 });
 
@@ -148,6 +151,12 @@ io.on("connection", (socket) => {
     config = await saveConfig(mergeSettings(input));
     broadcastState();
     return publicConfig(config);
+  }));
+
+  socket.on("tts:save", (input, ack) => safeAck(ack, async () => {
+    config = await saveConfig({ ...config, tts: input });
+    broadcastState();
+    return config.tts;
   }));
 
   socket.on("minecraft:connect", (_input, ack) => safeAck(ack, async () => {
