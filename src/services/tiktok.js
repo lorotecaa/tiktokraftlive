@@ -48,12 +48,58 @@ function isCommentMessage(message) {
 
 function normalizeComment(message) {
   const data = message?.data || message || {};
-  const user = data.user || data.sender || data.fromUser || {};
+  const user = data.user || data.sender || data.fromUser || data;
   const text = data.comment ?? data.text ?? data.commentText ?? data.content;
+  const badges = collectUserBadges(data, user);
   return {
-    nickname: normalizeText(user.nickname || user.displayName || user.display_name || user.uniqueId, "espectador"),
-    text: Array.from(normalizeText(text, "")).slice(0, maxCommentLength).join("")
+    nickname: normalizeText(user.nickname || user.displayName || user.display_name || user.uniqueId || data.nickname, "espectador"),
+    username: normalizeText(user.uniqueId || user.unique_id || user.username || user.displayId, ""),
+    text: Array.from(normalizeText(text, "")).slice(0, maxCommentLength).join(""),
+    isFollower: Boolean(data.isFollower ?? user.isFollower) || Number(data.followRole ?? data.followInfo?.followStatus ?? user.followStatus ?? user.followInfo?.followStatus) > 0,
+    isSubscriber: Boolean(data.isSubscriber ?? user.isSubscriber ?? user.subscribeInfo ?? user.fansClubInfo ?? user.fansClub) || badges.some((badge) => badge.sceneType === 4 || badge.sceneType === 7 || badge.url.toLowerCase().includes("/sub_")),
+    isModerator: Boolean(data.isModerator ?? user.isModerator) || badges.some((badge) => badge.sceneType === 1 || badge.type.toLowerCase().includes("moderator")),
+    teamMemberLevel: Number(data.teamMemberLevel ?? user.teamMemberLevel ?? badges.find((badge) => badge.sceneType === 10)?.level) || 0,
+    topGifterRank: Number(data.topGifterRank ?? user.topGifterRank ?? badges.find((badge) => badge.topGifterRank)?.topGifterRank) || 0
   };
+}
+
+function collectUserBadges(data, user) {
+  const asArray = (value) => Array.isArray(value) ? value : [];
+  const directBadges = [...asArray(data.userBadges), ...asArray(user.userBadges)].map((badge) => ({
+    sceneType: Number(badge.badgeSceneType ?? badge.sceneType) || 0,
+    type: String(badge.type || ""),
+    url: String(badge.url || ""),
+    level: Number(badge.level) || 0
+  }));
+  const badgeList = [...asArray(data.badgeList), ...asArray(user.badgeList)];
+  for (const group of badgeList) {
+    const sceneType = Number(group.badgeSceneType ?? group.sceneType) || 0;
+    for (const badge of asArray(group.badges)) directBadges.push({ sceneType, type: String(badge.type || ""), url: String(badge.url || ""), level: Number(badge.level) || 0 });
+    for (const badge of asArray(group.imageBadges)) directBadges.push({ sceneType, type: "image", url: String(badge.image?.url || badge.image?.urlList?.[0] || ""), level: 0 });
+    if (group.privilegeLogExtra?.level) directBadges.push({ sceneType, type: "privilege", url: "", level: Number(group.privilegeLogExtra.level) || 0 });
+  }
+  return directBadges.map((badge) => ({
+    ...badge,
+    topGifterRank: Number(badge.url.match(/ranklist_top_gifter_(\d+)/)?.[1]) || 0
+  }));
+}
+
+function normalizedIdentity(value) {
+  return String(value || "").trim().replace(/^@/, "").toLocaleLowerCase();
+}
+
+export function isAllowedTtsUser(comment, allowed = {}) {
+  if (allowed.allUsers !== false) return true;
+  if (allowed.followers && comment.isFollower) return true;
+  if (allowed.subscribers && comment.isSubscriber) return true;
+  if (allowed.moderators && comment.isModerator) return true;
+  if (allowed.teamMembers && comment.teamMemberLevel >= (Number(allowed.teamMembersMinLevel) || 1)) return true;
+  if (allowed.topGifters && comment.topGifterRank > 0 && comment.topGifterRank <= (Number(allowed.topGiftersTop) || 3)) return true;
+  if (allowed.listEnabled) {
+    const usernames = new Set((allowed.usernames || []).map(normalizedIdentity));
+    return usernames.has(normalizedIdentity(comment.username)) || usernames.has(normalizedIdentity(comment.nickname));
+  }
+  return false;
 }
 
 function giftOccurrenceKey(gift) {
@@ -64,10 +110,11 @@ function giftOccurrenceKey(gift) {
 }
 
 export class TikTokClient {
-  constructor({ onState, onGift, onComment, onError }) {
+  constructor({ onState, onGift, onComment, shouldReadComment = () => true, onError }) {
     this.onState = onState;
     this.onGift = onGift;
     this.onComment = onComment;
+    this.shouldReadComment = shouldReadComment;
     this.onError = onError;
     this.socket = null;
     this.status = "disconnected";
@@ -124,7 +171,7 @@ export class TikTokClient {
     for (const message of messages) {
       if (isCommentMessage(message)) {
         const comment = normalizeComment(message);
-        if (comment.text && !comment.text.startsWith("!")) this.onComment(comment);
+        if (comment.text && !comment.text.startsWith("!") && this.shouldReadComment(comment)) this.onComment(comment);
         continue;
       }
       if (!isGiftMessage(message)) continue;
