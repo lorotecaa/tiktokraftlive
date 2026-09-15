@@ -34,6 +34,11 @@ const defaultConfig = {
       usernames: []
     }
   },
+  giftOverlays: {
+    resetOnNewLive: false,
+    bestGift: null,
+    bestStreak: null
+  },
   goals: [],
   mappings: [
     {
@@ -121,6 +126,29 @@ function normalizeGoal(goal, index) {
   };
 }
 
+function normalizeGiftOverlayRecord(record) {
+  if (!record || typeof record !== "object") return null;
+  const giftName = stringOrEmpty(record.giftName).slice(0, 80);
+  if (!giftName) return null;
+  return {
+    giftId: stringOrEmpty(record.giftId).slice(0, 80),
+    giftName,
+    username: stringOrEmpty(record.username).slice(0, 80),
+    nickname: stringOrEmpty(record.nickname).slice(0, 80),
+    coins: Math.max(0, Math.min(Math.floor(Number(record.coins) || 0), 1_000_000_000)),
+    repeatCount: Math.max(1, Math.min(Math.floor(Number(record.repeatCount) || 1), 1_000_000)),
+    at: Math.max(0, Math.floor(Number(record.at) || 0))
+  };
+}
+
+function normalizeGiftOverlays(raw) {
+  return {
+    resetOnNewLive: raw?.resetOnNewLive === true,
+    bestGift: normalizeGiftOverlayRecord(raw?.bestGift),
+    bestStreak: normalizeGiftOverlayRecord(raw?.bestStreak)
+  };
+}
+
 export async function listAvailableSounds() {
   try {
     const entries = await fs.readdir(soundsDirectory, { withFileTypes: true });
@@ -146,6 +174,7 @@ export function sanitizeConfig(raw = {}) {
       key: stringOrEmpty(raw.serverTap?.key)
     },
     tts: normalizeTts(raw.tts),
+    giftOverlays: normalizeGiftOverlays(raw.giftOverlays),
     goals: normalizedGoals.filter((goal, index) => normalizedGoals.findIndex((item) => item.type === goal.type) === index),
     mappings: mappings.map(normalizeMapping).filter((mapping) => mapping.command)
   };
