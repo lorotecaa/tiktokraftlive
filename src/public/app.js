@@ -13,6 +13,7 @@ const elements = {
   ttsSettings: $("#tts-settings-form"), ttsEnabled: $("#tts-enabled"), ttsLanguage: $("#tts-language"), ttsVolume: $("#tts-volume"), ttsVolumeValue: $("#tts-volume-value"),
   voiceTester: $("#voice-tester-form"), voiceTesterText: $("#voice-tester-text"),
   allowedUsers: $("#allowed-users-form"), allowAllUsers: $("#tts-allow-all-users"), allowFollowers: $("#tts-allow-followers"), allowSubscribers: $("#tts-allow-subscribers"), allowModerators: $("#tts-allow-moderators"), allowTeamMembers: $("#tts-allow-team-members"), teamMembersMinLevel: $("#tts-team-members-min-level"), allowTopGifters: $("#tts-allow-top-gifters"), topGiftersTop: $("#tts-top-gifters-top"), allowList: $("#tts-allow-list"), manageAllowedUsers: $("#manage-allowed-users"), allowedUsersListEditor: $("#allowed-users-list-editor"), allowedUsernames: $("#tts-allowed-usernames"),
+  goalsToggle: $("#goals-toggle"), goalsPanel: $("#goals-panel"), goalCards: [...document.querySelectorAll(".goal-card")],
   minecraftDetail: $("#minecraft-detail"), minecraftDot: $("#minecraft-dot"),
   tiktokDetail: $("#tiktok-detail"), tiktokDot: $("#tiktok-dot"),
   globalStatus: $("#global-status"),
@@ -93,7 +94,42 @@ function renderState(next) {
   setStatus(elements.tiktokDetail, elements.tiktokDot, tiktok);
   elements.globalStatus.textContent = minecraft.status === "connected" && tiktok.status === "connected" ? "INTERACTIVO EN VIVO" : "PANEL LOCAL";
   renderMappings(config.mappings || []);
+  renderGoals(config.goals || []);
   if (!hiddenActivity) renderActivity(next.activity || []);
+}
+
+function numberFormat(value) {
+  return new Intl.NumberFormat("es-CO").format(Math.max(0, Number(value) || 0));
+}
+
+function goalUrl(id) {
+  return `${window.location.origin}/widget/goal/${encodeURIComponent(id)}`;
+}
+
+function goalCard(type) {
+  return elements.goalCards.find((card) => card.dataset.goalType === type);
+}
+
+function renderGoal(goal) {
+  const card = goalCard(goal.type);
+  const active = document.activeElement;
+  if (!card || (card.contains(active) && active?.matches("input:not([type=hidden]), textarea"))) return;
+  card.querySelector(".goal-id").value = goal.id;
+  card.querySelector(".goal-name").value = goal.name;
+  card.querySelector(".goal-target").value = goal.target;
+  card.querySelector(".goal-current").value = goal.current;
+  card.querySelector(".goal-enabled-input").checked = goal.enabled;
+  const row = card.querySelector(".goal-url-row");
+  row.hidden = false;
+  card.querySelector(".goal-url").value = goalUrl(goal.id);
+  const percentage = Math.min(100, Math.round((goal.current / goal.target) * 100));
+  card.querySelector(".goal-preview-label").textContent = goal.name;
+  card.querySelector(".goal-preview-track span").style.width = `${percentage}%`;
+  card.querySelector(".goal-preview-value").textContent = `${numberFormat(goal.current)} / ${numberFormat(goal.target)}`;
+}
+
+function renderGoals(goals) {
+  for (const goal of goals) renderGoal(goal);
 }
 
 function renderMappings(mappings) {
@@ -309,6 +345,48 @@ elements.allowedUsers.addEventListener("submit", async (event) => {
   await control(event.submitter, "tts:save", { allowedUsers: allowedUsersSettings() }, "Usuarios permitidos guardados");
 });
 
+elements.goalsToggle.addEventListener("click", () => {
+  const isOpen = elements.goalsToggle.getAttribute("aria-expanded") === "true";
+  elements.goalsToggle.setAttribute("aria-expanded", String(!isOpen));
+  if (isOpen) {
+    elements.goalsPanel.classList.remove("is-open");
+    setTimeout(() => { if (!elements.goalsPanel.classList.contains("is-open")) elements.goalsPanel.hidden = true; }, 180);
+  } else {
+    elements.goalsPanel.hidden = false;
+    requestAnimationFrame(() => elements.goalsPanel.classList.add("is-open"));
+  }
+});
+for (const card of elements.goalCards) {
+  const form = card.querySelector(".goal-form");
+  form.addEventListener("submit", async (event) => {
+    event.preventDefault();
+    const submit = event.submitter;
+    const data = {
+      id: card.querySelector(".goal-id").value,
+      type: card.dataset.goalType,
+      name: card.querySelector(".goal-name").value.trim(),
+      target: Number(card.querySelector(".goal-target").value),
+      current: Number(card.querySelector(".goal-current").value),
+      enabled: card.querySelector(".goal-enabled-input").checked
+    };
+    await control(submit, "goal:save", data, "Meta guardada");
+  });
+  card.querySelector(".goal-copy").addEventListener("click", async () => {
+    const input = card.querySelector(".goal-url");
+    try {
+      await navigator.clipboard.writeText(input.value);
+    } catch {
+      input.select();
+      document.execCommand("copy");
+    }
+    toast("URL copiada", "success");
+  });
+  card.querySelector(".goal-preview").addEventListener("click", () => {
+    const url = card.querySelector(".goal-url").value;
+    if (url) window.open(url, "_blank", "noopener");
+  });
+}
+
 elements.mappingForm.addEventListener("submit", async (event) => {
   event.preventDefault();
   const data = {
@@ -358,6 +436,13 @@ socket.on("activity", (entry) => {
 socket.on("tiktok:comment", (comment) => {
   if (!appState?.config?.tts?.enabled || !comment?.text) return;
   ttsQueue.enqueue(`${comment.nickname}: ${comment.text}`, currentTtsSettings());
+});
+socket.on("goal:update", (goal) => {
+  if (!appState || !goal?.id) return;
+  const existing = appState.config.goals.findIndex((item) => item.id === goal.id);
+  if (existing >= 0) appState.config.goals[existing] = goal;
+  else appState.config.goals.push(goal);
+  renderGoal(goal);
 });
 socket.on("connect_error", () => toast("Se perdió la conexión con el panel local.", "error"));
 socket.on("mapping:sound", (data) => playSound(data?.audio));

@@ -119,6 +119,74 @@
         </div>
       </section>
 
+      <section class="workspace goals-section" id="metas">
+        <button class="goals-toggle" id="goals-toggle" type="button" aria-expanded="false" aria-controls="goals-panel"><span>Superposiciones de Metas</span><b aria-hidden="true">›</b></button>
+        <div class="goals-panel" id="goals-panel" hidden>
+          <div class="section-heading"><div><p class="eyebrow">METAS EN VIVO</p><h2>Superposiciones</h2></div><span class="hint">Cada meta tiene una URL para tu transmisión</span></div>
+          <div class="goals-list">
+            <article class="goal-card" data-goal-type="likes">
+              <h3>Likes</h3>
+              <form class="goal-form">
+                <input class="goal-id" type="hidden" />
+                <div class="goal-fields">
+                  <label>Nombre<input class="goal-name" maxlength="80" placeholder="Meta de likes" /></label>
+                  <label>Objetivo<input class="goal-target" type="number" min="1" max="1000000000" value="5000" required /></label>
+                  <label>Valor actual<input class="goal-current" type="number" min="0" max="1000000000" value="0" required /></label>
+                  <label class="toggle goal-enabled"><input class="goal-enabled-input" type="checkbox" checked /><span></span> Activa</label>
+                  <button class="button primary" type="submit">Guardar</button>
+                </div>
+                <div class="goal-url-row" hidden>
+                  <input class="goal-url" aria-label="URL de la superposición" readonly />
+                  <button class="button text goal-copy" type="button">⛓ Copiar URL</button>
+                  <button class="button text goal-preview" type="button">▷ Vista previa</button>
+                </div>
+                <div class="goal-preview"><div class="goal-preview-label">Likes</div><div class="goal-preview-track"><span></span></div><strong class="goal-preview-value">0 / 5.000</strong></div>
+              </form>
+            </article>
+
+            <article class="goal-card" data-goal-type="follows">
+              <h3>Follows</h3>
+              <form class="goal-form">
+                <input class="goal-id" type="hidden" />
+                <div class="goal-fields">
+                  <label>Nombre<input class="goal-name" maxlength="80" placeholder="Nuevos seguidores" /></label>
+                  <label>Objetivo<input class="goal-target" type="number" min="1" max="1000000000" value="100" required /></label>
+                  <label>Valor actual<input class="goal-current" type="number" min="0" max="1000000000" value="0" required /></label>
+                  <label class="toggle goal-enabled"><input class="goal-enabled-input" type="checkbox" checked /><span></span> Activa</label>
+                  <button class="button primary" type="submit">Guardar</button>
+                </div>
+                <div class="goal-url-row" hidden>
+                  <input class="goal-url" aria-label="URL de la superposición" readonly />
+                  <button class="button text goal-copy" type="button">⛓ Copiar URL</button>
+                  <button class="button text goal-preview" type="button">▷ Vista previa</button>
+                </div>
+                <div class="goal-preview"><div class="goal-preview-label">Follows</div><div class="goal-preview-track"><span></span></div><strong class="goal-preview-value">0 / 100</strong></div>
+              </form>
+            </article>
+
+            <article class="goal-card" data-goal-type="coins">
+              <h3>Coins Earned</h3>
+              <form class="goal-form">
+                <input class="goal-id" type="hidden" />
+                <div class="goal-fields">
+                  <label>Nombre<input class="goal-name" maxlength="80" placeholder="Coins obtenidas" /></label>
+                  <label>Objetivo<input class="goal-target" type="number" min="1" max="1000000000" value="1000" required /></label>
+                  <label>Valor actual<input class="goal-current" type="number" min="0" max="1000000000" value="0" required /></label>
+                  <label class="toggle goal-enabled"><input class="goal-enabled-input" type="checkbox" checked /><span></span> Activa</label>
+                  <button class="button primary" type="submit">Guardar</button>
+                </div>
+                <div class="goal-url-row" hidden>
+                  <input class="goal-url" aria-label="URL de la superposición" readonly />
+                  <button class="button text goal-copy" type="button">⛓ Copiar URL</button>
+                  <button class="button text goal-preview" type="button">▷ Vista previa</button>
+                </div>
+                <div class="goal-preview"><div class="goal-preview-label">Coins Earned</div><div class="goal-preview-track"><span></span></div><strong class="goal-preview-value">0 / 1.000</strong></div>
+              </form>
+            </article>
+          </div>
+        </div>
+      </section>
+
       <section class="workspace mappings-section" id="acciones">
         <div class="section-heading"><div><p class="eyebrow">AUTOMATIZACIÓN</p><h2>Regalos → acciones</h2></div><span class="hint">Coincide por ID o por nombre</span></div>
         <div class="mapping-layout">
