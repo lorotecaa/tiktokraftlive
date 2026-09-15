@@ -31,6 +31,8 @@ function normalizeGift(message) {
     repeatCount: Math.max(1, Number(data.giftCount ?? data.gift_count ?? data.repeatCount ?? data.repeat_count ?? data.count) || 1),
     repeatEnd: data.repeatEnd ?? data.repeat_end,
     giftType: data.giftType ?? data.gift_type,
+    coins: Math.max(0, Number(data.diamondCount ?? data.diamond_count ?? data.coinCount ?? data.coin_count ?? gift.diamondCount ?? gift.diamond_count ?? gift.coinCount ?? gift.coin_count ?? gift.price ?? data.price) || 0)
+      * Math.max(1, Number(data.giftCount ?? data.gift_count ?? data.repeatCount ?? data.repeat_count ?? data.count) || 1),
     username: normalizeText(user.uniqueId || user.unique_id || user.username || user.userId, "espectador"),
     nickname: normalizeText(user.nickname || user.displayName || user.display_name || user.uniqueId, "espectador")
   };
@@ -44,6 +46,27 @@ function isGiftMessage(message) {
 function isCommentMessage(message) {
   const type = String(message?.type || message?.eventType || message?.event || "").toLowerCase();
   return type === "webcastchatmessage" || type === "chat" || type === "comment";
+}
+
+function isLikeMessage(message) {
+  const type = String(message?.type || message?.eventType || message?.event || "").toLowerCase();
+  return type === "webcastlikemessage" || type === "like" || type === "likemessage";
+}
+
+function isFollowMessage(message) {
+  const type = String(message?.type || message?.eventType || message?.event || "").toLowerCase();
+  const data = message?.data || message || {};
+  const action = String(data.action || data.actionType || data.displayType || "").toLowerCase();
+  return type === "follow" || type === "webcastfollowmessage" || ((type === "webcastsocialmessage" || type === "social") && action.includes("follow"));
+}
+
+function metricAmount(message, fields, fallback = 1) {
+  const data = message?.data || message || {};
+  for (const field of fields) {
+    const value = Number(data[field]);
+    if (Number.isFinite(value) && value > 0) return value;
+  }
+  return fallback;
 }
 
 function normalizeComment(message) {
@@ -110,10 +133,11 @@ function giftOccurrenceKey(gift) {
 }
 
 export class TikTokClient {
-  constructor({ onState, onGift, onComment, shouldReadComment = () => true, onError }) {
+  constructor({ onState, onGift, onComment, onMetric = () => {}, shouldReadComment = () => true, onError }) {
     this.onState = onState;
     this.onGift = onGift;
     this.onComment = onComment;
+    this.onMetric = onMetric;
     this.shouldReadComment = shouldReadComment;
     this.onError = onError;
     this.socket = null;
@@ -169,6 +193,14 @@ export class TikTokClient {
 
     const messages = Array.isArray(frame.messages) ? frame.messages : [frame];
     for (const message of messages) {
+      if (isLikeMessage(message)) {
+        this.onMetric("likes", metricAmount(message, ["likeCount", "like_count", "count", "total"]));
+        continue;
+      }
+      if (isFollowMessage(message)) {
+        this.onMetric("follows", 1);
+        continue;
+      }
       if (isCommentMessage(message)) {
         const comment = normalizeComment(message);
         if (comment.text && !comment.text.startsWith("!") && this.shouldReadComment(comment)) this.onComment(comment);
@@ -180,6 +212,7 @@ export class TikTokClient {
       if (Number(gift.giftType) === 1 && gift.repeatEnd !== true) continue;
       // TikTok reentrega cada regalo una segunda vez poco después. Procesamos solo la primera lectura.
       if (!this.isFirstGiftOccurrence(gift)) continue;
+      if (gift.coins) this.onMetric("coins", gift.coins);
       this.onGift(gift);
     }
   }
