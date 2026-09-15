@@ -8,6 +8,7 @@ const settingsPath = path.join(dataDirectory, "settings.json");
 const soundsDirectory = path.join(directory, "public", "sounds");
 const audioExtensions = new Set([".aac", ".m4a", ".mp3", ".ogg", ".wav", ".webm"]);
 const ttsLanguages = new Set(["es-CO", "es-ES", "en-US", "pt-BR"]);
+const goalTypes = new Set(["likes", "follows", "coins"]);
 
 const defaultConfig = {
   tiktokUsername: "",
@@ -33,6 +34,7 @@ const defaultConfig = {
       usernames: []
     }
   },
+  goals: [],
   mappings: [
     {
       id: "rose",
@@ -103,6 +105,22 @@ function normalizeTts(raw) {
   };
 }
 
+function normalizeGoal(goal, index) {
+  const type = stringOrEmpty(goal?.type).toLocaleLowerCase();
+  if (!goalTypes.has(type)) return null;
+  const requestedTarget = Math.floor(Number(goal?.target) || 0);
+  if (requestedTarget < 1) return null;
+  const target = Math.min(requestedTarget, 1_000_000_000);
+  return {
+    id: stringOrEmpty(goal?.id).replace(/[^a-zA-Z0-9-]/g, "").slice(0, 80) || `goal-${type}-${Date.now()}-${index}`,
+    type,
+    name: stringOrEmpty(goal?.name).slice(0, 80) || ({ likes: "Likes", follows: "Follows", coins: "Coins Earned" })[type],
+    target,
+    current: Math.max(0, Math.min(Math.floor(Number(goal?.current) || 0), 1_000_000_000)),
+    enabled: goal?.enabled !== false
+  };
+}
+
 export async function listAvailableSounds() {
   try {
     const entries = await fs.readdir(soundsDirectory, { withFileTypes: true });
@@ -118,6 +136,8 @@ export async function listAvailableSounds() {
 
 export function sanitizeConfig(raw = {}) {
   const mappings = Array.isArray(raw.mappings) ? raw.mappings : defaultConfig.mappings;
+  const goals = Array.isArray(raw.goals) ? raw.goals : defaultConfig.goals;
+  const normalizedGoals = goals.map(normalizeGoal).filter(Boolean);
   return {
     tiktokUsername: stringOrEmpty(raw.tiktokUsername).replace(/^@/, "").slice(0, 80),
     eulerStreamApiKey: stringOrEmpty(raw.eulerStreamApiKey),
@@ -126,6 +146,7 @@ export function sanitizeConfig(raw = {}) {
       key: stringOrEmpty(raw.serverTap?.key)
     },
     tts: normalizeTts(raw.tts),
+    goals: normalizedGoals.filter((goal, index) => normalizedGoals.findIndex((item) => item.type === goal.type) === index),
     mappings: mappings.map(normalizeMapping).filter((mapping) => mapping.command)
   };
 }

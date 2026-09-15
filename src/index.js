@@ -1,11 +1,13 @@
 import "dotenv/config";
 import http from "node:http";
+import { randomUUID } from "node:crypto";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
 import express from "express";
 import { Server } from "socket.io";
 import { listAvailableSounds, loadConfig, publicConfig, saveConfig, sanitizeConfig } from "./config-store.js";
 import { RuleEngine } from "./services/rule-engine.js";
+import { GoalEngine } from "./services/goal-engine.js";
 import { ServerTapClient } from "./services/servertap.js";
 import { TikTokClient, isAllowedTtsUser } from "./services/tiktok.js";
 
@@ -20,10 +22,17 @@ const state = {
   tiktok: { status: "disconnected", detail: "Sin conectar" },
   activity: []
 };
+let goalSaveTimer = null;
+let goalSavePromise = Promise.resolve();
 
 const app = express();
-app.use(express.static(path.join(__dirname, "public")));
+app.get("/widget/goal/:id", (_request, response) => response.sendFile(path.join(__dirname, "public", "goal-widget.html")));
 app.get("/api/health", (_request, response) => response.json({ ok: true, state: publicState() }));
+app.get("/api/goals/:id", (request, response) => {
+  const goal = config.goals.find((item) => item.id === request.params.id);
+  if (!goal) return response.status(404).json({ error: "No existe esa meta." });
+  return response.json({ goal: publicGoal(goal) });
+});
 app.get("/api/sounds", async (_request, response, next) => {
   try {
     response.json({ sounds: await listAvailableSounds() });
@@ -31,11 +40,16 @@ app.get("/api/sounds", async (_request, response, next) => {
     next(error);
   }
 });
+app.use(express.static(path.join(__dirname, "public")));
 const server = http.createServer(app);
 const io = new Server(server, { serveClient: true });
 
 function publicState() {
   return { ...state, config: publicConfig(config) };
+}
+
+function publicGoal(goal) {
+  return { id: goal.id, type: goal.type, name: goal.name, target: goal.target, current: goal.current, enabled: goal.enabled };
 }
 
 function broadcastState() {
@@ -60,6 +74,30 @@ function playMappingSound(mapping) {
     io.emit("mapping:sound", { audio: mapping.audio, mappingId: mapping.id });
   }
 }
+
+function queueGoalSave() {
+  if (goalSaveTimer) return;
+  goalSaveTimer = setTimeout(() => {
+    goalSaveTimer = null;
+    goalSavePromise = goalSavePromise
+      .then(async () => { config = await saveConfig(config); })
+      .catch((error) => reportError(`No se pudo guardar el progreso de las metas: ${error.message}`));
+  }, 500);
+}
+
+async function saveGoalsNow() {
+  if (goalSaveTimer) {
+    clearTimeout(goalSaveTimer);
+    goalSaveTimer = null;
+  }
+  goalSavePromise = goalSavePromise.then(async () => { config = await saveConfig(config); });
+  await goalSavePromise;
+}
+
+const goalEngine = new GoalEngine({
+  getGoals: () => config.goals,
+  onUpdate: (goal) => io.emit("goal:update", publicGoal(goal))
+});
 
 const serverTap = new ServerTapClient({
   commandsPerSecond,
@@ -93,6 +131,9 @@ const tiktok = new TikTokClient({
     reportError(`No se pudo ejecutar la acción: ${error.message}`);
   }
 },
+  onMetric: (metric, amount) => {
+    if (goalEngine.process(metric, amount).length) queueGoalSave();
+  },
   onComment: (event) => {
     if (config.tts.enabled) io.emit("tiktok:comment", event);
   },
@@ -160,6 +201,26 @@ io.on("connection", (socket) => {
     return config.tts;
   }));
 
+  socket.on("goal:save", (input, ack) => safeAck(ack, async () => {
+    const requestedType = String(input?.type || "").toLowerCase();
+    const existing = config.goals.find((goal) => goal.id === input?.id || goal.type === requestedType);
+    const candidate = {
+      ...input,
+      id: existing?.id || randomUUID(),
+      type: requestedType
+    };
+    const nextConfig = sanitizeConfig({
+      ...config,
+      goals: [...config.goals.filter((goal) => goal.id !== existing?.id && goal.type !== requestedType), candidate]
+    });
+    const goal = nextConfig.goals.find((item) => item.id === candidate.id);
+    if (!goal) throw new Error("Completa un objetivo válido para la meta.");
+    config = await saveConfig(nextConfig);
+    broadcastState();
+    io.emit("goal:update", publicGoal(goal));
+    return publicGoal(goal);
+  }));
+
   socket.on("minecraft:connect", (_input, ack) => safeAck(ack, async () => {
     const serverInfo = await serverTap.connect(config.serverTap);
     addActivity({ type: "system", message: `Minecraft conectado: ${serverInfo.name || "ServerTap"}` });
@@ -224,10 +285,14 @@ server.listen(port, host, () => {
   console.log("El panel se enlaza solo a localhost. Conserva la clave de ServerTap en privado.");
 });
 
-function shutdown() {
+async function shutdown() {
   tiktok.disconnect("Aplicación detenida");
   serverTap.disconnect("Aplicación detenida");
-  server.close(() => process.exit(0));
+  try {
+    await saveGoalsNow();
+  } finally {
+    server.close(() => process.exit(0));
+  }
 }
 process.on("SIGINT", shutdown);
 process.on("SIGTERM", shutdown);
