@@ -10,6 +10,8 @@ const elements = {
   serverTapHost: $("#servertap-host"), serverTapPort: $("#servertap-port"), serverTapProtocol: $("#servertap-protocol"),
   serverTapKey: $("#servertap-key"),
   keyState: $("#key-state"),
+  ttsSettings: $("#tts-settings-form"), ttsEnabled: $("#tts-enabled"), ttsLanguage: $("#tts-language"), ttsVolume: $("#tts-volume"), ttsVolumeValue: $("#tts-volume-value"),
+  voiceTester: $("#voice-tester-form"), voiceTesterText: $("#voice-tester-text"),
   minecraftDetail: $("#minecraft-detail"), minecraftDot: $("#minecraft-dot"),
   tiktokDetail: $("#tiktok-detail"), tiktokDot: $("#tiktok-dot"),
   globalStatus: $("#global-status"),
@@ -20,6 +22,7 @@ const elements = {
   activityLog: $("#activity-log"), activityEmpty: $("#activity-empty"), toasts: $("#toasts")
 };
 let availableSounds = [];
+const ttsQueue = new window.TtsQueue({ onError: (message) => toast(message, "error") });
 
 function request(event, payload) {
   return new Promise((resolve, reject) => {
@@ -66,6 +69,12 @@ function renderState(next) {
     elements.serverTapProtocol.value = serverTap.protocol;
   }
   elements.keyState.textContent = config.serverTap.keyPresent ? "Clave guardada. Déjalo vacío para conservarla." : "Aún no hay una clave guardada.";
+  if (!elements.ttsSettings.contains(document.activeElement)) {
+    elements.ttsEnabled.checked = Boolean(config.tts?.enabled);
+    elements.ttsLanguage.value = config.tts?.language || "es-CO";
+    elements.ttsVolume.value = String(config.tts?.volume ?? 1);
+    elements.ttsVolumeValue.textContent = `${Math.round((config.tts?.volume ?? 1) * 100)}%`;
+  }
   setStatus(elements.minecraftDetail, elements.minecraftDot, minecraft);
   setStatus(elements.tiktokDetail, elements.tiktokDot, tiktok);
   elements.globalStatus.textContent = minecraft.status === "connected" && tiktok.status === "connected" ? "INTERACTIVO EN VIVO" : "PANEL LOCAL";
@@ -98,6 +107,20 @@ function playSound(filename) {
   if (!filename) return;
   const audio = new Audio(soundUrl(filename));
   audio.play().catch(() => toast("El navegador bloqueó la reproducción de audio.", "error"));
+}
+
+function currentTtsSettings() {
+  return {
+    enabled: Boolean(appState?.config?.tts?.enabled),
+    language: appState?.config?.tts?.language || "es-CO",
+    volume: Number(appState?.config?.tts?.volume ?? 1)
+  };
+}
+
+function playTts(text, { allowWhenDisabled = false } = {}) {
+  const settings = currentTtsSettings();
+  if (!settings.enabled && !allowWhenDisabled) return toast("Activa TTS en General Settings para reproducir.", "error");
+  ttsQueue.enqueue(text, settings);
 }
 
 function renderSoundOptions(selectedAudio = elements.audio.value) {
@@ -232,6 +255,23 @@ $("#tiktok-connect").addEventListener("click", async (event) => {
 });
 $("#tiktok-disconnect").addEventListener("click", (event) => control(event.currentTarget, "tiktok:disconnect", null, "TikTok desconectado"));
 
+elements.ttsVolume.addEventListener("input", () => {
+  elements.ttsVolumeValue.textContent = `${Math.round(Number(elements.ttsVolume.value) * 100)}%`;
+});
+elements.ttsSettings.addEventListener("submit", async (event) => {
+  event.preventDefault();
+  const submit = event.submitter;
+  await control(submit, "tts:save", {
+    enabled: elements.ttsEnabled.checked,
+    language: elements.ttsLanguage.value,
+    volume: Number(elements.ttsVolume.value)
+  }, "Configuración TTS guardada");
+});
+elements.voiceTester.addEventListener("submit", (event) => {
+  event.preventDefault();
+  playTts(elements.voiceTesterText.value, { allowWhenDisabled: true });
+});
+
 elements.mappingForm.addEventListener("submit", async (event) => {
   event.preventDefault();
   const data = {
@@ -277,6 +317,10 @@ socket.on("state", (next) => { hiddenActivity = false; renderState(next); });
 socket.on("activity", (entry) => {
   if (hiddenActivity) return;
   if (appState) { appState.activity.unshift(entry); appState.activity = appState.activity.slice(0, 100); renderActivity(appState.activity); }
+});
+socket.on("tiktok:comment", (comment) => {
+  if (!appState?.config?.tts?.enabled || !comment?.text) return;
+  ttsQueue.enqueue(`${comment.nickname}: ${comment.text}`, currentTtsSettings());
 });
 socket.on("connect_error", () => toast("Se perdió la conexión con el panel local.", "error"));
 socket.on("mapping:sound", (data) => playSound(data?.audio));

@@ -67,6 +67,31 @@
         </form>
       </section>
 
+      <section class="workspace tts-section">
+        <div class="section-heading"><div><p class="eyebrow">AUDIO EN VIVO</p><h2>General Settings</h2></div><span class="hint">Se reproduce en este navegador</span></div>
+        <form id="tts-settings-form" class="tts-card">
+          <label class="toggle"><input id="tts-enabled" type="checkbox" /><span></span> Enabled</label>
+          <label>Language
+            <select id="tts-language" aria-label="Idioma de TTS">
+              <option value="es-CO">Español (Colombia)</option>
+              <option value="es-ES">Español (España)</option>
+              <option value="en-US">English (US)</option>
+              <option value="pt-BR">Português (Brasil)</option>
+            </select>
+          </label>
+          <label>Volume <output id="tts-volume-value" for="tts-volume">100%</output><input id="tts-volume" type="range" min="0" max="1" step="0.1" value="1" /></label>
+          <button class="button primary" type="submit">Guardar TTS</button>
+        </form>
+      </section>
+
+      <section class="workspace voice-tester-section">
+        <div class="section-heading"><div><p class="eyebrow">PRUEBA DE VOZ</p><h2>Voice Tester</h2></div></div>
+        <form id="voice-tester-form" class="voice-tester-card">
+          <label>Frase para reproducir<textarea id="voice-tester-text" rows="3" placeholder="Escribe cualquier frase para probar la voz."></textarea></label>
+          <button class="button pink" type="submit">Play</button>
+        </form>
+      </section>
+
       <section class="workspace mappings-section" id="acciones">
         <div class="section-heading"><div><p class="eyebrow">AUTOMATIZACIÓN</p><h2>Regalos → acciones</h2></div><span class="hint">Coincide por ID o por nombre</span></div>
         <div class="mapping-layout">
@@ -108,6 +133,7 @@
     <div class="toast-stack" id="toasts" aria-live="polite"></div>
     <script src="/socket.io/socket.io.js"></script>
     <script src="/gift-catalog.js"></script>
+    <script src="/tts.js"></script>
     <script src="/app.js"></script>
   </body>
 </html>
