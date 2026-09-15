@@ -11,8 +11,8 @@ const closeDetails = {
   4556: "Euler Stream no pudo recuperar los datos del LIVE.",
   4557: "Euler Stream no pudo obtener la información de la sala."
 };
-const seenGiftRetentionMs = 120_000;
-const maxSeenGiftMessages = 2_000;
+const giftConfirmationWindowMs = 5_000;
+const maxPendingGiftOccurrences = 2_000;
 
 function normalizeText(value, fallback) {
   return typeof value === "string" && value.trim() ? value.trim() : fallback;
@@ -40,13 +40,13 @@ function isGiftMessage(message) {
   return type === "webcastgiftmessage" || type === "gift" || type === "giftmessage";
 }
 
-function giftMessageId(message) {
-  const data = message?.data || message || {};
-  const common = data.common || data.commonData || {};
-  const id = data.msgId ?? data.msg_id ?? data.messageId ?? data.message_id ??
-    data.logId ?? data.log_id ?? common.msgId ?? common.msg_id ??
-    common.messageId ?? common.message_id ?? message?.msgId ?? message?.msg_id;
-  return id === undefined || id === null || String(id).trim() === "" ? "" : String(id);
+function giftOccurrenceKey(gift) {
+  return [
+    gift.username,
+    gift.giftId || gift.giftName,
+    gift.repeatCount,
+    gift.giftType ?? ""
+  ].map((value) => String(value || "").trim()).join("\0");
 }
 
 export class TikTokClient {
@@ -57,7 +57,7 @@ export class TikTokClient {
     this.socket = null;
     this.status = "disconnected";
     this.username = "";
-    this.seenGiftMessages = new Map();
+    this.pendingGiftOccurrences = new Map();
   }
 
   emitState(status, detail = "") {
@@ -76,20 +76,20 @@ export class TikTokClient {
     return url;
   }
 
-  hasSeenGift(message) {
-    const id = giftMessageId(message);
-    if (!id) return false;
-
+  isConfirmedGiftOccurrence(gift) {
     const now = Date.now();
-    for (const [seenId, seenAt] of this.seenGiftMessages) {
-      if (now - seenAt > seenGiftRetentionMs) this.seenGiftMessages.delete(seenId);
+    for (const [key, firstSeenAt] of this.pendingGiftOccurrences) {
+      if (now - firstSeenAt > giftConfirmationWindowMs) this.pendingGiftOccurrences.delete(key);
       else break;
     }
-    if (this.seenGiftMessages.has(id)) return true;
-
-    this.seenGiftMessages.set(id, now);
-    if (this.seenGiftMessages.size > maxSeenGiftMessages) {
-      this.seenGiftMessages.delete(this.seenGiftMessages.keys().next().value);
+    const key = giftOccurrenceKey(gift);
+    if (this.pendingGiftOccurrences.has(key)) {
+      this.pendingGiftOccurrences.delete(key);
+      return true;
+    }
+    this.pendingGiftOccurrences.set(key, now);
+    if (this.pendingGiftOccurrences.size > maxPendingGiftOccurrences) {
+      this.pendingGiftOccurrences.delete(this.pendingGiftOccurrences.keys().next().value);
     }
     return false;
   }
@@ -114,7 +114,8 @@ export class TikTokClient {
       const gift = normalizeGift(message);
       // Los regalos de racha envían actualizaciones; solo ejecutamos al finalizar la racha.
       if (Number(gift.giftType) === 1 && gift.repeatEnd !== true) continue;
-      if (this.hasSeenGift(message)) continue;
+      // TikTok reentrega cada regalo una segunda vez poco después. Solo confirmamos la segunda lectura.
+      if (!this.isConfirmedGiftOccurrence(gift)) continue;
       this.onGift(gift);
     }
   }
@@ -125,7 +126,7 @@ export class TikTokClient {
     if (!eulerStreamApiKey) throw new Error("Añade una Euler Stream API Key.");
 
     this.username = username.replace(/^@/, "").trim();
-    this.seenGiftMessages.clear();
+    this.pendingGiftOccurrences.clear();
     this.emitState("connecting", `Conectando a @${this.username} mediante Euler Stream…`);
     const socket = new WebSocket(this.buildUrl(this.username, eulerStreamApiKey));
     this.socket = socket;
@@ -172,7 +173,7 @@ export class TikTokClient {
       socket.removeAllListeners();
       socket.close();
     }
-    this.seenGiftMessages.clear();
+    this.pendingGiftOccurrences.clear();
     this.emitState("disconnected", detail);
   }
 }
