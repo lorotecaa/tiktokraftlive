@@ -119,6 +119,34 @@
         </div>
       </section>
 
+      <section class="workspace gift-overlays-section" id="regalo-overlays">
+        <button class="goals-toggle gift-overlays-toggle" id="gift-overlays-toggle" type="button" aria-expanded="false" aria-controls="gift-overlays-panel"><span>Regalo Overlays</span><b aria-hidden="true">›</b></button>
+        <div class="goals-panel gift-overlays-panel" id="gift-overlays-panel" hidden>
+          <div class="gift-overlays-heading"><h2>Regalo Overlays <em>NUEVO</em></h2><p>Haz brillar a tus mayores supporters con los récords de regalos del LIVE.</p></div>
+          <div class="gift-overlays-card">
+            <form id="gift-overlays-form" class="gift-overlays-controls">
+              <label class="allowed-option"><input id="gift-overlays-reset-on-live" type="checkbox" /><span></span>Restablecer en nueva transmisión</label>
+              <button class="button primary" type="submit">Guardar</button>
+              <button class="button text" id="gift-overlays-reset-now" type="button">↻ Restablecer récords</button>
+            </form>
+            <div class="gift-overlay-grid">
+              <article class="gift-overlay-option" data-gift-overlay-kind="best-gift">
+                <h3>Mejor Regalo</h3>
+                <p>El regalo individual de mayor valor recibido.</p>
+                <div class="gift-overlay-url"><input class="gift-overlay-url-input" aria-label="URL de Mejor Regalo" readonly /><button class="button text gift-overlay-copy" type="button">⛓ Copiar URL</button><button class="button text gift-overlay-preview" type="button">▷ Vista previa</button></div>
+                <div class="gift-overlay-preview"><strong>MEJOR REGALO</strong><span class="gift-overlay-preview-name">Esperando regalo</span><b class="gift-overlay-preview-value">—</b></div>
+              </article>
+              <article class="gift-overlay-option" data-gift-overlay-kind="best-streak">
+                <h3>Mejor Racha</h3>
+                <p>La racha de regalos con el combo más alto.</p>
+                <div class="gift-overlay-url"><input class="gift-overlay-url-input" aria-label="URL de Mejor Racha" readonly /><button class="button text gift-overlay-copy" type="button">⛓ Copiar URL</button><button class="button text gift-overlay-preview" type="button">▷ Vista previa</button></div>
+                <div class="gift-overlay-preview streak"><strong>MEJOR RACHA</strong><span class="gift-overlay-preview-name">Esperando racha</span><b class="gift-overlay-preview-value">—</b></div>
+              </article>
+            </div>
+          </div>
+        </div>
+      </section>
+
       <section class="workspace goals-section" id="metas">
         <button class="goals-toggle" id="goals-toggle" type="button" aria-expanded="false" aria-controls="goals-panel"><span>Superposiciones de Metas</span><b aria-hidden="true">›</b></button>
         <div class="goals-panel" id="goals-panel" hidden>

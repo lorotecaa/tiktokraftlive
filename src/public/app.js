@@ -14,6 +14,7 @@ const elements = {
   voiceTester: $("#voice-tester-form"), voiceTesterText: $("#voice-tester-text"),
   allowedUsers: $("#allowed-users-form"), allowAllUsers: $("#tts-allow-all-users"), allowFollowers: $("#tts-allow-followers"), allowSubscribers: $("#tts-allow-subscribers"), allowModerators: $("#tts-allow-moderators"), allowTeamMembers: $("#tts-allow-team-members"), teamMembersMinLevel: $("#tts-team-members-min-level"), allowTopGifters: $("#tts-allow-top-gifters"), topGiftersTop: $("#tts-top-gifters-top"), allowList: $("#tts-allow-list"), manageAllowedUsers: $("#manage-allowed-users"), allowedUsersListEditor: $("#allowed-users-list-editor"), allowedUsernames: $("#tts-allowed-usernames"),
   goalsToggle: $("#goals-toggle"), goalsPanel: $("#goals-panel"), goalCards: [...document.querySelectorAll(".goal-card")],
+  giftOverlaysToggle: $("#gift-overlays-toggle"), giftOverlaysPanel: $("#gift-overlays-panel"), giftOverlaysForm: $("#gift-overlays-form"), giftOverlaysResetOnLive: $("#gift-overlays-reset-on-live"), giftOverlaysResetNow: $("#gift-overlays-reset-now"), giftOverlayCards: [...document.querySelectorAll(".gift-overlay-option")],
   minecraftDetail: $("#minecraft-detail"), minecraftDot: $("#minecraft-dot"),
   tiktokDetail: $("#tiktok-detail"), tiktokDot: $("#tiktok-dot"),
   globalStatus: $("#global-status"),
@@ -94,6 +95,7 @@ function renderState(next) {
   setStatus(elements.tiktokDetail, elements.tiktokDot, tiktok);
   elements.globalStatus.textContent = minecraft.status === "connected" && tiktok.status === "connected" ? "INTERACTIVO EN VIVO" : "PANEL LOCAL";
   renderMappings(config.mappings || []);
+  renderGiftOverlays(config.giftOverlays || {});
   renderGoals(config.goals || []);
   if (!hiddenActivity) renderActivity(next.activity || []);
 }
@@ -130,6 +132,37 @@ function renderGoal(goal) {
 
 function renderGoals(goals) {
   for (const goal of goals) renderGoal(goal);
+}
+
+function giftOverlayUrl(kind) {
+  return `${window.location.origin}/widget/gift/${encodeURIComponent(kind)}`;
+}
+
+function giftOverlayCard(kind) {
+  return elements.giftOverlayCards.find((card) => card.dataset.giftOverlayKind === kind);
+}
+
+function renderGiftOverlay(kind, record) {
+  const card = giftOverlayCard(kind);
+  if (!card) return;
+  card.querySelector(".gift-overlay-url-input").value = giftOverlayUrl(kind);
+  const name = card.querySelector(".gift-overlay-preview-name");
+  const value = card.querySelector(".gift-overlay-preview-value");
+  if (!record) {
+    name.textContent = kind === "best-gift" ? "Esperando regalo" : "Esperando racha";
+    value.textContent = "—";
+    return;
+  }
+  name.textContent = `${record.nickname || record.username || "Alguien"} · ${record.giftName}`;
+  value.textContent = kind === "best-gift" ? `${numberFormat(record.coins)} coins` : `× ${numberFormat(record.repeatCount)}`;
+}
+
+function renderGiftOverlays(overlays) {
+  if (!elements.giftOverlaysForm.contains(document.activeElement)) {
+    elements.giftOverlaysResetOnLive.checked = Boolean(overlays.resetOnNewLive);
+  }
+  renderGiftOverlay("best-gift", overlays.bestGift);
+  renderGiftOverlay("best-streak", overlays.bestStreak);
 }
 
 function renderMappings(mappings) {
@@ -345,17 +378,43 @@ elements.allowedUsers.addEventListener("submit", async (event) => {
   await control(event.submitter, "tts:save", { allowedUsers: allowedUsersSettings() }, "Usuarios permitidos guardados");
 });
 
-elements.goalsToggle.addEventListener("click", () => {
-  const isOpen = elements.goalsToggle.getAttribute("aria-expanded") === "true";
-  elements.goalsToggle.setAttribute("aria-expanded", String(!isOpen));
+function toggleAccordion(button, panel) {
+  const isOpen = button.getAttribute("aria-expanded") === "true";
+  button.setAttribute("aria-expanded", String(!isOpen));
   if (isOpen) {
-    elements.goalsPanel.classList.remove("is-open");
-    setTimeout(() => { if (!elements.goalsPanel.classList.contains("is-open")) elements.goalsPanel.hidden = true; }, 180);
+    panel.classList.remove("is-open");
+    setTimeout(() => { if (!panel.classList.contains("is-open")) panel.hidden = true; }, 180);
   } else {
-    elements.goalsPanel.hidden = false;
-    requestAnimationFrame(() => elements.goalsPanel.classList.add("is-open"));
+    panel.hidden = false;
+    requestAnimationFrame(() => panel.classList.add("is-open"));
   }
+}
+
+elements.goalsToggle.addEventListener("click", () => {
+  toggleAccordion(elements.goalsToggle, elements.goalsPanel);
 });
+elements.giftOverlaysToggle.addEventListener("click", () => {
+  toggleAccordion(elements.giftOverlaysToggle, elements.giftOverlaysPanel);
+});
+elements.giftOverlaysForm.addEventListener("submit", async (event) => {
+  event.preventDefault();
+  await control(event.submitter, "gift-overlays:save", { resetOnNewLive: elements.giftOverlaysResetOnLive.checked }, "Configuración de regalos guardada");
+});
+elements.giftOverlaysResetNow.addEventListener("click", (event) => control(event.currentTarget, "gift-overlays:reset", null, "Récords restablecidos"));
+for (const card of elements.giftOverlayCards) {
+  const kind = card.dataset.giftOverlayKind;
+  card.querySelector(".gift-overlay-copy").addEventListener("click", async () => {
+    const input = card.querySelector(".gift-overlay-url-input");
+    try {
+      await navigator.clipboard.writeText(input.value);
+    } catch {
+      input.select();
+      document.execCommand("copy");
+    }
+    toast("URL copiada", "success");
+  });
+  card.querySelector(".gift-overlay-preview").addEventListener("click", () => window.open(giftOverlayUrl(kind), "_blank", "noopener"));
+}
 for (const card of elements.goalCards) {
   const form = card.querySelector(".goal-form");
   form.addEventListener("submit", async (event) => {
@@ -443,6 +502,13 @@ socket.on("goal:update", (goal) => {
   if (existing >= 0) appState.config.goals[existing] = goal;
   else appState.config.goals.push(goal);
   renderGoal(goal);
+});
+socket.on("gift-overlay:update", (overlay) => {
+  if (!overlay?.kind) return;
+  if (appState?.config?.giftOverlays) {
+    appState.config.giftOverlays[overlay.kind === "best-gift" ? "bestGift" : "bestStreak"] = overlay.record;
+  }
+  renderGiftOverlay(overlay.kind, overlay.record);
 });
 socket.on("connect_error", () => toast("Se perdió la conexión con el panel local.", "error"));
 socket.on("mapping:sound", (data) => playSound(data?.audio));
