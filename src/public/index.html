@@ -1,0 +1,262 @@
+<!doctype html>
+<html lang="es">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <meta name="theme-color" content="#10190f" />
+    <title>TikTokraft Live</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com" />
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+    <link href="https://fonts.googleapis.com/css2?family=DM+Mono:wght@400;500&family=Press+Start+2P&family=Space+Grotesk:wght@400;500;600;700&display=swap" rel="stylesheet" />
+    <link rel="stylesheet" href="/style.css" />
+  </head>
+  <body>
+    <div class="noise"></div>
+    <header class="topbar">
+      <a href="#inicio" class="brand" aria-label="TikTokraft Live, inicio">
+        <span class="brand-mark"><i></i><i></i><i></i></span>
+        <span>TIKTOKRAFT<span class="lime">LIVE</span></span>
+      </a>
+      <div class="live-pill"><span class="pulse"></span><span id="global-status">PANEL LOCAL</span></div>
+    </header>
+
+    <main id="inicio">
+      <section class="hero">
+        <div>
+          <p class="eyebrow">TIKTOK LIVE × MINECRAFT</p>
+          <h1>Los regalos<br />entran al <em>juego.</em></h1>
+          <p class="hero-copy">Conecta tu directo, asigna acciones y deja que tu comunidad cambie el mundo en tiempo real.</p>
+        </div>
+        <div class="hero-art" aria-hidden="true">
+          <div class="sun"></div><div class="cloud cloud-a"></div><div class="cloud cloud-b"></div>
+          <div class="mountain back"></div><div class="mountain front"></div><div class="grass"></div>
+          <div class="creeper"><span></span><span></span><b></b></div>
+          <div class="heart heart-a">♥</div><div class="heart heart-b">♥</div>
+        </div>
+      </section>
+
+      <section class="connection-grid" aria-label="Conexiones">
+        <article class="connection-card minecraft-card">
+          <div class="card-top"><span class="pixel-icon cube"></span><div><p class="card-kicker">MUNDO</p><h2>Minecraft · ServerTap</h2></div><span class="status-dot" id="minecraft-dot"></span></div>
+          <p class="status-copy" id="minecraft-detail">Sin conectar</p>
+          <div class="connection-actions">
+            <button class="button primary" id="minecraft-connect">Conectar servidor</button>
+            <button class="button text" id="minecraft-disconnect">Desconectar</button>
+          </div>
+        </article>
+        <article class="connection-card tiktok-card">
+          <div class="card-top"><span class="pixel-icon gift">✦</span><div><p class="card-kicker">DIRECTO</p><h2>TikTok LIVE</h2></div><span class="status-dot" id="tiktok-dot"></span></div>
+          <p class="status-copy" id="tiktok-detail">Sin conectar</p>
+          <label class="live-username">Usuario del LIVE que quieres conectar <input id="tiktok-live-username" name="tiktokUsername" placeholder="usuario_en_live" maxlength="80" autocomplete="off" /></label>
+          <label class="live-username">Euler Stream API Key · plan Community <input id="euler-stream-api-key" name="eulerStreamApiKey" type="password" placeholder="Pega aquí tu API Key" autocomplete="new-password" /><small id="euler-key-state">Usa el WebSocket Cloud oficial de Euler Stream.</small></label>
+          <div class="connection-actions">
+            <button class="button pink" id="tiktok-connect">Conectar LIVE</button>
+            <button class="button text" id="tiktok-disconnect">Desconectar</button>
+          </div>
+        </article>
+      </section>
+
+      <section class="workspace">
+        <div class="section-heading"><div><p class="eyebrow">CONTROL CENTRAL</p><h2>Conexión</h2></div><span class="hint">La clave nunca sale de este equipo</span></div>
+        <form id="settings-form" class="settings-card">
+          <label>IP o dominio de ServerTap <input id="servertap-host" name="serverTapHost" placeholder="127.0.0.1 o 192.168.1.50" autocomplete="off" required /></label>
+          <label>Puerto <input id="servertap-port" name="serverTapPort" type="number" min="1" max="65535" value="4567" placeholder="4567" required /></label>
+          <label>Protocolo <select id="servertap-protocol" name="serverTapProtocol"><option value="http:">HTTP</option><option value="https:">HTTPS / TLS</option></select></label>
+          <label>Clave de ServerTap <input id="servertap-key" name="serverTapKey" type="password" placeholder="Se guarda localmente" autocomplete="new-password" /><small id="key-state"></small></label>
+          <button class="button primary" type="submit">Guardar conexión</button>
+        </form>
+      </section>
+
+      <section class="workspace tts-section">
+        <div class="section-heading"><div><p class="eyebrow">AUDIO EN VIVO</p><h2>General Settings</h2></div><span class="hint">Se reproduce en este navegador</span></div>
+        <form id="tts-settings-form" class="tts-card">
+          <label class="toggle"><input id="tts-enabled" type="checkbox" /><span></span> Enabled</label>
+          <label>Language
+            <select id="tts-language" aria-label="Idioma de TTS">
+              <option value="es-CO">Español (Colombia)</option>
+              <option value="es-ES">Español (España)</option>
+              <option value="en-US">English (US)</option>
+              <option value="pt-BR">Português (Brasil)</option>
+            </select>
+          </label>
+          <label>Volume <output id="tts-volume-value" for="tts-volume">100%</output><input id="tts-volume" type="range" min="0" max="1" step="0.1" value="1" /></label>
+          <button class="button primary" type="submit">Guardar TTS</button>
+        </form>
+      </section>
+
+      <section class="workspace tts-tools-section">
+        <div class="tts-tools-grid">
+          <article class="tts-utility-card voice-tester-card">
+            <h3>Voice Tester</h3>
+            <form id="voice-tester-form" class="voice-tester-form">
+              <label class="sr-only" for="voice-tester-text">Frase para reproducir</label>
+              <textarea id="voice-tester-text" rows="2" placeholder="Escribe cualquier frase para probar la voz."></textarea>
+              <button class="button pink" type="submit">Play</button>
+            </form>
+          </article>
+
+          <article class="tts-utility-card allowed-users-card">
+            <h3>Allowed Users</h3>
+            <form id="allowed-users-form">
+              <div class="allowed-users-options">
+                <label class="allowed-option"><input id="tts-allow-all-users" type="checkbox" /><span></span>All Users</label>
+                <label class="allowed-option"><input id="tts-allow-followers" type="checkbox" /><span></span>Followers</label>
+                <label class="allowed-option"><input id="tts-allow-subscribers" type="checkbox" /><span></span>Super Fans / Subscribers</label>
+                <label class="allowed-option"><input id="tts-allow-moderators" type="checkbox" /><span></span>Moderators</label>
+                <label class="allowed-option"><input id="tts-allow-team-members" type="checkbox" /><span></span>Team Members</label>
+                <label class="allowed-subsetting">⚙ Min. Level<input id="tts-team-members-min-level" type="number" min="1" max="100" value="1" /></label>
+                <label class="allowed-option"><input id="tts-allow-top-gifters" type="checkbox" /><span></span>Top Gifters</label>
+                <label class="allowed-subsetting">⚙ Top<input id="tts-top-gifters-top" type="number" min="1" max="100" value="3" /></label>
+                <label class="allowed-option"><input id="tts-allow-list" type="checkbox" /><span></span>Allowed Users from list</label>
+              </div>
+              <button class="button text manage-allowed-users" id="manage-allowed-users" type="button">⚙ Manage List</button>
+              <div class="allowed-users-list-editor" id="allowed-users-list-editor" hidden>
+                <label>Usuarios permitidos<textarea id="tts-allowed-usernames" rows="4" placeholder="usuario1&#10;usuario2"></textarea></label>
+              </div>
+              <button class="button primary allowed-users-save" type="submit">Guardar usuarios</button>
+            </form>
+          </article>
+        </div>
+      </section>
+
+      <section class="workspace gift-overlays-section" id="regalo-overlays">
+        <button class="goals-toggle gift-overlays-toggle" id="gift-overlays-toggle" type="button" aria-expanded="false" aria-controls="gift-overlays-panel"><span>Regalo Overlays</span><b aria-hidden="true">›</b></button>
+        <div class="goals-panel gift-overlays-panel" id="gift-overlays-panel" hidden>
+          <div class="gift-overlays-heading"><h2>Regalo Overlays <em>NUEVO</em></h2><p>Haz brillar a tus mayores supporters con los récords de regalos del LIVE.</p></div>
+          <div class="gift-overlays-card">
+            <form id="gift-overlays-form" class="gift-overlays-controls">
+              <label class="allowed-option"><input id="gift-overlays-reset-on-live" type="checkbox" /><span></span>Restablecer en nueva transmisión</label>
+              <button class="button primary" type="submit">Guardar</button>
+              <button class="button text" id="gift-overlays-reset-now" type="button">↻ Restablecer récords</button>
+            </form>
+            <div class="gift-overlay-grid">
+              <article class="gift-overlay-option" data-gift-overlay-kind="best-gift">
+                <h3>Mejor Regalo</h3>
+                <p>El regalo individual de mayor valor recibido.</p>
+                <div class="gift-overlay-url"><input class="gift-overlay-url-input" aria-label="URL de Mejor Regalo" readonly /><button class="button text gift-overlay-copy" type="button">⛓ Copiar URL</button><button class="button text gift-overlay-preview" type="button">▷ Vista previa</button></div>
+                <div class="gift-overlay-preview"><strong>MEJOR REGALO</strong><span class="gift-overlay-preview-name">Esperando regalo</span><b class="gift-overlay-preview-value">—</b></div>
+              </article>
+              <article class="gift-overlay-option" data-gift-overlay-kind="best-streak">
+                <h3>Mejor Racha</h3>
+                <p>La racha de regalos con el combo más alto.</p>
+                <div class="gift-overlay-url"><input class="gift-overlay-url-input" aria-label="URL de Mejor Racha" readonly /><button class="button text gift-overlay-copy" type="button">⛓ Copiar URL</button><button class="button text gift-overlay-preview" type="button">▷ Vista previa</button></div>
+                <div class="gift-overlay-preview streak"><strong>MEJOR RACHA</strong><span class="gift-overlay-preview-name">Esperando racha</span><b class="gift-overlay-preview-value">—</b></div>
+              </article>
+            </div>
+          </div>
+        </div>
+      </section>
+
+      <section class="workspace goals-section" id="metas">
+        <button class="goals-toggle" id="goals-toggle" type="button" aria-expanded="false" aria-controls="goals-panel"><span>Superposiciones de Metas</span><b aria-hidden="true">›</b></button>
+        <div class="goals-panel" id="goals-panel" hidden>
+          <div class="section-heading"><div><p class="eyebrow">METAS EN VIVO</p><h2>Superposiciones</h2></div><span class="hint">Cada meta tiene una URL para tu transmisión</span></div>
+          <div class="goals-list">
+            <article class="goal-card" data-goal-type="likes">
+              <h3>Likes</h3>
+              <form class="goal-form">
+                <input class="goal-id" type="hidden" />
+                <div class="goal-fields">
+                  <label>Nombre<input class="goal-name" maxlength="80" placeholder="Meta de likes" /></label>
+                  <label>Objetivo<input class="goal-target" type="number" min="1" max="1000000000" value="5000" required /></label>
+                  <label>Valor actual<input class="goal-current" type="number" min="0" max="1000000000" value="0" required /></label>
+                  <label class="toggle goal-enabled"><input class="goal-enabled-input" type="checkbox" checked /><span></span> Activa</label>
+                  <button class="button primary" type="submit">Guardar</button>
+                </div>
+                <div class="goal-url-row" hidden>
+                  <input class="goal-url" aria-label="URL de la superposición" readonly />
+                  <button class="button text goal-copy" type="button">⛓ Copiar URL</button>
+                  <button class="button text goal-preview" type="button">▷ Vista previa</button>
+                </div>
+                <div class="goal-preview"><div class="goal-preview-label">Likes</div><div class="goal-preview-track"><span></span></div><strong class="goal-preview-value">0 / 5.000</strong></div>
+              </form>
+            </article>
+
+            <article class="goal-card" data-goal-type="follows">
+              <h3>Follows</h3>
+              <form class="goal-form">
+                <input class="goal-id" type="hidden" />
+                <div class="goal-fields">
+                  <label>Nombre<input class="goal-name" maxlength="80" placeholder="Nuevos seguidores" /></label>
+                  <label>Objetivo<input class="goal-target" type="number" min="1" max="1000000000" value="100" required /></label>
+                  <label>Valor actual<input class="goal-current" type="number" min="0" max="1000000000" value="0" required /></label>
+                  <label class="toggle goal-enabled"><input class="goal-enabled-input" type="checkbox" checked /><span></span> Activa</label>
+                  <button class="button primary" type="submit">Guardar</button>
+                </div>
+                <div class="goal-url-row" hidden>
+                  <input class="goal-url" aria-label="URL de la superposición" readonly />
+                  <button class="button text goal-copy" type="button">⛓ Copiar URL</button>
+                  <button class="button text goal-preview" type="button">▷ Vista previa</button>
+                </div>
+                <div class="goal-preview"><div class="goal-preview-label">Follows</div><div class="goal-preview-track"><span></span></div><strong class="goal-preview-value">0 / 100</strong></div>
+              </form>
+            </article>
+
+            <article class="goal-card" data-goal-type="coins">
+              <h3>Coins Earned</h3>
+              <form class="goal-form">
+                <input class="goal-id" type="hidden" />
+                <div class="goal-fields">
+                  <label>Nombre<input class="goal-name" maxlength="80" placeholder="Coins obtenidas" /></label>
+                  <label>Objetivo<input class="goal-target" type="number" min="1" max="1000000000" value="1000" required /></label>
+                  <label>Valor actual<input class="goal-current" type="number" min="0" max="1000000000" value="0" required /></label>
+                  <label class="toggle goal-enabled"><input class="goal-enabled-input" type="checkbox" checked /><span></span> Activa</label>
+                  <button class="button primary" type="submit">Guardar</button>
+                </div>
+                <div class="goal-url-row" hidden>
+                  <input class="goal-url" aria-label="URL de la superposición" readonly />
+                  <button class="button text goal-copy" type="button">⛓ Copiar URL</button>
+                  <button class="button text goal-preview" type="button">▷ Vista previa</button>
+                </div>
+                <div class="goal-preview"><div class="goal-preview-label">Coins Earned</div><div class="goal-preview-track"><span></span></div><strong class="goal-preview-value">0 / 1.000</strong></div>
+              </form>
+            </article>
+          </div>
+        </div>
+      </section>
+
+      <section class="workspace mappings-section" id="acciones">
+        <div class="section-heading"><div><p class="eyebrow">AUTOMATIZACIÓN</p><h2>Regalos → acciones</h2></div><span class="hint">Coincide por ID o por nombre</span></div>
+        <div class="mapping-layout">
+          <form id="mapping-form" class="mapping-editor">
+            <input type="hidden" id="mapping-id" />
+            <div class="editor-title"><span class="pixel-icon wand">✦</span><h3 id="editor-heading">Nueva acción</h3></div>
+            <div class="two-columns">
+              <label>Nombre del regalo <input id="gift-name" placeholder="Rosa" maxlength="80" /></label>
+              <label>ID del regalo <input id="gift-id" placeholder="5655" maxlength="80" /></label>
+            </div>
+            <label>Comando de Minecraft <textarea id="mapping-command" rows="3" placeholder="effect give @a minecraft:speed 10 1 true" maxlength="256" required></textarea></label>
+            <label>Audio al ejecutar la acción
+              <span class="audio-picker"><select id="mapping-audio" aria-label="Audio asociado"><option value="">Sin audio</option></select><button class="button text audio-test" id="audio-test" type="button" disabled>▷ Probar audio</button></span>
+              <small id="audio-state">Coloca archivos MP3, WAV, OGG, M4A, AAC o WebM en <code>src/public/sounds/</code>.</small>
+            </label>
+            <p class="variables">Variables: <code>{usuario}</code> <code>{apodo}</code> <code>{regalo}</code> <code>{regalo_id}</code> <code>{cantidad}</code></p>
+            <div class="editor-bottom"><label class="cooldown">Enfriamiento (ms)<input id="cooldown" type="number" min="0" max="3600000" value="0" /></label><label class="toggle"><input id="mapping-enabled" type="checkbox" checked /><span></span> Activa</label></div>
+            <div class="editor-actions"><button class="button primary" type="submit">Guardar acción</button><button class="button text" type="button" id="cancel-edit" hidden>Cancelar</button></div>
+          </form>
+          <div class="mapping-list-wrap"><div class="mapping-list" id="mapping-list"></div><p class="empty-state" id="mapping-empty">Todavía no hay acciones. Crea una a la izquierda.</p></div>
+        </div>
+      </section>
+
+      <section class="workspace test-section">
+        <div class="section-heading"><div><p class="eyebrow">PRUEBA SEGURA</p><h2>Simular un regalo</h2></div><span class="hint">Requiere Minecraft conectado para ejecutar</span></div>
+        <form id="simulate-form" class="simulate-card">
+          <label>Nombre o ID<input id="simulate-gift" placeholder="Rosa o 5655" maxlength="80" /></label>
+          <label>Cantidad<input id="simulate-count" type="number" min="1" max="100" value="1" /></label>
+          <button class="button pink" type="submit">Enviar simulación</button>
+        </form>
+      </section>
+
+      <section class="workspace activity-section" id="actividad">
+        <div class="section-heading"><div><p class="eyebrow">TIEMPO REAL</p><h2>Actividad</h2></div><button class="button text" id="clear-activity" type="button">Limpiar vista</button></div>
+        <div class="activity-log" id="activity-log"><p class="empty-state" id="activity-empty">Aquí verás regalos, acciones y mensajes de la consola.</p></div>
+      </section>
+    </main>
+
+    <div class="toast-stack" id="toasts" aria-live="polite"></div>
+    <script src="/socket.io/socket.io.js"></script>
+    <script src="/gift-catalog.js"></script>
+    <script src="/tts.js"></script>
+    <script src="/app.js"></script>
+  </body>
+</html>
