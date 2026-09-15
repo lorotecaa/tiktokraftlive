@@ -7,7 +7,7 @@ import { Server } from "socket.io";
 import { listAvailableSounds, loadConfig, publicConfig, saveConfig, sanitizeConfig } from "./config-store.js";
 import { RuleEngine } from "./services/rule-engine.js";
 import { ServerTapClient } from "./services/servertap.js";
-import { TikTokClient } from "./services/tiktok.js";
+import { TikTokClient, isAllowedTtsUser } from "./services/tiktok.js";
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 const host = process.env.HOST || "0.0.0.0";
@@ -96,6 +96,7 @@ const tiktok = new TikTokClient({
   onComment: (event) => {
     if (config.tts.enabled) io.emit("tiktok:comment", event);
   },
+  shouldReadComment: (event) => config.tts.enabled && isAllowedTtsUser(event, config.tts.allowedUsers),
   onError: reportError
 });
 
@@ -154,7 +155,7 @@ io.on("connection", (socket) => {
   }));
 
   socket.on("tts:save", (input, ack) => safeAck(ack, async () => {
-    config = await saveConfig({ ...config, tts: input });
+    config = await saveConfig({ ...config, tts: { ...config.tts, ...input } });
     broadcastState();
     return config.tts;
   }));

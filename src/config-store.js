@@ -19,7 +19,19 @@ const defaultConfig = {
   tts: {
     enabled: false,
     language: "es-CO",
-    volume: 1
+    volume: 1,
+    allowedUsers: {
+      allUsers: true,
+      followers: false,
+      subscribers: false,
+      moderators: false,
+      teamMembers: false,
+      teamMembersMinLevel: 1,
+      topGifters: false,
+      topGiftersTop: 3,
+      listEnabled: false,
+      usernames: []
+    }
   },
   mappings: [
     {
@@ -68,10 +80,26 @@ function normalizeMapping(mapping, index) {
 function normalizeTts(raw) {
   const language = stringOrEmpty(raw?.language);
   const volume = Number(raw?.volume);
+  const allowed = raw?.allowedUsers || {};
+  const usernames = Array.isArray(allowed.usernames) ? allowed.usernames : [];
   return {
     enabled: raw?.enabled === true,
     language: ttsLanguages.has(language) ? language : defaultConfig.tts.language,
-    volume: Number.isFinite(volume) ? Math.max(0, Math.min(volume, 1)) : defaultConfig.tts.volume
+    volume: Number.isFinite(volume) ? Math.max(0, Math.min(volume, 1)) : defaultConfig.tts.volume,
+    allowedUsers: {
+      allUsers: allowed.allUsers !== false,
+      followers: allowed.followers === true,
+      subscribers: allowed.subscribers === true,
+      moderators: allowed.moderators === true,
+      teamMembers: allowed.teamMembers === true,
+      teamMembersMinLevel: Math.max(1, Math.min(Number(allowed.teamMembersMinLevel) || 1, 100)),
+      topGifters: allowed.topGifters === true,
+      topGiftersTop: Math.max(1, Math.min(Number(allowed.topGiftersTop) || 3, 100)),
+      listEnabled: allowed.listEnabled === true,
+      usernames: [...new Set(usernames
+        .map((value) => stringOrEmpty(value).replace(/^@/, "").toLocaleLowerCase())
+        .filter(Boolean))].slice(0, 500)
+    }
   };
 }
 
