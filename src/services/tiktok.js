@@ -43,9 +43,7 @@ function isGiftMessage(message) {
 function giftOccurrenceKey(gift) {
   return [
     gift.username,
-    gift.giftId || gift.giftName,
-    gift.repeatCount,
-    gift.giftType ?? ""
+    gift.giftId || gift.giftName
   ].map((value) => String(value || "").trim()).join("\0");
 }
 
@@ -76,22 +74,19 @@ export class TikTokClient {
     return url;
   }
 
-  isConfirmedGiftOccurrence(gift) {
+  isFirstGiftOccurrence(gift) {
     const now = Date.now();
     for (const [key, firstSeenAt] of this.pendingGiftOccurrences) {
       if (now - firstSeenAt > giftConfirmationWindowMs) this.pendingGiftOccurrences.delete(key);
       else break;
     }
     const key = giftOccurrenceKey(gift);
-    if (this.pendingGiftOccurrences.has(key)) {
-      this.pendingGiftOccurrences.delete(key);
-      return true;
-    }
+    if (this.pendingGiftOccurrences.has(key)) return false;
     this.pendingGiftOccurrences.set(key, now);
     if (this.pendingGiftOccurrences.size > maxPendingGiftOccurrences) {
       this.pendingGiftOccurrences.delete(this.pendingGiftOccurrences.keys().next().value);
     }
-    return false;
+    return true;
   }
 
   handleMessage(raw) {
@@ -114,8 +109,8 @@ export class TikTokClient {
       const gift = normalizeGift(message);
       // Los regalos de racha envían actualizaciones; solo ejecutamos al finalizar la racha.
       if (Number(gift.giftType) === 1 && gift.repeatEnd !== true) continue;
-      // TikTok reentrega cada regalo una segunda vez poco después. Solo confirmamos la segunda lectura.
-      if (!this.isConfirmedGiftOccurrence(gift)) continue;
+      // TikTok reentrega cada regalo una segunda vez poco después. Procesamos solo la primera lectura.
+      if (!this.isFirstGiftOccurrence(gift)) continue;
       this.onGift(gift);
     }
   }
