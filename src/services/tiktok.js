@@ -13,6 +13,7 @@ const closeDetails = {
 };
 const giftConfirmationWindowMs = 5_000;
 const maxPendingGiftOccurrences = 2_000;
+const maxCommentLength = 220;
 
 function normalizeText(value, fallback) {
   return typeof value === "string" && value.trim() ? value.trim() : fallback;
@@ -40,6 +41,21 @@ function isGiftMessage(message) {
   return type === "webcastgiftmessage" || type === "gift" || type === "giftmessage";
 }
 
+function isCommentMessage(message) {
+  const type = String(message?.type || message?.eventType || message?.event || "").toLowerCase();
+  return type === "webcastchatmessage" || type === "chat" || type === "comment";
+}
+
+function normalizeComment(message) {
+  const data = message?.data || message || {};
+  const user = data.user || data.sender || data.fromUser || {};
+  const text = data.comment ?? data.text ?? data.commentText ?? data.content;
+  return {
+    nickname: normalizeText(user.nickname || user.displayName || user.display_name || user.uniqueId, "espectador"),
+    text: Array.from(normalizeText(text, "")).slice(0, maxCommentLength).join("")
+  };
+}
+
 function giftOccurrenceKey(gift) {
   return [
     gift.username,
@@ -48,9 +64,10 @@ function giftOccurrenceKey(gift) {
 }
 
 export class TikTokClient {
-  constructor({ onState, onGift, onError }) {
+  constructor({ onState, onGift, onComment, onError }) {
     this.onState = onState;
     this.onGift = onGift;
+    this.onComment = onComment;
     this.onError = onError;
     this.socket = null;
     this.status = "disconnected";
@@ -105,6 +122,11 @@ export class TikTokClient {
 
     const messages = Array.isArray(frame.messages) ? frame.messages : [frame];
     for (const message of messages) {
+      if (isCommentMessage(message)) {
+        const comment = normalizeComment(message);
+        if (comment.text && !comment.text.startsWith("!")) this.onComment(comment);
+        continue;
+      }
       if (!isGiftMessage(message)) continue;
       const gift = normalizeGift(message);
       // Los regalos de racha envían actualizaciones; solo ejecutamos al finalizar la racha.
