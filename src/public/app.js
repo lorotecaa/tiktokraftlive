@@ -11,7 +11,7 @@ const elements = {
   serverTapKey: $("#servertap-key"),
   keyState: $("#key-state"),
   ttsSettings: $("#tts-settings-form"), ttsEnabled: $("#tts-enabled"), ttsLanguage: $("#tts-language"), ttsVolume: $("#tts-volume"), ttsVolumeValue: $("#tts-volume-value"),
-  voiceTester: $("#voice-tester-form"), voiceTesterText: $("#voice-tester-text"),
+  voiceTester: $("#voice-tester-form"), voiceTesterText: $("#voice-tester-text"), ttsSpeed: $("#tts-speed"), ttsPitch: $("#tts-pitch"),
   allowedUsers: $("#allowed-users-form"), allowAllUsers: $("#tts-allow-all-users"), allowFollowers: $("#tts-allow-followers"), allowSubscribers: $("#tts-allow-subscribers"), allowModerators: $("#tts-allow-moderators"), allowTeamMembers: $("#tts-allow-team-members"), teamMembersMinLevel: $("#tts-team-members-min-level"), allowTopGifters: $("#tts-allow-top-gifters"), topGiftersTop: $("#tts-top-gifters-top"), allowList: $("#tts-allow-list"), manageAllowedUsers: $("#manage-allowed-users"), allowedUsersListEditor: $("#allowed-users-list-editor"), allowedUsernames: $("#tts-allowed-usernames"),
   goalsToggle: $("#goals-toggle"), goalsPanel: $("#goals-panel"), goalCards: [...document.querySelectorAll(".goal-card")],
   giftOverlaysToggle: $("#gift-overlays-toggle"), giftOverlaysPanel: $("#gift-overlays-panel"), giftOverlaysForm: $("#gift-overlays-form"), giftOverlaysResetOnLive: $("#gift-overlays-reset-on-live"), giftOverlaysResetNow: $("#gift-overlays-reset-now"), giftOverlayCards: [...document.querySelectorAll(".gift-overlay-option")],
@@ -72,11 +72,13 @@ function renderState(next) {
     elements.serverTapProtocol.value = serverTap.protocol;
   }
   elements.keyState.textContent = config.serverTap.keyPresent ? "Clave guardada. Déjalo vacío para conservarla." : "Aún no hay una clave guardada.";
-  if (!elements.ttsSettings.contains(document.activeElement)) {
+  if (!elements.ttsSettings.contains(document.activeElement) && ![elements.ttsSpeed, elements.ttsPitch].includes(document.activeElement)) {
     elements.ttsEnabled.checked = Boolean(config.tts?.enabled);
     elements.ttsLanguage.value = config.tts?.language || "es-CO";
     elements.ttsVolume.value = String(config.tts?.volume ?? 1);
     elements.ttsVolumeValue.textContent = `${Math.round((config.tts?.volume ?? 1) * 100)}%`;
+    elements.ttsSpeed.value = String(config.tts?.speed ?? 60);
+    elements.ttsPitch.value = String(config.tts?.pitch ?? 70);
   }
   if (!elements.allowedUsers.contains(document.activeElement)) {
     const allowed = config.tts?.allowedUsers || {};
@@ -207,7 +209,9 @@ function currentTtsSettings() {
   return {
     enabled: Boolean(appState?.config?.tts?.enabled),
     language: appState?.config?.tts?.language || "es-CO",
-    volume: Number(appState?.config?.tts?.volume ?? 1)
+    volume: Number(appState?.config?.tts?.volume ?? 1),
+    speed: Number(appState?.config?.tts?.speed ?? 60),
+    pitch: Number(appState?.config?.tts?.pitch ?? 70)
   };
 }
 
@@ -373,7 +377,9 @@ elements.ttsSettings.addEventListener("submit", async (event) => {
   await control(submit, "tts:save", {
     enabled: elements.ttsEnabled.checked,
     language: elements.ttsLanguage.value,
-    volume: Number(elements.ttsVolume.value)
+    volume: Number(elements.ttsVolume.value),
+    speed: Number(elements.ttsSpeed.value),
+    pitch: Number(elements.ttsPitch.value)
   }, "Configuración TTS guardada");
 });
 elements.voiceTester.addEventListener("submit", (event) => {

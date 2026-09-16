@@ -23,6 +23,8 @@
       const utterance = new SpeechSynthesisUtterance(next.text);
       utterance.lang = next.settings.language;
       utterance.volume = next.settings.volume;
+      utterance.rate = Math.max(0.1, Math.min(10, (Number(next.settings.speed) || 60) / 50));
+      utterance.pitch = Math.max(0, Math.min(2, (Number(next.settings.pitch) || 70) / 50));
       this.speaking = true;
       const finish = () => {
         this.speaking = false;
