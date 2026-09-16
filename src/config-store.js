@@ -21,6 +21,8 @@ const defaultConfig = {
     enabled: false,
     language: "es-CO",
     volume: 1,
+    speed: 60,
+    pitch: 70,
     allowedUsers: {
       allUsers: true,
       followers: false,
@@ -87,12 +89,16 @@ function normalizeMapping(mapping, index) {
 function normalizeTts(raw) {
   const language = stringOrEmpty(raw?.language);
   const volume = Number(raw?.volume);
+  const speed = Number(raw?.speed);
+  const pitch = Number(raw?.pitch);
   const allowed = raw?.allowedUsers || {};
   const usernames = Array.isArray(allowed.usernames) ? allowed.usernames : [];
   return {
     enabled: raw?.enabled === true,
     language: ttsLanguages.has(language) ? language : defaultConfig.tts.language,
     volume: Number.isFinite(volume) ? Math.max(0, Math.min(volume, 1)) : defaultConfig.tts.volume,
+    speed: Number.isFinite(speed) ? Math.max(1, Math.min(Math.round(speed), 100)) : defaultConfig.tts.speed,
+    pitch: Number.isFinite(pitch) ? Math.max(1, Math.min(Math.round(pitch), 100)) : defaultConfig.tts.pitch,
     allowedUsers: {
       allUsers: allowed.allUsers !== false,
       followers: allowed.followers === true,
