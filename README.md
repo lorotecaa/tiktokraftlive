@@ -55,6 +55,17 @@ En **Conexión**, escribe:
 
 En la tarjeta **TikTok LIVE**, indica el usuario que esté transmitiendo y tu **Euler Stream API Key**. La app usa el WebSocket Cloud oficial de Euler (`wss://ws.eulerstream.com`), compatible con el plan Community que incluye 2.500 solicitudes al día y 25 conexiones Cloud WebSocket. Créala desde el [Dashboard de Euler Stream](https://www.eulerstream.com/docs/api/quickstart). La clave se guarda únicamente en `data/settings.json` del equipo y queda oculta al volver a abrir el panel. Guarda/conecta primero Minecraft y después TikTok LIVE.
 
+## Persistencia gratuita en Render con Supabase
+
+Los servicios gratuitos de Render no conservan archivos tras reiniciarse. Para mantener permanentemente las acciones y la configuración sin usar un disco de Render:
+
+1. Crea un proyecto gratuito en [Supabase](https://supabase.com/).
+2. Abre **SQL Editor**, pega y ejecuta el contenido de `supabase/schema.sql`.
+3. En Render, en **Environment**, añade `SUPABASE_URL` con la URL del proyecto y `SUPABASE_SECRET_KEY` con su clave secreta.
+4. Redespliega el servicio.
+
+La clave secreta se usa solamente en el servidor: nunca se envía al navegador. Al primer arranque con Supabase, la aplicación migra automáticamente la configuración local existente si la encuentra. Sin esas dos variables, la aplicación conserva el almacenamiento local de siempre.
+
 ## Crear acciones
 
 Añade una acción para cada regalo. Lo más fiable es indicar el ID del regalo, pues el nombre puede variar por idioma. Puedes dejar el ID vacío si prefieres comparar por nombre.
@@ -76,4 +87,4 @@ npm run dev
 npm run check
 ```
 
-La configuración se escribe en `data/settings.json`, que está excluida de Git porque puede contener la clave de ServerTap.
+Sin Supabase, la configuración se escribe en `data/settings.json`, que está excluida de Git porque puede contener la clave de ServerTap.
