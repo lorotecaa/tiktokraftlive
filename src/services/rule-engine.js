@@ -1,5 +1,9 @@
 function normalize(value) {
-  return String(value || "").trim().toLocaleLowerCase();
+  return String(value || "")
+    .normalize("NFD")
+    .replace(/\p{Diacritic}/gu, "")
+    .toLocaleLowerCase()
+    .replace(/[^\p{L}\p{N}]+/gu, "");
 }
 
 function placeholder(value) {
@@ -46,17 +50,21 @@ export class RuleEngine {
     }
 
     let executed = 0;
+    const units = Math.max(1, Number(event.repeatCount) || 1);
     for (const mapping of matches) {
       const lastRun = this.cooldowns.get(mapping.id) || 0;
       if (now - lastRun < mapping.cooldownMs) {
         this.onActivity({ type: "cooldown", event, mapping, message: "Acción omitida por enfriamiento" });
         continue;
       }
-      const command = this.render(mapping.command, event);
-      this.sendCommand(command, { event, mappingId: mapping.id });
       this.cooldowns.set(mapping.id, now);
-      executed += 1;
-      this.onActivity({ type: "action", event, mapping, command, message: "Acción enviada a Minecraft" });
+      for (let unit = 0; unit < units; unit += 1) {
+        const actionEvent = units === 1 ? event : { ...event, repeatCount: 1 };
+        const command = this.render(mapping.command, actionEvent);
+        this.sendCommand(command, { event: actionEvent, mappingId: mapping.id });
+        executed += 1;
+        this.onActivity({ type: "action", event: actionEvent, mapping, command, message: "Acción enviada a Minecraft" });
+      }
     }
     return { matched: matches.length, executed };
   }
