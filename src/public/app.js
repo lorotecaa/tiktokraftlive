@@ -472,7 +472,17 @@ elements.mappingForm.addEventListener("submit", async (event) => {
     cooldownMs: Number(elements.cooldown.value), enabled: elements.enabled.checked
   };
   if (!data.giftName && !data.giftId) return toast("Indica al menos el nombre o ID del regalo.", "error");
-  try { await request("mapping:save", data); toast("Acción guardada", "success"); resetEditor(); } catch (error) { toast(error.message, "error"); }
+  try {
+    const saved = await request("mapping:save", data);
+    if (appState?.config?.mappings && saved?.id) {
+      const existing = appState.config.mappings.findIndex((mapping) => mapping.id === saved.id);
+      if (existing >= 0) appState.config.mappings[existing] = saved;
+      else appState.config.mappings.push(saved);
+      renderMappings(appState.config.mappings);
+    }
+    toast("Acción guardada", "success");
+    resetEditor();
+  } catch (error) { toast(error.message, "error"); }
 });
 elements.cancelEdit.addEventListener("click", resetEditor);
 elements.audio.addEventListener("change", () => {
