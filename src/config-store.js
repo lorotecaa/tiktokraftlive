@@ -3,12 +3,18 @@ import path from "node:path";
 import { fileURLToPath } from "node:url";
 
 const directory = path.dirname(fileURLToPath(import.meta.url));
-const dataDirectory = path.resolve(directory, "../data");
+// En producción se puede dirigir la configuración a un disco persistente sin
+// cambiar la ruta utilizada durante el desarrollo local.
+const configuredDataDirectory = String(process.env.TIKTOKRAFT_DATA_DIR || "").trim();
+const dataDirectory = configuredDataDirectory
+  ? path.resolve(configuredDataDirectory)
+  : path.resolve(directory, "../data");
 const settingsPath = path.join(dataDirectory, "settings.json");
 const soundsDirectory = path.join(directory, "public", "sounds");
 const audioExtensions = new Set([".aac", ".m4a", ".mp3", ".ogg", ".wav", ".webm"]);
 const ttsLanguages = new Set(["es-CO", "es-ES", "en-US", "pt-BR"]);
 const goalTypes = new Set(["likes", "follows", "coins"]);
+let configWriteQueue = Promise.resolve();
 
 const defaultConfig = {
   tiktokUsername: "",
@@ -212,9 +218,22 @@ export async function loadConfig() {
 
 export async function saveConfig(config) {
   const sanitized = sanitizeConfig(config);
-  await fs.mkdir(dataDirectory, { recursive: true });
-  const temporaryPath = `${settingsPath}.tmp`;
-  await fs.writeFile(temporaryPath, `${JSON.stringify(sanitized, null, 2)}\n`, "utf8");
-  await fs.rename(temporaryPath, settingsPath);
+  const content = `${JSON.stringify(sanitized, null, 2)}\n`;
+  const write = configWriteQueue.then(async () => {
+    await fs.mkdir(dataDirectory, { recursive: true });
+    const temporaryPath = `${settingsPath}.${process.pid}.tmp`;
+    const handle = await fs.open(temporaryPath, "w");
+    try {
+      await handle.writeFile(content, "utf8");
+      await handle.sync();
+    } finally {
+      await handle.close();
+    }
+    await fs.rename(temporaryPath, settingsPath);
+  });
+  // Mantiene la cola utilizable después de un error, pero propaga el error al
+  // botón Guardar para que no confirme una edición que no se escribió.
+  configWriteQueue = write.catch(() => {});
+  await write;
   return sanitized;
 }
