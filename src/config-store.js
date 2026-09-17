@@ -10,7 +10,14 @@ const dataDirectory = configuredDataDirectory
   ? path.resolve(configuredDataDirectory)
   : path.resolve(directory, "../data");
 const settingsPath = path.join(dataDirectory, "settings.json");
-const supabaseUrl = String(process.env.SUPABASE_URL || "").trim().replace(/\/$/, "");
+function normalizeSupabaseProjectUrl(value) {
+  return String(value || "")
+    .trim()
+    .replace(/\/+$/, "")
+    .replace(/\/rest\/v1$/i, "");
+}
+
+const supabaseUrl = normalizeSupabaseProjectUrl(process.env.SUPABASE_URL);
 const supabaseSecretKey = String(process.env.SUPABASE_SECRET_KEY || process.env.SUPABASE_SERVICE_ROLE_KEY || "").trim();
 const isSupabaseConfigured = Boolean(supabaseUrl && supabaseSecretKey);
 const hasPartialSupabaseConfig = Boolean(supabaseUrl || supabaseSecretKey) && !isSupabaseConfigured;
@@ -239,6 +246,7 @@ function supabaseHeaders(extra = {}) {
   return {
     apikey: supabaseSecretKey,
     Authorization: `Bearer ${supabaseSecretKey}`,
+    "Accept-Profile": "public",
     ...extra
   };
 }
@@ -246,21 +254,28 @@ function supabaseHeaders(extra = {}) {
 async function loadSupabaseConfig() {
   const endpoint = `${supabaseUrl}/rest/v1/${supabaseConfigTable}?id=eq.${encodeURIComponent(supabaseConfigId)}&select=config`;
   const response = await fetch(endpoint, { headers: supabaseHeaders() });
-  if (!response.ok) throw new Error(`Supabase no pudo cargar la configuración (${response.status}).`);
+  if (!response.ok) {
+    const detail = await response.text();
+    throw new Error(`Supabase no pudo cargar la configuración (${response.status})${detail ? `: ${detail}` : ""}`);
+  }
   const rows = await response.json();
   return rows[0]?.config && typeof rows[0].config === "object" ? rows[0].config : null;
 }
 
 async function saveSupabaseConfig(config) {
-  const response = await fetch(`${supabaseUrl}/rest/v1/${supabaseConfigTable}`, {
+  const response = await fetch(`${supabaseUrl}/rest/v1/${supabaseConfigTable}?on_conflict=id`, {
     method: "POST",
     headers: supabaseHeaders({
       "Content-Type": "application/json",
+      "Content-Profile": "public",
       Prefer: "resolution=merge-duplicates,return=minimal"
     }),
     body: JSON.stringify({ id: supabaseConfigId, config, updated_at: new Date().toISOString() })
   });
-  if (!response.ok) throw new Error(`Supabase no pudo guardar la configuración (${response.status}).`);
+  if (!response.ok) {
+    const detail = await response.text();
+    throw new Error(`Supabase no pudo guardar la configuración (${response.status})${detail ? `: ${detail}` : ""}`);
+  }
 }
 
 export async function loadConfig() {
