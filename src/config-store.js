@@ -10,6 +10,12 @@ const dataDirectory = configuredDataDirectory
   ? path.resolve(configuredDataDirectory)
   : path.resolve(directory, "../data");
 const settingsPath = path.join(dataDirectory, "settings.json");
+const supabaseUrl = String(process.env.SUPABASE_URL || "").trim().replace(/\/$/, "");
+const supabaseSecretKey = String(process.env.SUPABASE_SECRET_KEY || process.env.SUPABASE_SERVICE_ROLE_KEY || "").trim();
+const isSupabaseConfigured = Boolean(supabaseUrl && supabaseSecretKey);
+const hasPartialSupabaseConfig = Boolean(supabaseUrl || supabaseSecretKey) && !isSupabaseConfigured;
+const supabaseConfigId = "tiktokraft-live";
+const supabaseConfigTable = "tiktokraft_config";
 const soundsDirectory = path.join(directory, "public", "sounds");
 const audioExtensions = new Set([".aac", ".m4a", ".mp3", ".ogg", ".wav", ".webm"]);
 const ttsLanguages = new Set(["es-CO", "es-ES", "en-US", "pt-BR"]);
@@ -205,31 +211,89 @@ export function publicConfig(config) {
   };
 }
 
-export async function loadConfig() {
+async function loadFileConfig() {
   try {
-    return sanitizeConfig(JSON.parse(await fs.readFile(settingsPath, "utf8")));
+    return JSON.parse(await fs.readFile(settingsPath, "utf8"));
   } catch (error) {
     if (error.code !== "ENOENT") {
       console.warn("No se pudo leer la configuración; se usarán valores iniciales.", error.message);
     }
+    return null;
+  }
+}
+
+async function saveFileConfig(content) {
+  await fs.mkdir(dataDirectory, { recursive: true });
+  const temporaryPath = `${settingsPath}.${process.pid}.tmp`;
+  const handle = await fs.open(temporaryPath, "w");
+  try {
+    await handle.writeFile(content, "utf8");
+    await handle.sync();
+  } finally {
+    await handle.close();
+  }
+  await fs.rename(temporaryPath, settingsPath);
+}
+
+function supabaseHeaders(extra = {}) {
+  return {
+    apikey: supabaseSecretKey,
+    Authorization: `Bearer ${supabaseSecretKey}`,
+    ...extra
+  };
+}
+
+async function loadSupabaseConfig() {
+  const endpoint = `${supabaseUrl}/rest/v1/${supabaseConfigTable}?id=eq.${encodeURIComponent(supabaseConfigId)}&select=config`;
+  const response = await fetch(endpoint, { headers: supabaseHeaders() });
+  if (!response.ok) throw new Error(`Supabase no pudo cargar la configuración (${response.status}).`);
+  const rows = await response.json();
+  return rows[0]?.config && typeof rows[0].config === "object" ? rows[0].config : null;
+}
+
+async function saveSupabaseConfig(config) {
+  const response = await fetch(`${supabaseUrl}/rest/v1/${supabaseConfigTable}`, {
+    method: "POST",
+    headers: supabaseHeaders({
+      "Content-Type": "application/json",
+      Prefer: "resolution=merge-duplicates,return=minimal"
+    }),
+    body: JSON.stringify({ id: supabaseConfigId, config, updated_at: new Date().toISOString() })
+  });
+  if (!response.ok) throw new Error(`Supabase no pudo guardar la configuración (${response.status}).`);
+}
+
+export async function loadConfig() {
+  if (hasPartialSupabaseConfig) {
+    throw new Error("Configura SUPABASE_URL y SUPABASE_SECRET_KEY juntos, o elimina ambas variables.");
+  }
+  if (isSupabaseConfigured) {
+    const remoteConfig = await loadSupabaseConfig();
+    if (remoteConfig) return sanitizeConfig(remoteConfig);
+
+    // Migra automáticamente la configuración que exista en la instancia al
+    // activar Supabase por primera vez.
+    const localConfig = await loadFileConfig();
+    if (localConfig) {
+      const sanitized = sanitizeConfig(localConfig);
+      await saveSupabaseConfig(sanitized);
+      return sanitized;
+    }
     return clone(defaultConfig);
   }
+
+  const localConfig = await loadFileConfig();
+  return localConfig ? sanitizeConfig(localConfig) : clone(defaultConfig);
 }
 
 export async function saveConfig(config) {
   const sanitized = sanitizeConfig(config);
-  const content = `${JSON.stringify(sanitized, null, 2)}\n`;
   const write = configWriteQueue.then(async () => {
-    await fs.mkdir(dataDirectory, { recursive: true });
-    const temporaryPath = `${settingsPath}.${process.pid}.tmp`;
-    const handle = await fs.open(temporaryPath, "w");
-    try {
-      await handle.writeFile(content, "utf8");
-      await handle.sync();
-    } finally {
-      await handle.close();
+    if (isSupabaseConfigured) {
+      await saveSupabaseConfig(sanitized);
+      return;
     }
-    await fs.rename(temporaryPath, settingsPath);
+    await saveFileConfig(`${JSON.stringify(sanitized, null, 2)}\n`);
   });
   // Mantiene la cola utilizable después de un error, pero propaga el error al
   // botón Guardar para que no confirme una edición que no se escribió.
