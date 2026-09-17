@@ -288,6 +288,8 @@ io.on("connection", (socket) => {
     if (mapping.audio && !(await listAvailableSounds()).includes(mapping.audio)) {
       throw new Error("El audio seleccionado ya no está disponible.");
     }
+    // Evita que un guardado en segundo plano del LIVE termine después y restaure una versión anterior del mapping.
+    await saveLiveStateNow();
     const existing = config.mappings.findIndex((entry) => entry.id === mapping.id);
     const mappings = [...config.mappings];
     if (existing >= 0) mappings[existing] = mapping;
