@@ -12,6 +12,7 @@ const closeDetails = {
   4557: "Euler Stream no pudo obtener la información de la sala."
 };
 const giftConfirmationWindowMs = 5_000;
+const incompleteStreakGraceMs = 1_500;
 const maxPendingGiftOccurrences = 2_000;
 const maxCommentLength = 220;
 
@@ -52,7 +53,7 @@ function giftImageUrl(data, gift) {
 function normalizeGift(message) {
   const data = message?.data || message || {};
   const user = data.user || data.sender || data.fromUser || {};
-  const gift = data.gift || data.giftInfo || data.giftDetails || {};
+  const gift = { ...data.giftDetails, ...data.giftInfo, ...data.gift };
   const giftId = String(data.giftId ?? data.gift_id ?? gift.id ?? gift.giftId ?? gift.gift_id ?? "");
 
   const repeatCount = Math.max(1, Number(data.repeatCount ?? data.repeat_count ?? data.comboCount ?? data.combo_count ?? gift.repeatCount ?? gift.repeat_count ?? data.giftCount ?? data.gift_count ?? data.count) || 1);
@@ -182,6 +183,7 @@ export class TikTokClient {
     this.status = "disconnected";
     this.username = "";
     this.pendingGiftOccurrences = new Map();
+    this.pendingIncompleteStreaks = new Map();
   }
 
   emitState(status, detail = "") {
@@ -213,6 +215,39 @@ export class TikTokClient {
       this.pendingGiftOccurrences.delete(this.pendingGiftOccurrences.keys().next().value);
     }
     return true;
+  }
+
+  incompleteStreakKey(gift) {
+    return gift.groupId || [gift.username, gift.giftId || gift.giftName].map((value) => String(value || "").trim()).join("\0");
+  }
+
+  clearIncompleteStreak(key) {
+    const pending = this.pendingIncompleteStreaks.get(key);
+    if (!pending) return;
+    clearTimeout(pending.timer);
+    this.pendingIncompleteStreaks.delete(key);
+  }
+
+  clearAllIncompleteStreaks() {
+    for (const { timer } of this.pendingIncompleteStreaks.values()) clearTimeout(timer);
+    this.pendingIncompleteStreaks.clear();
+  }
+
+  deliverGift(gift) {
+    if (!this.isFirstGiftOccurrence(gift)) return;
+    if (gift.coins) this.onMetric("coins", gift.coins);
+    this.onGift(gift);
+  }
+
+  deferIncompleteStreak(gift) {
+    const key = this.incompleteStreakKey(gift);
+    this.clearIncompleteStreak(key);
+    const timer = setTimeout(() => {
+      this.pendingIncompleteStreaks.delete(key);
+      this.deliverGift(gift);
+    }, incompleteStreakGraceMs);
+    timer.unref?.();
+    this.pendingIncompleteStreaks.set(key, { timer });
   }
 
   handleMessage(raw) {
@@ -247,11 +282,13 @@ export class TikTokClient {
       if (!isGiftMessage(message)) continue;
       const gift = normalizeGift(message);
       // Los regalos de racha envían actualizaciones; solo ejecutamos al finalizar la racha.
-      if (Number(gift.giftType) === 1 && !gift.repeatEnd) continue;
+      if (Number(gift.giftType) === 1 && !gift.repeatEnd) {
+        this.deferIncompleteStreak(gift);
+        continue;
+      }
+      if (Number(gift.giftType) === 1) this.clearIncompleteStreak(this.incompleteStreakKey(gift));
       // TikTok reentrega cada regalo una segunda vez poco después. Procesamos solo la primera lectura.
-      if (!this.isFirstGiftOccurrence(gift)) continue;
-      if (gift.coins) this.onMetric("coins", gift.coins);
-      this.onGift(gift);
+      this.deliverGift(gift);
     }
   }
 
@@ -271,6 +308,7 @@ export class TikTokClient {
     socket.on("close", (code, reason) => {
       if (this.socket !== socket) return;
       this.socket = null;
+      this.clearAllIncompleteStreaks();
       const detail = closeDetails[code]?.replace("{username}", this.username) || reason.toString() || `Conexión cerrada (${code}).`;
       this.emitState(code === 1000 ? "disconnected" : "error", detail);
     });
@@ -309,6 +347,7 @@ export class TikTokClient {
       socket.close();
     }
     this.pendingGiftOccurrences.clear();
+    this.clearAllIncompleteStreaks();
     this.emitState("disconnected", detail);
   }
 }
