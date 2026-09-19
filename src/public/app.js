@@ -14,6 +14,7 @@ const elements = {
   voiceTester: $("#voice-tester-form"), voiceTesterText: $("#voice-tester-text"), ttsSpeed: $("#tts-speed"), ttsPitch: $("#tts-pitch"),
   allowedUsers: $("#allowed-users-form"), allowAllUsers: $("#tts-allow-all-users"), allowFollowers: $("#tts-allow-followers"), allowSubscribers: $("#tts-allow-subscribers"), allowModerators: $("#tts-allow-moderators"), allowTeamMembers: $("#tts-allow-team-members"), teamMembersMinLevel: $("#tts-team-members-min-level"), allowTopGifters: $("#tts-allow-top-gifters"), topGiftersTop: $("#tts-top-gifters-top"), allowList: $("#tts-allow-list"), manageAllowedUsers: $("#manage-allowed-users"), allowedUsersListEditor: $("#allowed-users-list-editor"), allowedUsernames: $("#tts-allowed-usernames"),
   goalsToggle: $("#goals-toggle"), goalsPanel: $("#goals-panel"), goalCards: [...document.querySelectorAll(".goal-card")],
+  rankingsToggle: $("#rankings-toggle"), rankingsPanel: $("#rankings-panel"), rankingOverlayCards: [...document.querySelectorAll(".ranking-overlay-option")],
   giftOverlaysToggle: $("#gift-overlays-toggle"), giftOverlaysPanel: $("#gift-overlays-panel"), giftOverlaysForm: $("#gift-overlays-form"), giftOverlaysResetOnLive: $("#gift-overlays-reset-on-live"), giftOverlaysResetNow: $("#gift-overlays-reset-now"), giftOverlayCards: [...document.querySelectorAll(".gift-overlay-option")],
   minecraftDetail: $("#minecraft-detail"), minecraftDot: $("#minecraft-dot"),
   tiktokDetail: $("#tiktok-detail"), tiktokDot: $("#tiktok-dot"),
@@ -98,6 +99,7 @@ function renderState(next) {
   elements.globalStatus.textContent = minecraft.status === "connected" && tiktok.status === "connected" ? "INTERACTIVO EN VIVO" : "PANEL LOCAL";
   renderMappings(config.mappings || []);
   renderGiftOverlays(config.giftOverlays || {});
+  renderRankingOverlay({ kind: "top-donors", title: "Top Donadores", entries: next.rankings?.topDonors || [] });
   renderGoals(config.goals || []);
   if (!hiddenActivity) renderActivity(next.activity || []);
 }
@@ -176,6 +178,34 @@ function renderGiftOverlays(overlays) {
   }
   renderGiftOverlay("best-gift", overlays.bestGift);
   renderGiftOverlay("best-streak", overlays.bestStreak);
+}
+
+function rankingOverlayUrl(kind) {
+  return `${window.location.origin}/widget/ranking/${encodeURIComponent(kind)}`;
+}
+
+function renderRankingOverlay(overlay) {
+  const card = elements.rankingOverlayCards.find((item) => item.dataset.rankingOverlayKind === overlay.kind);
+  if (!card) return;
+  card.querySelector(".ranking-overlay-url-input").value = rankingOverlayUrl(overlay.kind);
+  const list = card.querySelector(".ranking-overlay-preview-list");
+  const entries = Array.isArray(overlay.entries) ? overlay.entries : [];
+  list.replaceChildren();
+  if (!entries.length) {
+    const item = document.createElement("li");
+    item.textContent = "Esperando regalos durante el LIVE…";
+    list.append(item);
+    return;
+  }
+  entries.slice(0, 5).forEach((entry, index) => {
+    const item = document.createElement("li");
+    const name = document.createElement("span");
+    name.textContent = `${index + 1}. ${entry.nickname || entry.username || "Espectador"}`;
+    const coins = document.createElement("b");
+    coins.textContent = `${numberFormat(entry.coins)} coins`;
+    item.append(name, coins);
+    list.append(item);
+  });
 }
 
 function renderMappings(mappings) {
@@ -410,6 +440,23 @@ function toggleAccordion(button, panel) {
 elements.goalsToggle.addEventListener("click", () => {
   toggleAccordion(elements.goalsToggle, elements.goalsPanel);
 });
+elements.rankingsToggle.addEventListener("click", () => {
+  toggleAccordion(elements.rankingsToggle, elements.rankingsPanel);
+});
+for (const card of elements.rankingOverlayCards) {
+  const kind = card.dataset.rankingOverlayKind;
+  card.querySelector(".ranking-overlay-copy").addEventListener("click", async () => {
+    const input = card.querySelector(".ranking-overlay-url-input");
+    try {
+      await navigator.clipboard.writeText(input.value);
+    } catch {
+      input.select();
+      document.execCommand("copy");
+    }
+    toast("URL copiada", "success");
+  });
+  card.querySelector(".ranking-overlay-preview-button").addEventListener("click", () => window.open(rankingOverlayUrl(kind), "_blank", "noopener"));
+}
 elements.giftOverlaysToggle.addEventListener("click", () => {
   toggleAccordion(elements.giftOverlaysToggle, elements.giftOverlaysPanel);
 });
@@ -537,6 +584,14 @@ socket.on("gift-overlay:update", (overlay) => {
     appState.config.giftOverlays[overlay.kind === "best-gift" ? "bestGift" : "bestStreak"] = overlay.record;
   }
   renderGiftOverlay(overlay.kind, overlay.record);
+});
+socket.on("ranking-overlay:update", (overlay) => {
+  if (!overlay?.kind) return;
+  if (appState) {
+    appState.rankings ||= {};
+    appState.rankings.topDonors = overlay.entries || [];
+  }
+  renderRankingOverlay(overlay);
 });
 socket.on("connect_error", () => toast("Se perdió la conexión con el panel local.", "error"));
 socket.on("mapping:sound", (data) => playSound(data?.audio));
