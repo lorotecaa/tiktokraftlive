@@ -297,6 +297,27 @@
           <label class="modal-check"><input id="customization-show-value" type="checkbox" /> Mostrar valor</label>
           <label class="modal-check"><input id="customization-align-right" type="checkbox" /> Alinear a la derecha</label>
           <label class="modal-check"><input id="customization-crown" type="checkbox" /> Mostrar corona al Top 1</label>
+          <div class="gift-customization-heading" data-gift-only>Mejor Regalo / Mejor Racha</div>
+          <label data-gift-only>Título<input id="gift-customization-title" type="text" maxlength="80" /></label>
+          <label data-gift-only>Tamaño del título<input id="gift-customization-title-size" type="number" min="12" max="100" /></label>
+          <label data-gift-only>Color del título<input id="gift-customization-title-color" type="color" /></label>
+          <label data-gift-only>Color del nombre<input id="gift-customization-username-color" type="color" /></label>
+          <label data-gift-only>Tamaño del nombre<input id="gift-customization-username-size" type="number" min="12" max="120" /></label>
+          <label data-gift-only>Posición vertical del título<input id="gift-customization-title-offset" type="number" min="-200" max="200" /></label>
+          <label data-gift-only>Posición vertical del regalo<input id="gift-customization-image-offset" type="number" min="-200" max="200" /></label>
+          <label data-gift-only>Posición vertical del nombre<input id="gift-customization-username-offset" type="number" min="-200" max="200" /></label>
+          <label data-gift-only>Posición vertical de coins / racha<input id="gift-customization-coins-offset" type="number" min="-200" max="200" /></label>
+          <label class="modal-check" data-gift-only><input id="gift-customization-border" type="checkbox" /> Activar borde de texto</label>
+          <label data-gift-only>Color del borde<input id="gift-customization-border-color" type="color" /></label>
+          <label class="modal-check" data-gift-only><input id="gift-customization-image-visible" type="checkbox" /> Mostrar imagen del regalo</label>
+          <label data-gift-only>Opacidad de la imagen<input id="gift-customization-image-opacity" type="number" min="0" max="100" /></label>
+          <div class="gift-customization-heading" data-gift-only>Efectos y animaciones</div>
+          <label data-gift-only>Efecto del título<select id="gift-customization-title-effect"><option value="none">Ninguno</option><option value="shadow">Sombra</option><option value="glow">Brillo</option></select></label>
+          <label class="modal-check" data-gift-only><input id="gift-customization-title-wave" type="checkbox" /> Animación de onda del título</label>
+          <label data-gift-only>Efecto del nombre<select id="gift-customization-username-effect"><option value="none">Ninguno</option><option value="shadow">Sombra</option><option value="glow">Brillo</option></select></label>
+          <label class="modal-check" data-gift-only><input id="gift-customization-username-wave" type="checkbox" /> Animación de onda del nombre</label>
+          <label class="modal-check" data-gift-only><input id="gift-customization-show-coins" type="checkbox" /> Mostrar coins / racha</label>
+          <label data-gift-only>Alias de coins<input id="gift-customization-coins-alias" type="text" maxlength="30" /></label>
         </div>
         <footer><button class="button text" type="button" data-modal-close>Cancelar</button><button class="button primary" type="submit">Guardar personalización</button></footer>
       </form>

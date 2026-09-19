@@ -16,7 +16,7 @@ const elements = {
   goalsToggle: $("#goals-toggle"), goalsPanel: $("#goals-panel"), goalCards: [...document.querySelectorAll(".goal-card")],
   rankingsToggle: $("#rankings-toggle"), rankingsPanel: $("#rankings-panel"), rankingOverlayCards: [...document.querySelectorAll(".ranking-overlay-option")],
   giftOverlaysToggle: $("#gift-overlays-toggle"), giftOverlaysPanel: $("#gift-overlays-panel"), giftOverlaysForm: $("#gift-overlays-form"), giftOverlaysResetOnLive: $("#gift-overlays-reset-on-live"), giftOverlaysResetNow: $("#gift-overlays-reset-now"), giftOverlayCards: [...document.querySelectorAll(".gift-overlay-option")],
-  customizationModal: $("#overlay-customization-modal"), customizationForm: $("#overlay-customization-form"), customizationTitle: $("#overlay-customization-title"), customizationFontFamily: $("#customization-font-family"), customizationFontSize: $("#customization-font-size"), customizationLineSpacing: $("#customization-line-spacing"), customizationLetterSpacing: $("#customization-letter-spacing"), customizationTextColor: $("#customization-text-color"), customizationValueColor: $("#customization-value-color"), customizationRankColor: $("#customization-rank-color"), customizationTextEffect: $("#customization-text-effect"), customizationWave: $("#customization-wave"), customizationBackground: $("#customization-background"), customizationBackgroundColor: $("#customization-background-color"), customizationShowRank: $("#customization-show-rank"), customizationShowValue: $("#customization-show-value"), customizationAlignRight: $("#customization-align-right"), customizationCrown: $("#customization-crown"),
+  customizationModal: $("#overlay-customization-modal"), customizationForm: $("#overlay-customization-form"), customizationTitle: $("#overlay-customization-title"), customizationFontFamily: $("#customization-font-family"), customizationFontSize: $("#customization-font-size"), customizationLineSpacing: $("#customization-line-spacing"), customizationLetterSpacing: $("#customization-letter-spacing"), customizationTextColor: $("#customization-text-color"), customizationValueColor: $("#customization-value-color"), customizationRankColor: $("#customization-rank-color"), customizationTextEffect: $("#customization-text-effect"), customizationWave: $("#customization-wave"), customizationBackground: $("#customization-background"), customizationBackgroundColor: $("#customization-background-color"), customizationShowRank: $("#customization-show-rank"), customizationShowValue: $("#customization-show-value"), customizationAlignRight: $("#customization-align-right"), customizationCrown: $("#customization-crown"), giftCustomizationTitle: $("#gift-customization-title"), giftCustomizationTitleSize: $("#gift-customization-title-size"), giftCustomizationTitleColor: $("#gift-customization-title-color"), giftCustomizationUsernameColor: $("#gift-customization-username-color"), giftCustomizationUsernameSize: $("#gift-customization-username-size"), giftCustomizationTitleOffset: $("#gift-customization-title-offset"), giftCustomizationImageOffset: $("#gift-customization-image-offset"), giftCustomizationUsernameOffset: $("#gift-customization-username-offset"), giftCustomizationCoinsOffset: $("#gift-customization-coins-offset"), giftCustomizationBorder: $("#gift-customization-border"), giftCustomizationBorderColor: $("#gift-customization-border-color"), giftCustomizationImageVisible: $("#gift-customization-image-visible"), giftCustomizationImageOpacity: $("#gift-customization-image-opacity"), giftCustomizationTitleEffect: $("#gift-customization-title-effect"), giftCustomizationTitleWave: $("#gift-customization-title-wave"), giftCustomizationUsernameEffect: $("#gift-customization-username-effect"), giftCustomizationUsernameWave: $("#gift-customization-username-wave"), giftCustomizationShowCoins: $("#gift-customization-show-coins"), giftCustomizationCoinsAlias: $("#gift-customization-coins-alias"),
   minecraftDetail: $("#minecraft-detail"), minecraftDot: $("#minecraft-dot"),
   tiktokDetail: $("#tiktok-detail"), tiktokDot: $("#tiktok-dot"),
   globalStatus: $("#global-status"),
@@ -33,7 +33,11 @@ const defaultCustomization = {
   fontFamily: "Space Grotesk", fontSize: 75, lineSpacing: 55, letterSpacing: 50,
   textColor: "#d9d9d9", valueColor: "#ffd84a", rankColor: "#d9d9d9", textEffect: "none",
   waveAnimation: false, showBackground: false, backgroundColor: "rgba(33, 33, 33, 0.4)",
-  showRank: true, showValue: true, alignRight: false, showCrown: true
+  showRank: true, showValue: true, alignRight: false, showCrown: true,
+  title: "", titleSize: 32, titleColor: "#d9d9d9", usernameColor: "#ffffff", usernameSize: 40,
+  titleVerticalOffset: 0, giftVerticalOffset: 0, usernameVerticalOffset: 0, coinsVerticalOffset: 0,
+  enableFontBorder: false, borderColor: "#242424", giftImageVisible: true, giftImageOpacity: 90,
+  titleTextEffect: "none", titleWaveAnimation: false, usernameTextEffect: "none", usernameWaveAnimation: false, coinsAlias: "coins"
 };
 
 function request(event, payload) {
@@ -229,6 +233,8 @@ function openCustomization(button) {
   if (!key) return;
   customizationKey = key;
   const customization = customizationFor(key);
+  const isGiftOverlay = key.startsWith("gift:");
+  elements.customizationModal.dataset.variant = isGiftOverlay ? "gift" : "default";
   elements.customizationTitle.textContent = button.dataset.overlayTitle || "Overlay";
   elements.customizationFontFamily.value = customization.fontFamily;
   elements.customizationFontSize.value = customization.fontSize;
@@ -245,6 +251,25 @@ function openCustomization(button) {
   elements.customizationShowValue.checked = customization.showValue;
   elements.customizationAlignRight.checked = customization.alignRight;
   elements.customizationCrown.checked = customization.showCrown;
+  elements.giftCustomizationTitle.value = customization.title;
+  elements.giftCustomizationTitleSize.value = customization.titleSize;
+  elements.giftCustomizationTitleColor.value = customization.titleColor;
+  elements.giftCustomizationUsernameColor.value = customization.usernameColor;
+  elements.giftCustomizationUsernameSize.value = customization.usernameSize;
+  elements.giftCustomizationTitleOffset.value = customization.titleVerticalOffset;
+  elements.giftCustomizationImageOffset.value = customization.giftVerticalOffset;
+  elements.giftCustomizationUsernameOffset.value = customization.usernameVerticalOffset;
+  elements.giftCustomizationCoinsOffset.value = customization.coinsVerticalOffset;
+  elements.giftCustomizationBorder.checked = customization.enableFontBorder;
+  elements.giftCustomizationBorderColor.value = customization.borderColor;
+  elements.giftCustomizationImageVisible.checked = customization.giftImageVisible;
+  elements.giftCustomizationImageOpacity.value = customization.giftImageOpacity;
+  elements.giftCustomizationTitleEffect.value = customization.titleTextEffect;
+  elements.giftCustomizationTitleWave.checked = customization.titleWaveAnimation;
+  elements.giftCustomizationUsernameEffect.value = customization.usernameTextEffect;
+  elements.giftCustomizationUsernameWave.checked = customization.usernameWaveAnimation;
+  elements.giftCustomizationShowCoins.checked = customization.showValue;
+  elements.giftCustomizationCoinsAlias.value = customization.coinsAlias;
   elements.customizationModal.hidden = false;
   document.body.classList.add("modal-open");
 }
@@ -256,7 +281,7 @@ function closeCustomization() {
 }
 
 function readCustomization() {
-  return {
+  const customization = {
     fontFamily: elements.customizationFontFamily.value,
     fontSize: Number(elements.customizationFontSize.value),
     lineSpacing: Number(elements.customizationLineSpacing.value),
@@ -272,6 +297,20 @@ function readCustomization() {
     showValue: elements.customizationShowValue.checked,
     alignRight: elements.customizationAlignRight.checked,
     showCrown: elements.customizationCrown.checked
+  };
+  if (!customizationKey.startsWith("gift:")) return customization;
+  return {
+    ...customization,
+    title: elements.giftCustomizationTitle.value.trim(), titleSize: Number(elements.giftCustomizationTitleSize.value),
+    titleColor: elements.giftCustomizationTitleColor.value, usernameColor: elements.giftCustomizationUsernameColor.value,
+    usernameSize: Number(elements.giftCustomizationUsernameSize.value), titleVerticalOffset: Number(elements.giftCustomizationTitleOffset.value),
+    giftVerticalOffset: Number(elements.giftCustomizationImageOffset.value), usernameVerticalOffset: Number(elements.giftCustomizationUsernameOffset.value),
+    coinsVerticalOffset: Number(elements.giftCustomizationCoinsOffset.value), enableFontBorder: elements.giftCustomizationBorder.checked,
+    borderColor: elements.giftCustomizationBorderColor.value, giftImageVisible: elements.giftCustomizationImageVisible.checked,
+    giftImageOpacity: Number(elements.giftCustomizationImageOpacity.value), titleTextEffect: elements.giftCustomizationTitleEffect.value,
+    titleWaveAnimation: elements.giftCustomizationTitleWave.checked, usernameTextEffect: elements.giftCustomizationUsernameEffect.value,
+    usernameWaveAnimation: elements.giftCustomizationUsernameWave.checked, showValue: elements.giftCustomizationShowCoins.checked,
+    coinsAlias: elements.giftCustomizationCoinsAlias.value.trim()
   };
 }
 
