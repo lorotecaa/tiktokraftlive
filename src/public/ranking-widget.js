@@ -26,13 +26,6 @@ function render(overlay) {
     const position = document.createElement("span");
     position.className = "ranking-position";
     position.textContent = String(index + 1);
-    const avatar = document.createElement("img");
-    avatar.className = "ranking-avatar";
-    avatar.alt = "";
-    const avatarUrl = String(entry.avatarUrl || "").trim();
-    if (avatarUrl) avatar.src = avatarUrl;
-    else avatar.hidden = true;
-    avatar.addEventListener("error", () => { avatar.hidden = true; });
     const details = document.createElement("span");
     details.className = "ranking-details";
     const name = document.createElement("b");
@@ -40,7 +33,7 @@ function render(overlay) {
     const coins = document.createElement("em");
     coins.textContent = `${numberFormat(entry.coins)} coins`;
     details.append(name, coins);
-    row.append(position, avatar, details);
+    row.append(position, details);
     listElement.append(row);
   });
 }
