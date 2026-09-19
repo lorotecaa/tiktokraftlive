@@ -27,6 +27,8 @@ const soundsDirectory = path.join(directory, "public", "sounds");
 const audioExtensions = new Set([".aac", ".m4a", ".mp3", ".ogg", ".wav", ".webm"]);
 const ttsLanguages = new Set(["es-CO", "es-ES", "en-US", "pt-BR"]);
 const goalTypes = new Set(["likes", "follows", "coins"]);
+const overlayFonts = new Set(["Space Grotesk", "DM Mono", "Press Start 2P"]);
+const overlayEffects = new Set(["none", "shadow", "glow"]);
 let configWriteQueue = Promise.resolve();
 
 const defaultConfig = {
@@ -60,6 +62,7 @@ const defaultConfig = {
     bestGift: null,
     bestStreak: null
   },
+  overlayCustomizations: {},
   goals: [],
   mappings: [
     {
@@ -175,6 +178,42 @@ function normalizeGiftOverlays(raw) {
   };
 }
 
+function normalizeColor(value, fallback) {
+  const color = stringOrEmpty(value);
+  return /^#[0-9a-f]{6}$/i.test(color) ? color : fallback;
+}
+
+function normalizeOverlayCustomization(raw = {}) {
+  const fontFamily = stringOrEmpty(raw.fontFamily);
+  const textEffect = stringOrEmpty(raw.textEffect);
+  const letterSpacing = Number(raw.letterSpacing);
+  return {
+    fontFamily: overlayFonts.has(fontFamily) ? fontFamily : "Space Grotesk",
+    fontSize: Math.max(40, Math.min(Math.round(Number(raw.fontSize) || 75), 150)),
+    lineSpacing: Math.max(30, Math.min(Math.round(Number(raw.lineSpacing) || 55), 100)),
+    letterSpacing: Number.isFinite(letterSpacing) ? Math.max(0, Math.min(Math.round(letterSpacing), 100)) : 50,
+    textColor: normalizeColor(raw.textColor, "#d9d9d9"),
+    valueColor: normalizeColor(raw.valueColor, "#ffd84a"),
+    rankColor: normalizeColor(raw.rankColor, "#d9d9d9"),
+    textEffect: overlayEffects.has(textEffect) ? textEffect : "none",
+    waveAnimation: raw.waveAnimation === true,
+    showBackground: raw.showBackground === true,
+    backgroundColor: stringOrEmpty(raw.backgroundColor).slice(0, 80) || "rgba(33, 33, 33, 0.4)",
+    showRank: raw.showRank !== false,
+    showValue: raw.showValue !== false,
+    alignRight: raw.alignRight === true,
+    showCrown: raw.showCrown !== false
+  };
+}
+
+function normalizeOverlayCustomizations(raw) {
+  if (!raw || typeof raw !== "object" || Array.isArray(raw)) return {};
+  return Object.fromEntries(Object.entries(raw)
+    .filter(([key]) => /^(gift:(best-gift|best-streak)|ranking:top-donors|goal:[a-zA-Z0-9-]{1,80})$/.test(key))
+    .slice(0, 100)
+    .map(([key, value]) => [key, normalizeOverlayCustomization(value)]));
+}
+
 export async function listAvailableSounds() {
   try {
     const entries = await fs.readdir(soundsDirectory, { withFileTypes: true });
@@ -201,6 +240,7 @@ export function sanitizeConfig(raw = {}) {
     },
     tts: normalizeTts(raw.tts),
     giftOverlays: normalizeGiftOverlays(raw.giftOverlays),
+    overlayCustomizations: normalizeOverlayCustomizations(raw.overlayCustomizations),
     goals: normalizedGoals.filter((goal, index) => normalizedGoals.findIndex((item) => item.type === goal.type) === index),
     mappings: mappings.map(normalizeMapping).filter((mapping) => mapping.command)
   };

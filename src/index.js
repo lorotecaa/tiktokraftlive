@@ -63,7 +63,11 @@ function publicState() {
 }
 
 function publicGoal(goal) {
-  return { id: goal.id, type: goal.type, name: goal.name, target: goal.target, current: goal.current, enabled: goal.enabled };
+  return { id: goal.id, type: goal.type, name: goal.name, target: goal.target, current: goal.current, enabled: goal.enabled, customization: overlayCustomization(`goal:${goal.id}`) };
+}
+
+function overlayCustomization(key) {
+  return config.overlayCustomizations[key] || null;
 }
 
 function publicGiftOverlay(kind) {
@@ -73,12 +77,12 @@ function publicGiftOverlay(kind) {
   };
   const definition = definitions[kind];
   if (!definition) return null;
-  return { kind, title: definition.title, record: config.giftOverlays[definition.key] };
+  return { kind, title: definition.title, record: config.giftOverlays[definition.key], customization: overlayCustomization(`gift:${kind}`) };
 }
 
 function publicRankingOverlay(kind) {
   if (kind !== "top-donors") return null;
-  return { kind, title: "Top Donadores", entries: rankingOverlayEngine.entries() };
+  return { kind, title: "Top Donadores", entries: rankingOverlayEngine.entries(), customization: overlayCustomization(`ranking:${kind}`) };
 }
 
 function broadcastState() {
@@ -134,7 +138,7 @@ const giftOverlayEngine = new GiftOverlayEngine({
 });
 
 const rankingOverlayEngine = new RankingOverlayEngine({
-  onUpdate: ({ kind, entries }) => io.emit("ranking-overlay:update", { kind, title: "Top Donadores", entries })
+  onUpdate: ({ kind, entries }) => io.emit("ranking-overlay:update", { kind, title: "Top Donadores", entries, customization: overlayCustomization(`ranking:${kind}`) })
 });
 
 const serverTap = new ServerTapClient({
@@ -253,6 +257,16 @@ io.on("connection", (socket) => {
     await saveLiveStateNow();
     broadcastState();
     return config.giftOverlays;
+  }));
+
+  socket.on("overlay-customization:save", (input, ack) => safeAck(ack, async () => {
+    const key = String(input?.key || "");
+    const normalized = sanitizeConfig({ overlayCustomizations: { [key]: input?.customization } }).overlayCustomizations[key];
+    if (!normalized) throw new Error("El overlay seleccionado no es válido.");
+    config = await saveConfig({ ...config, overlayCustomizations: { ...config.overlayCustomizations, [key]: normalized } });
+    io.emit("overlay-customization:update", { key, customization: normalized });
+    broadcastState();
+    return { key, customization: normalized };
   }));
 
   socket.on("goal:save", (input, ack) => safeAck(ack, async () => {
