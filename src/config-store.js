@@ -187,6 +187,7 @@ function normalizeOverlayCustomization(raw = {}) {
   const fontFamily = stringOrEmpty(raw.fontFamily);
   const textEffect = stringOrEmpty(raw.textEffect);
   const letterSpacing = Number(raw.letterSpacing);
+  const giftImageOpacity = Number(raw.giftImageOpacity);
   return {
     fontFamily: overlayFonts.has(fontFamily) ? fontFamily : "Space Grotesk",
     fontSize: Math.max(40, Math.min(Math.round(Number(raw.fontSize) || 75), 150)),
@@ -202,7 +203,25 @@ function normalizeOverlayCustomization(raw = {}) {
     showRank: raw.showRank !== false,
     showValue: raw.showValue !== false,
     alignRight: raw.alignRight === true,
-    showCrown: raw.showCrown !== false
+    showCrown: raw.showCrown !== false,
+    title: stringOrEmpty(raw.title).slice(0, 80),
+    titleSize: Math.max(12, Math.min(Math.round(Number(raw.titleSize) || 32), 100)),
+    titleColor: normalizeColor(raw.titleColor, "#d9d9d9"),
+    usernameColor: normalizeColor(raw.usernameColor, "#ffffff"),
+    usernameSize: Math.max(12, Math.min(Math.round(Number(raw.usernameSize) || 40), 120)),
+    titleVerticalOffset: Math.max(-200, Math.min(Math.round(Number(raw.titleVerticalOffset) || 0), 200)),
+    giftVerticalOffset: Math.max(-200, Math.min(Math.round(Number(raw.giftVerticalOffset) || 0), 200)),
+    usernameVerticalOffset: Math.max(-200, Math.min(Math.round(Number(raw.usernameVerticalOffset) || 0), 200)),
+    coinsVerticalOffset: Math.max(-200, Math.min(Math.round(Number(raw.coinsVerticalOffset) || 0), 200)),
+    enableFontBorder: raw.enableFontBorder === true,
+    borderColor: normalizeColor(raw.borderColor, "#242424"),
+    giftImageVisible: raw.giftImageVisible !== false,
+    giftImageOpacity: Number.isFinite(giftImageOpacity) ? Math.max(0, Math.min(Math.round(giftImageOpacity), 100)) : 90,
+    titleTextEffect: overlayEffects.has(stringOrEmpty(raw.titleTextEffect)) ? stringOrEmpty(raw.titleTextEffect) : "none",
+    titleWaveAnimation: raw.titleWaveAnimation === true,
+    usernameTextEffect: overlayEffects.has(stringOrEmpty(raw.usernameTextEffect)) ? stringOrEmpty(raw.usernameTextEffect) : "none",
+    usernameWaveAnimation: raw.usernameWaveAnimation === true,
+    coinsAlias: stringOrEmpty(raw.coinsAlias).slice(0, 30) || "coins"
   };
 }
 
