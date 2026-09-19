@@ -71,7 +71,13 @@ function normalizeGift(message) {
     groupId: normalizeText(data.groupId || data.group_id || gift.groupId || gift.group_id, ""),
     messageId: normalizeText(data.msgId || data.msg_id || data.messageId || data.message_id, ""),
     username: normalizeText(user.uniqueId || user.unique_id || user.username || user.userId, "espectador"),
-    nickname: normalizeText(user.nickname || user.displayName || user.display_name || user.uniqueId, "espectador")
+    nickname: normalizeText(user.nickname || user.displayName || user.display_name || user.uniqueId, "espectador"),
+    userAvatarUrl: firstUrl(
+      user.avatarThumb?.urlList?.[0], user.avatar_thumb?.url_list?.[0],
+      user.avatarMedium?.urlList?.[0], user.avatar_medium?.url_list?.[0],
+      user.avatarLarger?.urlList?.[0], user.avatar_larger?.url_list?.[0],
+      user.avatarUrl, user.avatar_url
+    )
   };
 }
 
