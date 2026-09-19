@@ -10,11 +10,16 @@ function numberFormat(value) {
 function render(overlay) {
   if (!overlay || overlay.kind !== kind) return;
   const entries = Array.isArray(overlay.entries) ? overlay.entries : [];
-  widget.hidden = entries.length === 0;
-  if (!entries.length) return;
-
+  widget.hidden = false;
   titleElement.textContent = overlay.title?.toUpperCase() || "TOP DONADORES";
   listElement.replaceChildren();
+  if (!entries.length) {
+    const waiting = document.createElement("li");
+    waiting.className = "ranking-waiting";
+    waiting.textContent = "Esperando regalos durante el LIVE…";
+    listElement.append(waiting);
+    return;
+  }
   entries.forEach((entry, index) => {
     const row = document.createElement("li");
     row.className = `ranking-row rank-${index + 1}`;
@@ -47,5 +52,12 @@ async function loadOverlay() {
   render(overlay);
 }
 
-loadOverlay().catch(() => { widget.hidden = true; });
+loadOverlay().catch(() => {
+  titleElement.textContent = "TOP DONADORES";
+  listElement.replaceChildren();
+  const waiting = document.createElement("li");
+  waiting.className = "ranking-waiting";
+  waiting.textContent = "Esperando conexión al LIVE…";
+  listElement.append(waiting);
+});
 io().on("ranking-overlay:update", render);
