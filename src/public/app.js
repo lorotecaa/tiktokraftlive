@@ -16,6 +16,7 @@ const elements = {
   goalsToggle: $("#goals-toggle"), goalsPanel: $("#goals-panel"), goalCards: [...document.querySelectorAll(".goal-card")],
   rankingsToggle: $("#rankings-toggle"), rankingsPanel: $("#rankings-panel"), rankingOverlayCards: [...document.querySelectorAll(".ranking-overlay-option")],
   giftOverlaysToggle: $("#gift-overlays-toggle"), giftOverlaysPanel: $("#gift-overlays-panel"), giftOverlaysForm: $("#gift-overlays-form"), giftOverlaysResetOnLive: $("#gift-overlays-reset-on-live"), giftOverlaysResetNow: $("#gift-overlays-reset-now"), giftOverlayCards: [...document.querySelectorAll(".gift-overlay-option")],
+  customizationModal: $("#overlay-customization-modal"), customizationForm: $("#overlay-customization-form"), customizationTitle: $("#overlay-customization-title"), customizationFontFamily: $("#customization-font-family"), customizationFontSize: $("#customization-font-size"), customizationLineSpacing: $("#customization-line-spacing"), customizationLetterSpacing: $("#customization-letter-spacing"), customizationTextColor: $("#customization-text-color"), customizationValueColor: $("#customization-value-color"), customizationRankColor: $("#customization-rank-color"), customizationTextEffect: $("#customization-text-effect"), customizationWave: $("#customization-wave"), customizationBackground: $("#customization-background"), customizationBackgroundColor: $("#customization-background-color"), customizationShowRank: $("#customization-show-rank"), customizationShowValue: $("#customization-show-value"), customizationAlignRight: $("#customization-align-right"), customizationCrown: $("#customization-crown"),
   minecraftDetail: $("#minecraft-detail"), minecraftDot: $("#minecraft-dot"),
   tiktokDetail: $("#tiktok-detail"), tiktokDot: $("#tiktok-dot"),
   globalStatus: $("#global-status"),
@@ -27,6 +28,13 @@ const elements = {
 };
 let availableSounds = [];
 const ttsQueue = new window.TtsQueue({ onError: (message) => toast(message, "error") });
+let customizationKey = "";
+const defaultCustomization = {
+  fontFamily: "Space Grotesk", fontSize: 75, lineSpacing: 55, letterSpacing: 50,
+  textColor: "#d9d9d9", valueColor: "#ffd84a", rankColor: "#d9d9d9", textEffect: "none",
+  waveAnimation: false, showBackground: false, backgroundColor: "rgba(33, 33, 33, 0.4)",
+  showRank: true, showValue: true, alignRight: false, showCrown: true
+};
 
 function request(event, payload) {
   return new Promise((resolve, reject) => {
@@ -128,6 +136,10 @@ function renderGoal(goal) {
   const row = card.querySelector(".goal-url-row");
   row.hidden = false;
   card.querySelector(".goal-url").value = goalUrl(goal.id);
+  const customize = card.querySelector(".goal-customize");
+  customize.disabled = false;
+  customize.dataset.overlayKey = `goal:${goal.id}`;
+  customize.dataset.overlayTitle = goal.name;
   const percentage = Math.min(100, Math.round((goal.current / goal.target) * 100));
   card.querySelector(".goal-preview-label").textContent = goal.name;
   card.querySelector(".goal-preview-track span").style.width = `${percentage}%`;
@@ -206,6 +218,61 @@ function renderRankingOverlay(overlay) {
     item.append(name, coins);
     list.append(item);
   });
+}
+
+function customizationFor(key) {
+  return { ...defaultCustomization, ...(appState?.config?.overlayCustomizations?.[key] || {}) };
+}
+
+function openCustomization(button) {
+  const key = button.dataset.overlayKey;
+  if (!key) return;
+  customizationKey = key;
+  const customization = customizationFor(key);
+  elements.customizationTitle.textContent = button.dataset.overlayTitle || "Overlay";
+  elements.customizationFontFamily.value = customization.fontFamily;
+  elements.customizationFontSize.value = customization.fontSize;
+  elements.customizationLineSpacing.value = customization.lineSpacing;
+  elements.customizationLetterSpacing.value = customization.letterSpacing;
+  elements.customizationTextColor.value = customization.textColor;
+  elements.customizationValueColor.value = customization.valueColor;
+  elements.customizationRankColor.value = customization.rankColor;
+  elements.customizationTextEffect.value = customization.textEffect;
+  elements.customizationWave.checked = customization.waveAnimation;
+  elements.customizationBackground.checked = customization.showBackground;
+  elements.customizationBackgroundColor.value = customization.backgroundColor;
+  elements.customizationShowRank.checked = customization.showRank;
+  elements.customizationShowValue.checked = customization.showValue;
+  elements.customizationAlignRight.checked = customization.alignRight;
+  elements.customizationCrown.checked = customization.showCrown;
+  elements.customizationModal.hidden = false;
+  document.body.classList.add("modal-open");
+}
+
+function closeCustomization() {
+  elements.customizationModal.hidden = true;
+  document.body.classList.remove("modal-open");
+  customizationKey = "";
+}
+
+function readCustomization() {
+  return {
+    fontFamily: elements.customizationFontFamily.value,
+    fontSize: Number(elements.customizationFontSize.value),
+    lineSpacing: Number(elements.customizationLineSpacing.value),
+    letterSpacing: Number(elements.customizationLetterSpacing.value),
+    textColor: elements.customizationTextColor.value,
+    valueColor: elements.customizationValueColor.value,
+    rankColor: elements.customizationRankColor.value,
+    textEffect: elements.customizationTextEffect.value,
+    waveAnimation: elements.customizationWave.checked,
+    showBackground: elements.customizationBackground.checked,
+    backgroundColor: elements.customizationBackgroundColor.value.trim(),
+    showRank: elements.customizationShowRank.checked,
+    showValue: elements.customizationShowValue.checked,
+    alignRight: elements.customizationAlignRight.checked,
+    showCrown: elements.customizationCrown.checked
+  };
 }
 
 function renderMappings(mappings) {
@@ -425,6 +492,35 @@ elements.allowedUsers.addEventListener("submit", async (event) => {
   await control(event.submitter, "tts:save", { allowedUsers: allowedUsersSettings() }, "Usuarios permitidos guardados");
 });
 
+document.querySelectorAll(".overlay-customize").forEach((button) => {
+  button.addEventListener("click", () => openCustomization(button));
+});
+elements.customizationModal.querySelectorAll("[data-modal-close]").forEach((button) => {
+  button.addEventListener("click", closeCustomization);
+});
+elements.customizationForm.addEventListener("submit", async (event) => {
+  event.preventDefault();
+  if (!customizationKey) return;
+  const submit = event.submitter;
+  submit.disabled = true;
+  try {
+    const saved = await request("overlay-customization:save", { key: customizationKey, customization: readCustomization() });
+    if (appState?.config) {
+      appState.config.overlayCustomizations ||= {};
+      appState.config.overlayCustomizations[saved.key] = saved.customization;
+    }
+    toast("Personalización guardada", "success");
+    closeCustomization();
+  } catch (error) {
+    toast(error.message, "error");
+  } finally {
+    submit.disabled = false;
+  }
+});
+document.addEventListener("keydown", (event) => {
+  if (event.key === "Escape" && !elements.customizationModal.hidden) closeCustomization();
+});
+
 function toggleAccordion(button, panel) {
   const isOpen = button.getAttribute("aria-expanded") === "true";
   button.setAttribute("aria-expanded", String(!isOpen));
@@ -592,6 +688,11 @@ socket.on("ranking-overlay:update", (overlay) => {
     appState.rankings.topDonors = overlay.entries || [];
   }
   renderRankingOverlay(overlay);
+});
+socket.on("overlay-customization:update", ({ key, customization }) => {
+  if (!appState?.config || !key) return;
+  appState.config.overlayCustomizations ||= {};
+  appState.config.overlayCustomizations[key] = customization;
 });
 socket.on("connect_error", () => toast("Se perdió la conexión con el panel local.", "error"));
 socket.on("mapping:sound", (data) => playSound(data?.audio));
