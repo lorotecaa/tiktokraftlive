@@ -234,8 +234,21 @@ function openCustomization(button) {
   customizationKey = key;
   const customization = customizationFor(key);
   const isGiftOverlay = key.startsWith("gift:");
+  const isBestStreak = key === "gift:best-streak";
   elements.customizationModal.dataset.variant = isGiftOverlay ? "gift" : "default";
-  elements.customizationTitle.textContent = button.dataset.overlayTitle || "Overlay";
+  elements.customizationTitle.textContent = isGiftOverlay ? `Personalizar · ${button.dataset.overlayTitle}` : (button.dataset.overlayTitle || "Overlay");
+  if (isGiftOverlay) {
+    $("#gift-customization-overlay-heading").textContent = `Opciones de ${button.dataset.overlayTitle}`;
+    $("#gift-customization-value-heading").textContent = isBestStreak ? "Racha" : "Coins";
+    $("#customization-value-color-label").textContent = isBestStreak ? "Color de la racha" : "Color de coins";
+    $("#gift-customization-value-offset-label").textContent = isBestStreak ? "Posición vertical de la racha" : "Posición vertical de coins";
+    $("#gift-customization-show-value-label").textContent = isBestStreak ? "Mostrar racha" : "Mostrar coins";
+    $("#customization-font-size-label").textContent = "Escala general";
+    $("#gift-customization-alias-row").hidden = isBestStreak;
+  } else {
+    $("#customization-font-size-label").textContent = "Tamaño de fuente";
+    $("#gift-customization-alias-row").hidden = false;
+  }
   elements.customizationFontFamily.value = customization.fontFamily;
   elements.customizationFontSize.value = customization.fontSize;
   elements.customizationLineSpacing.value = customization.lineSpacing;

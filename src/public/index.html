@@ -282,42 +282,50 @@
         <header><h2>Configuraciones de Superposición</h2><button class="modal-close" type="button" data-modal-close aria-label="Cerrar">×</button></header>
         <p class="overlay-modal-title" id="overlay-customization-title"></p>
         <div class="overlay-modal-fields">
+          <div class="gift-customization-heading" data-gift-only id="gift-customization-overlay-heading"></div>
+          <div class="gift-customization-heading" data-gift-only>Tipografía general</div>
           <label>Fuente<select id="customization-font-family"><option>Space Grotesk</option><option>DM Mono</option><option>Press Start 2P</option></select></label>
-          <label>Tamaño de fuente<input id="customization-font-size" type="number" min="40" max="150" /></label>
+          <label><span id="customization-font-size-label">Tamaño de fuente</span><input id="customization-font-size" type="number" min="40" max="150" /></label>
           <label>Espaciado de línea<input id="customization-line-spacing" type="number" min="30" max="100" /></label>
           <label>Espaciado de letras<input id="customization-letter-spacing" type="number" min="0" max="100" /></label>
-          <label>Color de fuente<input id="customization-text-color" type="color" /></label>
-          <label>Color de valor / coins<input id="customization-value-color" type="color" /></label>
-          <label>Color de rango<input id="customization-rank-color" type="color" /></label>
-          <label>Efecto de texto<select id="customization-text-effect"><option value="none">Ninguno</option><option value="shadow">Sombra</option><option value="glow">Brillo</option></select></label>
-          <label class="modal-check"><input id="customization-wave" type="checkbox" /> Animación de onda</label>
-          <label class="modal-check"><input id="customization-background" type="checkbox" /> Mostrar sombra de fondo</label>
+          <label data-gift-hide>Color de fuente<input id="customization-text-color" type="color" /></label>
+          <label data-gift-hide>Color de rango<input id="customization-rank-color" type="color" /></label>
+          <label data-gift-hide>Efecto de texto<select id="customization-text-effect"><option value="none">Ninguno</option><option value="shadow">Sombra</option><option value="glow">Brillo</option></select></label>
+          <label class="modal-check" data-gift-hide><input id="customization-wave" type="checkbox" /> Animación de onda</label>
+          <div class="gift-customization-heading" data-gift-only>Fondo y alineación</div>
+          <label class="modal-check"><input id="customization-background" type="checkbox" /> Mostrar fondo</label>
           <label>Color de fondo<input id="customization-background-color" type="text" maxlength="80" placeholder="rgba(33, 33, 33, 0.4)" /></label>
-          <label class="modal-check"><input id="customization-show-rank" type="checkbox" /> Mostrar rango</label>
-          <label class="modal-check"><input id="customization-show-value" type="checkbox" /> Mostrar valor</label>
-          <label class="modal-check"><input id="customization-align-right" type="checkbox" /> Alinear a la derecha</label>
-          <label class="modal-check"><input id="customization-crown" type="checkbox" /> Mostrar corona al Top 1</label>
-          <div class="gift-customization-heading" data-gift-only>Mejor Regalo / Mejor Racha</div>
-          <label data-gift-only>Título<input id="gift-customization-title" type="text" maxlength="80" /></label>
+          <label class="modal-check" data-gift-hide><input id="customization-show-rank" type="checkbox" /> Mostrar rango</label>
+          <label class="modal-check" data-gift-hide><input id="customization-show-value" type="checkbox" /> Mostrar valor</label>
+          <label class="modal-check"><input id="customization-align-right" type="checkbox" /> Alinear contenido a la derecha</label>
+          <label class="modal-check" data-gift-hide><input id="customization-crown" type="checkbox" /> Mostrar corona al Top 1</label>
+          <div class="gift-customization-heading" data-gift-only>Título del overlay</div>
+          <label data-gift-only>Texto del título<input id="gift-customization-title" type="text" maxlength="80" /></label>
           <label data-gift-only>Tamaño del título<input id="gift-customization-title-size" type="number" min="12" max="100" /></label>
           <label data-gift-only>Color del título<input id="gift-customization-title-color" type="color" /></label>
+          <div class="gift-customization-heading" data-gift-only>Nombre del usuario</div>
           <label data-gift-only>Color del nombre<input id="gift-customization-username-color" type="color" /></label>
           <label data-gift-only>Tamaño del nombre<input id="gift-customization-username-size" type="number" min="12" max="120" /></label>
+          <div class="gift-customization-heading" data-gift-only>Posiciones verticales</div>
           <label data-gift-only>Posición vertical del título<input id="gift-customization-title-offset" type="number" min="-200" max="200" /></label>
-          <label data-gift-only>Posición vertical del regalo<input id="gift-customization-image-offset" type="number" min="-200" max="200" /></label>
+          <label data-gift-only>Posición vertical de la imagen del regalo<input id="gift-customization-image-offset" type="number" min="-200" max="200" /></label>
           <label data-gift-only>Posición vertical del nombre<input id="gift-customization-username-offset" type="number" min="-200" max="200" /></label>
-          <label data-gift-only>Posición vertical de coins / racha<input id="gift-customization-coins-offset" type="number" min="-200" max="200" /></label>
+          <div class="gift-customization-heading" data-gift-only id="gift-customization-value-heading"></div>
+          <label><span id="customization-value-color-label">Color de valor</span><input id="customization-value-color" type="color" /></label>
+          <label data-gift-only><span id="gift-customization-value-offset-label">Posición vertical del valor</span><input id="gift-customization-coins-offset" type="number" min="-200" max="200" /></label>
+          <div class="gift-customization-heading" data-gift-only>Borde de texto</div>
           <label class="modal-check" data-gift-only><input id="gift-customization-border" type="checkbox" /> Activar borde de texto</label>
           <label data-gift-only>Color del borde<input id="gift-customization-border-color" type="color" /></label>
+          <div class="gift-customization-heading" data-gift-only>Imagen del regalo</div>
           <label class="modal-check" data-gift-only><input id="gift-customization-image-visible" type="checkbox" /> Mostrar imagen del regalo</label>
           <label data-gift-only>Opacidad de la imagen<input id="gift-customization-image-opacity" type="number" min="0" max="100" /></label>
-          <div class="gift-customization-heading" data-gift-only>Efectos y animaciones</div>
+          <div class="gift-customization-heading" data-gift-only>Efectos y animaciones de texto</div>
           <label data-gift-only>Efecto del título<select id="gift-customization-title-effect"><option value="none">Ninguno</option><option value="shadow">Sombra</option><option value="glow">Brillo</option></select></label>
           <label class="modal-check" data-gift-only><input id="gift-customization-title-wave" type="checkbox" /> Animación de onda del título</label>
           <label data-gift-only>Efecto del nombre<select id="gift-customization-username-effect"><option value="none">Ninguno</option><option value="shadow">Sombra</option><option value="glow">Brillo</option></select></label>
           <label class="modal-check" data-gift-only><input id="gift-customization-username-wave" type="checkbox" /> Animación de onda del nombre</label>
-          <label class="modal-check" data-gift-only><input id="gift-customization-show-coins" type="checkbox" /> Mostrar coins / racha</label>
-          <label data-gift-only>Alias de coins<input id="gift-customization-coins-alias" type="text" maxlength="30" /></label>
+          <label class="modal-check" data-gift-only><input id="gift-customization-show-coins" type="checkbox" /><span id="gift-customization-show-value-label">Mostrar valor</span></label>
+          <label data-gift-only id="gift-customization-alias-row">Texto después de coins<input id="gift-customization-coins-alias" type="text" maxlength="30" /></label>
         </div>
         <footer><button class="button text" type="button" data-modal-close>Cancelar</button><button class="button primary" type="submit">Guardar personalización</button></footer>
       </form>
