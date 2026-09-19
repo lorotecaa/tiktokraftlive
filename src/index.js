@@ -9,6 +9,7 @@ import { listAvailableSounds, loadConfig, publicConfig, saveConfig, sanitizeConf
 import { RuleEngine } from "./services/rule-engine.js";
 import { GoalEngine } from "./services/goal-engine.js";
 import { GiftOverlayEngine } from "./services/gift-overlay-engine.js";
+import { RankingOverlayEngine } from "./services/ranking-overlay-engine.js";
 import { ServerTapClient } from "./services/servertap.js";
 import { TikTokClient, isAllowedTtsUser } from "./services/tiktok.js";
 
@@ -29,6 +30,7 @@ let liveStateSavePromise = Promise.resolve();
 const app = express();
 app.get("/widget/goal/:id", (_request, response) => response.sendFile(path.join(__dirname, "public", "goal-widget.html")));
 app.get("/widget/gift/:kind", (_request, response) => response.sendFile(path.join(__dirname, "public", "gift-widget.html")));
+app.get("/widget/ranking/top-donors", (_request, response) => response.sendFile(path.join(__dirname, "public", "ranking-widget.html")));
 app.get("/api/health", (_request, response) => response.json({ ok: true, state: publicState() }));
 app.get("/api/goals/:id", (request, response) => {
   const goal = config.goals.find((item) => item.id === request.params.id);
@@ -37,6 +39,11 @@ app.get("/api/goals/:id", (request, response) => {
 });
 app.get("/api/gift-overlays/:kind", (request, response) => {
   const overlay = publicGiftOverlay(request.params.kind);
+  if (!overlay) return response.status(404).json({ error: "No existe ese overlay." });
+  return response.json({ overlay });
+});
+app.get("/api/ranking-overlays/:kind", (request, response) => {
+  const overlay = publicRankingOverlay(request.params.kind);
   if (!overlay) return response.status(404).json({ error: "No existe ese overlay." });
   return response.json({ overlay });
 });
@@ -52,7 +59,7 @@ const server = http.createServer(app);
 const io = new Server(server, { serveClient: true });
 
 function publicState() {
-  return { ...state, config: publicConfig(config) };
+  return { ...state, config: publicConfig(config), rankings: { topDonors: rankingOverlayEngine.entries() } };
 }
 
 function publicGoal(goal) {
@@ -67,6 +74,11 @@ function publicGiftOverlay(kind) {
   const definition = definitions[kind];
   if (!definition) return null;
   return { kind, title: definition.title, record: config.giftOverlays[definition.key] };
+}
+
+function publicRankingOverlay(kind) {
+  if (kind !== "top-donors") return null;
+  return { kind, title: "Top Donadores", entries: rankingOverlayEngine.entries() };
 }
 
 function broadcastState() {
@@ -121,6 +133,10 @@ const giftOverlayEngine = new GiftOverlayEngine({
   onUpdate: ({ kind, record }) => io.emit("gift-overlay:update", { ...publicGiftOverlay(kind), record })
 });
 
+const rankingOverlayEngine = new RankingOverlayEngine({
+  onUpdate: ({ kind, entries }) => io.emit("ranking-overlay:update", { kind, title: "Top Donadores", entries })
+});
+
 const serverTap = new ServerTapClient({
   commandsPerSecond,
   onState: (next) => {
@@ -141,11 +157,13 @@ const ruleEngine = new RuleEngine({
 
 const tiktok = new TikTokClient({
   onState: (next) => {
+    if (next.status === "disconnected") rankingOverlayEngine.reset();
     state.tiktok = next;
     broadcastState();
   },
   onGift: (event) => {
     if (giftOverlayEngine.process(event).length) queueLiveStateSave();
+    rankingOverlayEngine.process(event);
     addActivity({ type: "gift", event, message: `${event.nickname} envió ${event.giftName}` });
 
     try {
@@ -277,6 +295,7 @@ io.on("connection", (socket) => {
   socket.on("tiktok:disconnect", (_input, ack) => safeAck(ack, async () => {
     tiktok.disconnect();
     giftOverlayEngine.reset();
+    rankingOverlayEngine.reset();
     await saveLiveStateNow();
     broadcastState();
     return config.giftOverlays;
