@@ -1,4 +1,4 @@
-const socket = io({ auth: { token: window.TikTokraftAuth?.accessToken || "" } });
+const socket = io({ autoConnect: false, auth: { token: window.TikTokraftAuth?.accessToken || "" } });
 let appState = null;
 let hiddenActivity = false;
 let userPointsSearch = "";
@@ -909,3 +909,4 @@ socket.on("connect_error", async () => {
 });
 socket.on("mapping:sound", (data) => playSound(data?.audio));
 loadSounds();
+socket.connect();
