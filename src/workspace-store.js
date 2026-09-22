@@ -47,6 +47,11 @@ async function restoreLegacyMappings(ownerId, row) {
   return { ...row, config };
 }
 
+async function workspaceByOwnerId(ownerId) {
+  const response = await request(`tiktokraft_workspaces?owner_id=eq.${encodeURIComponent(ownerId)}&select=owner_id,config,overlay_token&limit=1`, { headers: headers() });
+  return (await response.json())[0] || null;
+}
+
 export async function claimWorkspace(ownerId) {
   const response = await request("rpc/tiktokraft_claim_workspace", {
     method: "POST",
@@ -73,6 +78,14 @@ export async function claimWorkspace(ownerId) {
     row = await restoreLegacyMappings(ownerId, row);
   } catch (error) {
     console.warn(`No se pudo comprobar la recuperación de mappings heredados: ${error.message}`);
+  }
+  // La tabla es la fuente definitiva. No dependemos del objeto devuelto por
+  // la RPC, que puede corresponder a una versión anterior de la fila justo
+  // después de una migración o una reparación de compatibilidad.
+  try {
+    row = (await workspaceByOwnerId(ownerId)) || row;
+  } catch (error) {
+    console.warn(`No se pudo recargar el espacio de trabajo persistido: ${error.message}`);
   }
   return { ownerId: row.owner_id, config: sanitizeConfig(row.config), overlayToken: row.overlay_token };
 }
