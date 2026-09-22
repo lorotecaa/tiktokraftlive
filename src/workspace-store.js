@@ -24,8 +24,15 @@ export async function claimWorkspace(ownerId) {
     headers: headers({ "Content-Type": "application/json", "Content-Profile": "public" }),
     body: JSON.stringify({ p_owner_id: ownerId, p_default_config: sanitizeConfig({}), p_overlay_token: `${randomUUID()}${randomUUID()}`.replace(/-/g, "") })
   });
-  const row = (await response.json())[0];
+  let row = (await response.json())[0];
   if (!row?.owner_id) throw new Error("Supabase no pudo crear el espacio de trabajo.");
+  const repaired = await request("rpc/tiktokraft_reclaim_legacy_mappings", {
+    method: "POST",
+    headers: headers({ "Content-Type": "application/json", "Content-Profile": "public" }),
+    body: JSON.stringify({ p_owner_id: ownerId })
+  });
+  const repairedConfig = await repaired.json();
+  if (repairedConfig && typeof repairedConfig === "object") row = { ...row, config: repairedConfig };
   return { ownerId: row.owner_id, config: sanitizeConfig(row.config), overlayToken: row.overlay_token };
 }
 
