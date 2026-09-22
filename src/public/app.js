@@ -17,7 +17,7 @@ const elements = {
   allowedUsers: $("#allowed-users-form"), allowAllUsers: $("#tts-allow-all-users"), allowFollowers: $("#tts-allow-followers"), allowSubscribers: $("#tts-allow-subscribers"), allowModerators: $("#tts-allow-moderators"), allowTeamMembers: $("#tts-allow-team-members"), teamMembersMinLevel: $("#tts-team-members-min-level"), allowTopGifters: $("#tts-allow-top-gifters"), topGiftersTop: $("#tts-top-gifters-top"), allowList: $("#tts-allow-list"), manageAllowedUsers: $("#manage-allowed-users"), allowedUsersListEditor: $("#allowed-users-list-editor"), allowedUsernames: $("#tts-allowed-usernames"),
   goalsToggle: $("#goals-toggle"), goalsPanel: $("#goals-panel"), goalCards: [...document.querySelectorAll(".goal-card")],
   rankingsToggle: $("#rankings-toggle"), rankingsPanel: $("#rankings-panel"), rankingOverlayCards: [...document.querySelectorAll(".ranking-overlay-option")],
-  userPointsToggle: $("#user-points-toggle"), userPointsPanel: $("#user-points-panel"), userPointsSearch: $("#user-points-search"), userPointsList: $("#user-points-list"), userPointsEmpty: $("#user-points-empty"), userPointsStatus: $("#user-points-status"), userPointsUrl: $("#user-points-overlay-url"), userPointsCopy: $("#user-points-overlay-copy"), userPointsPreview: $("#user-points-overlay-preview"), userPointsLimit: $("#user-points-overlay-limit"), userPointsLimitForm: $("#user-points-overlay-form"),
+  userPointsToggle: $("#user-points-toggle"), userPointsPanel: $("#user-points-panel"), userPointsSearch: $("#user-points-search"), userPointsList: $("#user-points-list"), userPointsEmpty: $("#user-points-empty"), userPointsStatus: $("#user-points-status"), userPointsAdd: $("#user-points-add"), userPointsUrl: $("#user-points-overlay-url"), userPointsCopy: $("#user-points-overlay-copy"), userPointsPreview: $("#user-points-overlay-preview"), userPointsLimit: $("#user-points-overlay-limit"), userPointsLimitForm: $("#user-points-overlay-form"), transactionModal: $("#user-points-transaction-modal"), transactionForm: $("#user-points-transaction-form"), transactionUser: $("#user-points-transaction-user"), transactionUsers: $("#user-points-known-users"), transactionCoins: $("#user-points-transaction-coins"), transactionDescription: $("#user-points-transaction-description"),
   giftOverlaysToggle: $("#gift-overlays-toggle"), giftOverlaysPanel: $("#gift-overlays-panel"), giftOverlaysForm: $("#gift-overlays-form"), giftOverlaysResetOnLive: $("#gift-overlays-reset-on-live"), giftOverlaysResetNow: $("#gift-overlays-reset-now"), giftOverlayCards: [...document.querySelectorAll(".gift-overlay-option")],
   customizationModal: $("#overlay-customization-modal"), customizationForm: $("#overlay-customization-form"), customizationTitle: $("#overlay-customization-title"), customizationFontFamily: $("#customization-font-family"), customizationFontSize: $("#customization-font-size"), customizationLineSpacing: $("#customization-line-spacing"), customizationLetterSpacing: $("#customization-letter-spacing"), customizationTextColor: $("#customization-text-color"), customizationValueColor: $("#customization-value-color"), customizationRankColor: $("#customization-rank-color"), customizationTextEffect: $("#customization-text-effect"), customizationWave: $("#customization-wave"), customizationBackground: $("#customization-background"), customizationBackgroundColor: $("#customization-background-color"), customizationShowRank: $("#customization-show-rank"), customizationShowValue: $("#customization-show-value"), customizationAlignRight: $("#customization-align-right"), customizationCrown: $("#customization-crown"), userPointsCustomizationLimit: $("#user-points-customization-limit"), giftCustomizationTitle: $("#gift-customization-title"), giftCustomizationTitleSize: $("#gift-customization-title-size"), giftCustomizationTitleColor: $("#gift-customization-title-color"), giftCustomizationUsernameColor: $("#gift-customization-username-color"), giftCustomizationUsernameSize: $("#gift-customization-username-size"), giftCustomizationTitleOffset: $("#gift-customization-title-offset"), giftCustomizationImageOffset: $("#gift-customization-image-offset"), giftCustomizationUsernameOffset: $("#gift-customization-username-offset"), giftCustomizationCoinsOffset: $("#gift-customization-coins-offset"), giftCustomizationBorder: $("#gift-customization-border"), giftCustomizationBorderColor: $("#gift-customization-border-color"), giftCustomizationImageVisible: $("#gift-customization-image-visible"), giftCustomizationImageOpacity: $("#gift-customization-image-opacity"), giftCustomizationTitleEffect: $("#gift-customization-title-effect"), giftCustomizationTitleWave: $("#gift-customization-title-wave"), giftCustomizationUsernameEffect: $("#gift-customization-username-effect"), giftCustomizationUsernameWave: $("#gift-customization-username-wave"), giftCustomizationShowCoins: $("#gift-customization-show-coins"), giftCustomizationCoinsAlias: $("#gift-customization-coins-alias"),
   minecraftDetail: $("#minecraft-detail"), minecraftDot: $("#minecraft-dot"),
@@ -240,6 +240,8 @@ function renderUserPoints(entries, configured = true) {
     ? `${numberFormat(points.length)} usuario${points.length === 1 ? "" : "s"} cargado${points.length === 1 ? "" : "s"}.`
     : "Configura Supabase para guardar el historial permanentemente.";
   elements.userPointsEmpty.hidden = points.length > 0;
+  elements.userPointsAdd.disabled = !configured;
+  elements.transactionUsers.replaceChildren();
   for (const entry of points) {
     const row = document.createElement("li");
     const name = document.createElement("strong");
@@ -253,9 +255,25 @@ function renderUserPoints(entries, configured = true) {
     coins.textContent = `${numberFormat(entry.coins)} coins`;
     row.append(user, coins);
     elements.userPointsList.append(row);
+    const option = document.createElement("option");
+    option.value = entry.username;
+    option.label = entry.nickname || entry.username;
+    elements.transactionUsers.append(option);
   }
   elements.userPointsUrl.value = userPointsOverlayUrl();
   elements.userPointsLimit.value = String(customizationFor("user-points:historical").itemLimit);
+}
+
+function openTransactionModal() {
+  elements.transactionForm.reset();
+  elements.transactionModal.hidden = false;
+  document.body.classList.add("modal-open");
+  elements.transactionUser.focus();
+}
+
+function closeTransactionModal() {
+  elements.transactionModal.hidden = true;
+  document.body.classList.remove("modal-open");
 }
 
 async function loadUserPoints(query = "") {
@@ -622,7 +640,9 @@ elements.customizationForm.addEventListener("submit", async (event) => {
   }
 });
 document.addEventListener("keydown", (event) => {
-  if (event.key === "Escape" && !elements.customizationModal.hidden) closeCustomization();
+  if (event.key !== "Escape") return;
+  if (!elements.transactionModal.hidden) closeTransactionModal();
+  else if (!elements.customizationModal.hidden) closeCustomization();
 });
 
 function toggleAccordion(button, panel) {
@@ -651,6 +671,29 @@ elements.userPointsSearch.addEventListener("input", () => {
   userPointsSearch = elements.userPointsSearch.value.trim();
   clearTimeout(userPointsSearchTimer);
   userPointsSearchTimer = setTimeout(() => loadUserPoints(userPointsSearch), 220);
+});
+elements.userPointsAdd.addEventListener("click", openTransactionModal);
+elements.transactionModal.querySelectorAll("[data-transaction-modal-close]").forEach((button) => {
+  button.addEventListener("click", closeTransactionModal);
+});
+elements.transactionForm.addEventListener("submit", async (event) => {
+  event.preventDefault();
+  const submit = event.submitter;
+  submit.disabled = true;
+  try {
+    const entry = await request("user-points:transaction", {
+      username: elements.transactionUser.value.trim(),
+      coins: Number(elements.transactionCoins.value),
+      description: elements.transactionDescription.value.trim()
+    });
+    toast(`Transacción guardada para ${entry.nickname || entry.username}`, "success");
+    closeTransactionModal();
+    if (userPointsSearch) loadUserPoints(userPointsSearch);
+  } catch (error) {
+    toast(error.message, "error");
+  } finally {
+    submit.disabled = false;
+  }
 });
 elements.userPointsCopy.addEventListener("click", async () => {
   try {

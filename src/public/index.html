@@ -128,7 +128,7 @@
         <div class="goals-panel user-points-panel" id="user-points-panel" hidden>
           <div class="user-points-heading"><h2>Usuario y Puntos</h2><p>Historial permanente de quienes han aportado coins en todos tus LIVE.</p></div>
           <div class="user-points-card">
-            <div class="user-points-toolbar"><label class="user-points-search-label"><span aria-hidden="true">⌕</span><input id="user-points-search" type="search" maxlength="80" placeholder="Buscar usuario" /></label><small id="user-points-status"></small></div>
+            <div class="user-points-toolbar"><label class="user-points-search-label"><span aria-hidden="true">⌕</span><input id="user-points-search" type="search" maxlength="80" placeholder="Buscar usuario" /></label><small id="user-points-status"></small><button class="button text user-points-add" id="user-points-add" type="button">Agregar Transacción</button></div>
             <div class="user-points-table-wrap"><div class="user-points-table-heading"><span>Usuario</span><span>Total de monedas</span></div><ol class="user-points-list" id="user-points-list"></ol><p class="empty-state" id="user-points-empty">Aún no hay usuarios con regalos registrados.</p></div>
             <article class="user-points-overlay-option">
               <h3>Ranking histórico</h3>
@@ -293,6 +293,20 @@
     </main>
 
     <div class="toast-stack" id="toasts" aria-live="polite"></div>
+    <div class="transaction-modal" id="user-points-transaction-modal" hidden>
+      <div class="transaction-modal-backdrop" data-transaction-modal-close></div>
+      <form class="transaction-modal-dialog" id="user-points-transaction-form">
+        <header><h2>Agregar Transacción</h2><button class="modal-close" type="button" data-transaction-modal-close aria-label="Cerrar">×</button></header>
+        <p>Registra puntos manualmente. Puedes usar una cantidad negativa para retirar puntos.</p>
+        <div class="transaction-modal-fields">
+          <label>Usuario<input id="user-points-transaction-user" list="user-points-known-users" maxlength="80" required placeholder="Selecciona o escribe un usuario" autocomplete="off" /></label>
+          <datalist id="user-points-known-users"></datalist>
+          <label>Monedas / puntos<input id="user-points-transaction-coins" type="number" min="-1000000000" max="1000000000" step="1" required placeholder="0" /></label>
+          <label>Descripción <input id="user-points-transaction-description" type="text" maxlength="280" placeholder="Opcional" /></label>
+        </div>
+        <footer><button class="button text" type="button" data-transaction-modal-close>Cancelar</button><button class="button primary" type="submit">Guardar transacción</button></footer>
+      </form>
+    </div>
     <div class="overlay-modal" id="overlay-customization-modal" hidden>
       <div class="overlay-modal-backdrop" data-modal-close></div>
       <form class="overlay-modal-dialog" id="overlay-customization-form">
