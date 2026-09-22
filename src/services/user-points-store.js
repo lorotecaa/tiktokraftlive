@@ -66,3 +66,24 @@ export async function addUserPoints(gift) {
   const rows = await response.json();
   return rows[0] ? normalizeEntry(rows[0]) : null;
 }
+
+export async function addManualUserPoints(input = {}) {
+  if (!userPointsStoreConfigured) throw new Error("Configura Supabase para guardar transacciones manuales.");
+  const username = safeIdentity(input.username);
+  const coins = Math.trunc(Number(input.coins));
+  if (!username) throw new Error("Indica un usuario para la transacción.");
+  if (!Number.isFinite(coins) || !coins) throw new Error("Indica una cantidad de monedas distinta de cero.");
+  if (Math.abs(coins) > 1_000_000_000) throw new Error("La cantidad de monedas es demasiado grande.");
+  const response = await request(`${supabaseUrl}/rest/v1/rpc/tiktokraft_add_manual_user_points`, {
+    method: "POST",
+    headers: headers({ "Content-Type": "application/json", "Content-Profile": "public" }),
+    body: JSON.stringify({
+      p_username: username,
+      p_nickname: String(input.nickname || input.username || username).trim().slice(0, 80),
+      p_coins: coins,
+      p_description: String(input.description || "").trim().slice(0, 280)
+    })
+  });
+  const rows = await response.json();
+  return rows[0] ? normalizeEntry(rows[0]) : null;
+}

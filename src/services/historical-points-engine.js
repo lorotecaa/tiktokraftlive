@@ -3,9 +3,10 @@ function rank(entries) {
 }
 
 export class HistoricalPointsEngine {
-  constructor({ list, add, onUpdate, onError }) {
+  constructor({ list, add, addManual, onUpdate, onError }) {
     this.list = list;
     this.add = add;
+    this.addManual = addManual;
     this.onUpdate = onUpdate;
     this.onError = onError;
     this.entriesByUsername = new Map();
@@ -25,6 +26,19 @@ export class HistoricalPointsEngine {
 
   async flush() {
     await this.writeQueue;
+  }
+
+  addTransaction(transaction) {
+    if (typeof this.addManual !== "function") throw new Error("Las transacciones manuales no están configuradas.");
+    const write = this.writeQueue.then(async () => {
+      const saved = await this.addManual(transaction);
+      if (!saved) return null;
+      this.entriesByUsername.set(saved.username, saved);
+      this.onUpdate(this.entries());
+      return saved;
+    });
+    this.writeQueue = write.catch((error) => this.onError(error));
+    return write;
   }
 
   process(gift) {
