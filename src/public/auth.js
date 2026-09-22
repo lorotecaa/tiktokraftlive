@@ -1,7 +1,21 @@
 (() => {
   const storageKey = "tiktokraft-session";
   const saved = JSON.parse(localStorage.getItem(storageKey) || "null");
-  window.TikTokraftAuth = { accessToken: saved?.access_token || "" };
+  window.TikTokraftAuth = {
+    accessToken: saved?.access_token || "",
+    refreshToken: saved?.refresh_token || "",
+    async refresh() {
+      if (!this.refreshToken) return false;
+      const response = await fetch("/api/auth/refresh", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ refresh_token: this.refreshToken }) });
+      if (!response.ok) return false;
+      const session = await response.json();
+      if (!session.access_token) return false;
+      this.accessToken = session.access_token;
+      this.refreshToken = session.refresh_token || this.refreshToken;
+      localStorage.setItem(storageKey, JSON.stringify(session));
+      return true;
+    }
+  };
   if (window.TikTokraftAuth.accessToken) return;
   const modal = document.createElement("div");
   modal.className = "auth-gate";

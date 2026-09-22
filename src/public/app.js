@@ -889,6 +889,17 @@ socket.on("overlay-customization:update", ({ key, customization }) => {
     elements.userPointsLimit.value = String(customization.itemLimit);
   }
 });
-socket.on("connect_error", () => toast("Se perdió la conexión con el panel local.", "error"));
+let refreshingPanelSession = false;
+socket.on("connect_error", async () => {
+  if (!refreshingPanelSession && await (async () => {
+    refreshingPanelSession = true;
+    try { return await window.TikTokraftAuth?.refresh?.(); } finally { refreshingPanelSession = false; }
+  })()) {
+    socket.auth.token = window.TikTokraftAuth.accessToken;
+    socket.connect();
+    return;
+  }
+  toast("Se perdió la conexión con el panel local.", "error");
+});
 socket.on("mapping:sound", (data) => playSound(data?.audio));
 loadSounds();
