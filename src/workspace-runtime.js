@@ -52,6 +52,10 @@ export class WorkspaceRuntime {
     return this;
   }
   room() { return `workspace:${this.ownerId}`; }
+  reloadConfig({ config, overlayToken }) {
+    this.config = config;
+    this.overlayToken = overlayToken;
+  }
   emit(event, payload) { this.io.to(this.room()).emit(event, payload); }
   activity(entry) { const item = { id: ++this.sequence, at: Date.now(), ...entry }; this.state.activity.unshift(item); this.state.activity = this.state.activity.slice(0, 100); this.emit("activity", item); }
   error(message) { console.error(`[${this.ownerId}] ${message}`); this.activity({ type: "error", message }); }

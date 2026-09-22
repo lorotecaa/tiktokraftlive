@@ -25,7 +25,14 @@ async function workspaceFor(id) {
     const record = await claimWorkspace(id);
     return new WorkspaceRuntime({ ...record, saveConfig: saveWorkspaceConfig, io, commandsPerSecond: commandRate, listSounds: listAvailableSounds }).initialize();
   })());
-  try { return await workspaces.get(id); } catch (error) { workspaces.delete(id); throw error; }
+  try {
+    const workspace = await workspaces.get(id);
+    // Si la configuración fue recuperada o corregida mientras este proceso
+    // seguía activo, una nueva sesión debe recibir la versión persistida.
+    const record = await claimWorkspace(id);
+    workspace.reloadConfig(record);
+    return workspace;
+  } catch (error) { workspaces.delete(id); throw error; }
 }
 async function identity(token) { const user = await userFromAccessToken(token); return { user, workspace: await workspaceFor(user.id) }; }
 function tokenFrom(request) { return String(request.headers.authorization || "").replace(/^Bearer\s+/i, ""); }
