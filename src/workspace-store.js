@@ -53,6 +53,19 @@ async function workspaceByOwnerId(ownerId) {
 }
 
 export async function claimWorkspace(ownerId) {
+  // Un workspace existente ya es la fuente de verdad. Evitar el RPC aquí
+  // impide que una función antigua o una caché de PostgREST reemplace la
+  // configuración persistida al abrir una sesión.
+  let existing = await workspaceByOwnerId(ownerId);
+  if (existing) {
+    try {
+      existing = await restoreLegacyMappings(ownerId, existing);
+    } catch (error) {
+      console.warn(`No se pudo comprobar la recuperación de mappings heredados: ${error.message}`);
+    }
+    return { ownerId: existing.owner_id, config: sanitizeConfig(existing.config), overlayToken: existing.overlay_token };
+  }
+
   const response = await request("rpc/tiktokraft_claim_workspace", {
     method: "POST",
     headers: headers({ "Content-Type": "application/json", "Content-Profile": "public" }),
