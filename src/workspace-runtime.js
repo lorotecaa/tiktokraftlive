@@ -37,6 +37,7 @@ export class WorkspaceRuntime {
     this.tiktok = new TikTokClient({
       onState: (next) => { if (next.status === "disconnected") this.rankingEngine.reset(); this.state.tiktok = next; this.broadcast(); },
       onGift: (event) => { if (this.giftEngine.process(event).length) this.queueSave(); this.rankingEngine.process(event); this.pointsEngine.process(event); this.activity({ type: "gift", event, message: `${event.nickname} envió ${event.giftName}` }); try { this.rules.process(event, this.config.mappings); } catch (error) { this.error(error.message); } },
+      onGiftProgress: (event) => { if (this.giftEngine.processStreak(event).length) this.queueSave(); },
       onMetric: (metric, amount) => { if (this.goalEngine.process(metric, amount).length) this.queueSave(); },
       onComment: (event) => { if (this.config.tts.enabled) this.emit("tiktok:comment", event); }, shouldReadComment: (event) => this.config.tts.enabled && isAllowedTtsUser(event, this.config.tts.allowedUsers), onError: (message) => this.error(message)
     });
