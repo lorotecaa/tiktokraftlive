@@ -29,6 +29,10 @@ export function signIn(email, password) {
   return authRequest("token?grant_type=password", { method: "POST", headers: headers(), body: JSON.stringify({ email, password }) });
 }
 
+export function refreshSession(refreshToken) {
+  return authRequest("token?grant_type=refresh_token", { method: "POST", headers: headers(), body: JSON.stringify({ refresh_token: refreshToken }) });
+}
+
 export async function userFromAccessToken(token) {
   if (!token) throw new Error("Inicia sesión para continuar.");
   const user = await authRequest("user", { headers: headers({ Authorization: `Bearer ${token}` }) });

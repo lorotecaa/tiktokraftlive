@@ -44,9 +44,7 @@ export async function claimWorkspace(ownerId) {
     const repairedConfig = await repaired.json();
     if (repairedConfig && typeof repairedConfig === "object") row = { ...row, config: repairedConfig };
   } catch (error) {
-    const missingMigration = error.status === 404 && String(error.detail || "").includes("tiktokraft_reclaim_legacy_mappings");
-    if (!missingMigration) throw error;
-    console.warn("La reparación de mappings aún no está disponible en Supabase; se abrirá el workspace sin bloquear la sesión.");
+    console.warn(`No se pudo ejecutar la reparación opcional de mappings: ${error.message}`);
   }
   return { ownerId: row.owner_id, config: sanitizeConfig(row.config), overlayToken: row.overlay_token };
 }

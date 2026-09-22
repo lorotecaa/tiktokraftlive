@@ -41,7 +41,16 @@ export class WorkspaceRuntime {
       onComment: (event) => { if (this.config.tts.enabled) this.emit("tiktok:comment", event); }, shouldReadComment: (event) => this.config.tts.enabled && isAllowedTtsUser(event, this.config.tts.allowedUsers), onError: (message) => this.error(message)
     });
   }
-  async initialize() { await this.pointsEngine.load(); return this; }
+  async initialize() {
+    try {
+      await this.pointsEngine.load();
+    } catch (error) {
+      // El historial es independiente del arranque del panel. Un problema de
+      // migración o una caché de esquema de Supabase no debe rechazar Socket.IO.
+      console.error(`[${this.ownerId}] No se pudo cargar Usuario y Puntos: ${error.message}`);
+    }
+    return this;
+  }
   room() { return `workspace:${this.ownerId}`; }
   emit(event, payload) { this.io.to(this.room()).emit(event, payload); }
   activity(entry) { const item = { id: ++this.sequence, at: Date.now(), ...entry }; this.state.activity.unshift(item); this.state.activity = this.state.activity.slice(0, 100); this.emit("activity", item); }
