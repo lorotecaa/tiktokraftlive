@@ -24,6 +24,29 @@ async function request(path, options = {}) {
   return response;
 }
 
+function hasMappings(config) {
+  return Array.isArray(config?.mappings) && config.mappings.length > 0;
+}
+
+// Compatibilidad con instalaciones cuyo workspace de la primera cuenta se creó
+// antes de que PostgREST expusiera la función de reparación. La copia solo se
+// permite al propietario histórico y solo llena una lista de mappings vacía.
+async function restoreLegacyMappings(ownerId, row) {
+  if (hasMappings(row?.config)) return row;
+
+  const stateResponse = await request("tiktokraft_multiuser_state?id=eq.true&select=legacy_owner_id", { headers: headers() });
+  const state = (await stateResponse.json())[0];
+  if (state?.legacy_owner_id !== ownerId) return row;
+
+  const legacyResponse = await request("tiktokraft_config?id=eq.tiktokraft-live&select=config", { headers: headers() });
+  const legacyConfig = (await legacyResponse.json())[0]?.config;
+  if (!hasMappings(legacyConfig)) return row;
+
+  const config = sanitizeConfig({ ...row.config, mappings: legacyConfig.mappings });
+  await saveWorkspaceConfig(ownerId, config);
+  return { ...row, config };
+}
+
 export async function claimWorkspace(ownerId) {
   const response = await request("rpc/tiktokraft_claim_workspace", {
     method: "POST",
@@ -45,6 +68,11 @@ export async function claimWorkspace(ownerId) {
     if (repairedConfig && typeof repairedConfig === "object") row = { ...row, config: repairedConfig };
   } catch (error) {
     console.warn(`No se pudo ejecutar la reparación opcional de mappings: ${error.message}`);
+  }
+  try {
+    row = await restoreLegacyMappings(ownerId, row);
+  } catch (error) {
+    console.warn(`No se pudo comprobar la recuperación de mappings heredados: ${error.message}`);
   }
   return { ownerId: row.owner_id, config: sanitizeConfig(row.config), overlayToken: row.overlay_token };
 }
