@@ -4,6 +4,11 @@
   window.TikTokraftAuth = {
     accessToken: saved?.access_token || "",
     refreshToken: saved?.refresh_token || "",
+    signOut() {
+      this.accessToken = "";
+      this.refreshToken = "";
+      localStorage.removeItem(storageKey);
+    },
     async refresh() {
       if (!this.refreshToken) return false;
       const response = await fetch("/api/auth/refresh", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ refresh_token: this.refreshToken }) });
