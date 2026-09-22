@@ -54,6 +54,17 @@ function request(event, payload) {
   });
 }
 
+async function loadPanelState() {
+  const auth = window.TikTokraftAuth;
+  if (!auth?.accessToken) return;
+  const fetchState = () => fetch("/api/state", { headers: { Authorization: `Bearer ${auth.accessToken}` } });
+  let response = await fetchState();
+  if (response.status === 401 && await auth.refresh()) response = await fetchState();
+  if (!response.ok) return;
+  hiddenActivity = false;
+  renderState(await response.json());
+}
+
 function escapeHtml(value) {
   return String(value ?? "").replace(/[&<>'"]/g, (char) => ({ "&":"&amp;", "<":"&lt;", ">":"&gt;", "'":"&#039;", "\"":"&quot;" })[char]);
 }
@@ -909,4 +920,8 @@ socket.on("connect_error", async () => {
 });
 socket.on("mapping:sound", (data) => playSound(data?.audio));
 loadSounds();
-socket.connect();
+void (async () => {
+  await loadPanelState();
+  socket.auth.token = window.TikTokraftAuth?.accessToken || "";
+  socket.connect();
+})();
