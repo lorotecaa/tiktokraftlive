@@ -47,7 +47,7 @@ app.get("/api/health", (_request, response) => response.json({ ok: true, authCon
 app.get("/api/state", protectedRoute, (request, response) => response.json({ ...request.session.workspace.publicState(), account: { email: request.session.user.email } }));
 app.post("/api/auth/password", protectedRoute, async (request, response, next) => { try { await changePassword(tokenFrom(request), String(request.body?.password || "")); response.json({ ok: true }); } catch (error) { next(error); } });
 app.get("/api/sounds", protectedRoute, async (_request, response, next) => { try { response.json({ sounds: await listAvailableSounds() }); } catch (error) { next(error); } });
-app.get("/api/user-points", protectedRoute, async (request, response, next) => { try { response.json({ entries: await listWorkspaceUserPoints(request.session.user.id, { query: request.query.q, limit: request.query.limit }), configured: true }); } catch (error) { next(error); } });
+app.get("/api/user-points", protectedRoute, async (request, response, next) => { try { response.json({ entries: await listWorkspaceUserPoints(request.session.user.id, { query: request.query.q, limit: request.query.limit }), configured: true, overlayToken: request.session.workspace.overlayToken }); } catch (error) { next(error); } });
 
 async function publicSpace(token) { const data = await workspaceByOverlayToken(token); return data ? workspaceFor(data.ownerId) : null; }
 app.get("/widget/:token/goal/:id", (_request, response) => response.sendFile(path.join(directory, "public", "goal-widget.html")));
