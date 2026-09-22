@@ -60,11 +60,19 @@ En la tarjeta **TikTok LIVE**, indica el usuario que esté transmitiendo y tu **
 Los servicios gratuitos de Render no conservan archivos tras reiniciarse. Para mantener permanentemente las acciones y la configuración sin usar un disco de Render:
 
 1. Crea un proyecto gratuito en [Supabase](https://supabase.com/).
-2. Abre **SQL Editor**, pega y ejecuta el contenido de `supabase/schema.sql`.
+2. Abre **SQL Editor**, pega y ejecuta el contenido completo y actualizado de `supabase/schema.sql`. Además de la configuración, crea el historial permanente de **Usuario y Puntos** y sus transacciones manuales.
 3. En Render, en **Environment**, añade `SUPABASE_URL` con la URL del proyecto y `SUPABASE_SECRET_KEY` con su clave secreta.
 4. Redespliega el servicio.
 
+Para habilitar **Usuario y Puntos** en un proyecto que no tenía esta función, ejecuta en este orden `supabase/user-points.sql` y luego `supabase/manual-transactions.sql` en SQL Editor. El primero crea el historial base y el segundo las transacciones manuales.
+
 La clave secreta se usa solamente en el servidor: nunca se envía al navegador. Al primer arranque con Supabase, la aplicación migra automáticamente la configuración local existente si la encuentra. Sin esas dos variables, la aplicación conserva el almacenamiento local de siempre.
+
+## Espacios multiusuario
+
+Ejecuta `supabase/multiuser.sql` una vez en Supabase antes de desplegar la versión multiusuario. TikTokraft Live usa las cuentas de **Supabase Auth** con email y contraseña: la primera cuenta que se registre reclama la configuración y los puntos históricos de la instalación anterior; cada cuenta posterior empieza con un espacio privado. Los enlaces de overlays ahora incorporan un token aleatorio de su propietario, por lo que debes copiar nuevamente las URLs en OBS.
+
+En **Authentication → Providers → Email** de Supabase, deja habilitado el proveedor Email. Si mantienes activada la confirmación de email, cada persona debe confirmar su correo antes de iniciar sesión.
 
 ## Crear acciones
 
