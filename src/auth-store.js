@@ -4,6 +4,7 @@ function projectUrl(value) {
 
 const url = projectUrl(process.env.SUPABASE_URL);
 const key = String(process.env.SUPABASE_SECRET_KEY || process.env.SUPABASE_SERVICE_ROLE_KEY || "").trim();
+const applicationUrl = String(process.env.APP_URL || process.env.RENDER_EXTERNAL_URL || "").trim().replace(/\/+$/, "");
 
 export const authConfigured = Boolean(url && key);
 
@@ -20,7 +21,8 @@ async function authRequest(path, options) {
 }
 
 export function signUp(email, password) {
-  return authRequest("signup", { method: "POST", headers: headers(), body: JSON.stringify({ email, password }) });
+  const redirect = applicationUrl ? `?redirect_to=${encodeURIComponent(applicationUrl)}` : "";
+  return authRequest(`signup${redirect}`, { method: "POST", headers: headers(), body: JSON.stringify({ email, password }) });
 }
 
 export function signIn(email, password) {
