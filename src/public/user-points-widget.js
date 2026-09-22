@@ -9,7 +9,8 @@ function numberFormat(value) {
   return new Intl.NumberFormat("es-CO").format(Math.max(0, Number(value) || 0));
 }
 
-function applyCustomization(customization = {}) {
+function applyCustomization(customization) {
+  customization ||= {};
   widget.style.setProperty("--overlay-font", customization.fontFamily || "Space Grotesk");
   widget.style.setProperty("--overlay-text", customization.textColor || "#ffffff");
   widget.style.setProperty("--overlay-value", customization.valueColor || "#ffd84a");
