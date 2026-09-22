@@ -90,6 +90,43 @@ $$;
 revoke all on function public.tiktokraft_claim_workspace(uuid, jsonb, text) from public;
 grant execute on function public.tiktokraft_claim_workspace(uuid, jsonb, text) to service_role;
 
+-- Reparación segura para la primera cuenta si su workspace se creó antes de
+-- copiar la configuración antigua. Solo rellena mappings cuando están vacíos;
+-- nunca modifica ni borra tiktokraft_config.
+create or replace function public.tiktokraft_reclaim_legacy_mappings(p_owner_id uuid)
+returns jsonb
+language plpgsql
+security definer
+set search_path = public
+as $$
+declare
+  legacy_config jsonb;
+  workspace_config jsonb;
+begin
+  if (select legacy_owner_id from public.tiktokraft_multiuser_state where id = true) is distinct from p_owner_id then
+    return null;
+  end if;
+  if to_regclass('public.tiktokraft_config') is null then return null; end if;
+  select config into legacy_config from public.tiktokraft_config where id = 'tiktokraft-live';
+  if jsonb_typeof(legacy_config->'mappings') <> 'array' or jsonb_array_length(legacy_config->'mappings') = 0 then
+    return null;
+  end if;
+  select config into workspace_config from public.tiktokraft_workspaces where owner_id = p_owner_id for update;
+  if workspace_config is null then return null; end if;
+  if jsonb_typeof(workspace_config->'mappings') = 'array' and jsonb_array_length(workspace_config->'mappings') > 0 then
+    return workspace_config;
+  end if;
+  update public.tiktokraft_workspaces
+  set config = jsonb_set(workspace_config, '{mappings}', legacy_config->'mappings', true), updated_at = now()
+  where owner_id = p_owner_id
+  returning config into workspace_config;
+  return workspace_config;
+end;
+$$;
+
+revoke all on function public.tiktokraft_reclaim_legacy_mappings(uuid) from public;
+grant execute on function public.tiktokraft_reclaim_legacy_mappings(uuid) to service_role;
+
 create or replace function public.tiktokraft_workspace_add_user_points(
   p_owner_id uuid, p_username text, p_nickname text, p_avatar_url text, p_coins bigint
 )
