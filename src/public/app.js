@@ -22,7 +22,8 @@ const elements = {
   customizationModal: $("#overlay-customization-modal"), customizationForm: $("#overlay-customization-form"), customizationTitle: $("#overlay-customization-title"), customizationFontFamily: $("#customization-font-family"), customizationFontSize: $("#customization-font-size"), customizationLineSpacing: $("#customization-line-spacing"), customizationLetterSpacing: $("#customization-letter-spacing"), customizationTextColor: $("#customization-text-color"), customizationValueColor: $("#customization-value-color"), customizationRankColor: $("#customization-rank-color"), customizationTextEffect: $("#customization-text-effect"), customizationWave: $("#customization-wave"), customizationBackground: $("#customization-background"), customizationBackgroundColor: $("#customization-background-color"), customizationShowRank: $("#customization-show-rank"), customizationShowValue: $("#customization-show-value"), customizationAlignRight: $("#customization-align-right"), customizationCrown: $("#customization-crown"), userPointsCustomizationLimit: $("#user-points-customization-limit"), giftCustomizationTitle: $("#gift-customization-title"), giftCustomizationTitleSize: $("#gift-customization-title-size"), giftCustomizationTitleColor: $("#gift-customization-title-color"), giftCustomizationUsernameColor: $("#gift-customization-username-color"), giftCustomizationUsernameSize: $("#gift-customization-username-size"), giftCustomizationTitleOffset: $("#gift-customization-title-offset"), giftCustomizationImageOffset: $("#gift-customization-image-offset"), giftCustomizationUsernameOffset: $("#gift-customization-username-offset"), giftCustomizationCoinsOffset: $("#gift-customization-coins-offset"), giftCustomizationBorder: $("#gift-customization-border"), giftCustomizationBorderColor: $("#gift-customization-border-color"), giftCustomizationImageVisible: $("#gift-customization-image-visible"), giftCustomizationImageOpacity: $("#gift-customization-image-opacity"), giftCustomizationTitleEffect: $("#gift-customization-title-effect"), giftCustomizationTitleWave: $("#gift-customization-title-wave"), giftCustomizationUsernameEffect: $("#gift-customization-username-effect"), giftCustomizationUsernameWave: $("#gift-customization-username-wave"), giftCustomizationShowCoins: $("#gift-customization-show-coins"), giftCustomizationCoinsAlias: $("#gift-customization-coins-alias"),
   minecraftDetail: $("#minecraft-detail"), minecraftDot: $("#minecraft-dot"),
   tiktokDetail: $("#tiktok-detail"), tiktokDot: $("#tiktok-dot"),
-  globalStatus: $("#global-status"), logout: $("#logout-button"),
+  globalStatus: $("#global-status"), profileButton: $("#profile-button"), logout: $("#logout-button"),
+  profileModal: $("#profile-modal"), profileForm: $("#profile-form"), profileAvatar: $("#profile-avatar"), profileAvatarEmpty: $("#profile-avatar-empty"), profileAvatarInput: $("#profile-avatar-input"), profileEmail: $("#profile-email"), profilePassword: $("#profile-password"), profilePasswordConfirm: $("#profile-password-confirm"), profileMessage: $("#profile-message"),
   mappingForm: $("#mapping-form"), mappingId: $("#mapping-id"), giftName: $("#gift-name"), giftId: $("#gift-id"),
   command: $("#mapping-command"), audio: $("#mapping-audio"), audioTest: $("#audio-test"), audioState: $("#audio-state"), cooldown: $("#cooldown"), enabled: $("#mapping-enabled"), editorHeading: $("#editor-heading"),
   cancelEdit: $("#cancel-edit"), mappingList: $("#mapping-list"), mappingEmpty: $("#mapping-empty"),
@@ -34,7 +35,52 @@ elements.logout?.addEventListener("click", () => {
   socket.disconnect();
   location.reload();
 });
+elements.profileButton?.addEventListener("click", openProfileModal);
+elements.profileModal?.querySelectorAll("[data-profile-modal-close]").forEach((button) => button.addEventListener("click", closeProfileModal));
+elements.profileAvatarInput?.addEventListener("change", async () => {
+  const file = elements.profileAvatarInput.files?.[0];
+  if (!file) return;
+  try {
+    profileAvatarData = await prepareProfileAvatar(file);
+    renderProfileAvatar(profileAvatarData);
+    elements.profileMessage.textContent = "Imagen lista para guardar.";
+  } catch (error) {
+    elements.profileAvatarInput.value = "";
+    elements.profileMessage.textContent = error.message;
+  }
+});
+elements.profileForm?.addEventListener("submit", async (event) => {
+  event.preventDefault();
+  const password = elements.profilePassword.value;
+  if (password !== elements.profilePasswordConfirm.value) {
+    elements.profileMessage.textContent = "Las contraseñas no coinciden.";
+    return;
+  }
+  const submit = event.submitter;
+  submit.disabled = true;
+  elements.profileMessage.textContent = "";
+  try {
+    if (password) {
+      const response = await fetch("/api/auth/password", {
+        method: "POST",
+        headers: { "Content-Type": "application/json", Authorization: `Bearer ${window.TikTokraftAuth?.accessToken || ""}` },
+        body: JSON.stringify({ password })
+      });
+      const result = await response.json().catch(() => ({}));
+      if (!response.ok) throw new Error(result.error || "No se pudo cambiar la contraseña.");
+    }
+    const profile = await request("profile:save", { avatarDataUrl: profileAvatarData });
+    if (appState?.config) appState.config.profile = profile;
+    toast(password ? "Perfil y contraseña guardados" : "Perfil guardado", "success");
+    closeProfileModal();
+  } catch (error) {
+    elements.profileMessage.textContent = error.message;
+  } finally {
+    submit.disabled = false;
+  }
+});
 let availableSounds = [];
+let profileAvatarData = "";
 const ttsQueue = new window.TtsQueue({ onError: (message) => toast(message, "error") });
 let customizationKey = "";
 const defaultCustomization = {
@@ -51,6 +97,51 @@ const defaultCustomization = {
 function request(event, payload) {
   return new Promise((resolve, reject) => {
     socket.emit(event, payload, (result) => result?.ok ? resolve(result.data) : reject(new Error(result?.error || "No se pudo completar la acción.")));
+  });
+}
+
+function renderProfileAvatar(value) {
+  const avatar = String(value || "");
+  elements.profileAvatar.hidden = !avatar;
+  elements.profileAvatarEmpty.hidden = Boolean(avatar);
+  if (avatar) elements.profileAvatar.src = avatar;
+  else elements.profileAvatar.removeAttribute("src");
+}
+
+function closeProfileModal() {
+  elements.profileModal.hidden = true;
+  document.body.classList.remove("modal-open");
+}
+
+function openProfileModal() {
+  elements.profileForm.reset();
+  profileAvatarData = appState?.config?.profile?.avatarDataUrl || "";
+  renderProfileAvatar(profileAvatarData);
+  elements.profileEmail.value = appState?.account?.email || "";
+  elements.profileMessage.textContent = "";
+  elements.profileModal.hidden = false;
+  document.body.classList.add("modal-open");
+}
+
+function prepareProfileAvatar(file) {
+  if (!file?.type?.match(/^image\/(jpeg|png|webp)$/)) return Promise.reject(new Error("Selecciona una imagen JPG, PNG o WebP."));
+  if (file.size > 10 * 1024 * 1024) return Promise.reject(new Error("La imagen no puede superar 10 MB."));
+  return new Promise((resolve, reject) => {
+    const source = URL.createObjectURL(file);
+    const image = new Image();
+    image.onload = () => {
+      URL.revokeObjectURL(source);
+      const scale = Math.min(1, 256 / Math.max(image.naturalWidth, image.naturalHeight));
+      const canvas = document.createElement("canvas");
+      canvas.width = Math.max(1, Math.round(image.naturalWidth * scale));
+      canvas.height = Math.max(1, Math.round(image.naturalHeight * scale));
+      canvas.getContext("2d").drawImage(image, 0, 0, canvas.width, canvas.height);
+      const avatar = canvas.toDataURL("image/jpeg", 0.86);
+      if (avatar.length > 350_000) return reject(new Error("No se pudo reducir suficientemente la imagen."));
+      resolve(avatar);
+    };
+    image.onerror = () => { URL.revokeObjectURL(source); reject(new Error("No se pudo leer la imagen.")); };
+    image.src = source;
   });
 }
 
@@ -93,8 +184,8 @@ function serverTapParts(value) {
 }
 
 function renderState(next) {
-  appState = next;
-  const { config, minecraft, tiktok } = next;
+  appState = { ...next, account: next.account || appState?.account };
+  const { config, minecraft, tiktok } = appState;
   if (document.activeElement !== elements.tiktokUsername) elements.tiktokUsername.value = config.tiktokUsername || "";
   elements.eulerKeyState.textContent = config.eulerStreamApiKeyPresent ? "API Key guardada. Déjala vacía para conservarla." : "Necesitas una API Key de Euler Stream.";
   const serverTap = serverTapParts(config.serverTap.url);
@@ -657,7 +748,8 @@ elements.customizationForm.addEventListener("submit", async (event) => {
 });
 document.addEventListener("keydown", (event) => {
   if (event.key !== "Escape") return;
-  if (!elements.transactionModal.hidden) closeTransactionModal();
+  if (!elements.profileModal.hidden) closeProfileModal();
+  else if (!elements.transactionModal.hidden) closeTransactionModal();
   else if (!elements.customizationModal.hidden) closeCustomization();
 });
 
