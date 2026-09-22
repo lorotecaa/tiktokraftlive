@@ -44,14 +44,36 @@ function render(overlay) {
   entries.forEach((entry, index) => {
     const row = document.createElement("li");
     row.className = `user-points-row rank-${index + 1}`;
+
     const position = document.createElement("span");
     position.className = "user-points-position";
     position.textContent = String(index + 1);
+
+    const avatar = document.createElement("span");
+    avatar.className = "user-points-avatar";
+    const avatarFallback = document.createElement("span");
+    avatarFallback.className = "user-points-avatar-fallback";
+    avatar.append(avatarFallback);
+
+    const avatarUrl = String(entry.avatarUrl || entry.avatar_url || "").trim();
+    if (avatarUrl) {
+      const avatarImage = document.createElement("img");
+      avatarImage.className = "user-points-avatar-image";
+      avatarImage.src = avatarUrl;
+      avatarImage.alt = "";
+      avatarImage.referrerPolicy = "no-referrer";
+      avatarImage.addEventListener("error", () => avatarImage.remove(), { once: true });
+      avatar.append(avatarImage);
+    }
+
+    const details = document.createElement("span");
+    details.className = "user-points-details";
     const name = document.createElement("b");
     name.textContent = entry.nickname || entry.username || "Espectador";
     const coins = document.createElement("em");
     coins.textContent = `${numberFormat(entry.coins)} coins`;
-    row.append(position, name, coins);
+    details.append(name, coins);
+    row.append(position, avatar, details);
     listElement.append(row);
   });
 }
