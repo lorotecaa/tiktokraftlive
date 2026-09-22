@@ -11,7 +11,7 @@ import { GoalEngine } from "./services/goal-engine.js";
 import { GiftOverlayEngine } from "./services/gift-overlay-engine.js";
 import { RankingOverlayEngine } from "./services/ranking-overlay-engine.js";
 import { HistoricalPointsEngine } from "./services/historical-points-engine.js";
-import { addUserPoints, listUserPoints, userPointsStoreConfigured } from "./services/user-points-store.js";
+import { addManualUserPoints, addUserPoints, listUserPoints, userPointsStoreConfigured } from "./services/user-points-store.js";
 import { ServerTapClient } from "./services/servertap.js";
 import { TikTokClient, isAllowedTtsUser } from "./services/tiktok.js";
 
@@ -171,6 +171,7 @@ const rankingOverlayEngine = new RankingOverlayEngine({
 const historicalPointsEngine = new HistoricalPointsEngine({
   list: listUserPoints,
   add: addUserPoints,
+  addManual: addManualUserPoints,
   onUpdate: (entries) => {
     io.emit("user-points:update", { entries: entries.slice(0, 100), configured: userPointsStoreConfigured });
     io.emit("user-points-overlay:update", publicUserPointsOverlay());
@@ -292,6 +293,13 @@ io.on("connection", (socket) => {
     config = await saveConfig({ ...config, tts: { ...config.tts, ...input } });
     broadcastState();
     return config.tts;
+  }));
+
+  socket.on("user-points:transaction", (input, ack) => safeAck(ack, async () => {
+    const entry = await historicalPointsEngine.addTransaction(input);
+    if (!entry) throw new Error("No se pudo guardar la transacción.");
+    addActivity({ type: "user-points", message: `Transacción manual: ${entry.nickname || entry.username}` });
+    return entry;
   }));
 
   socket.on("gift-overlays:save", (input, ack) => safeAck(ack, async () => {
