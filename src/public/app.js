@@ -3,6 +3,7 @@ let appState = null;
 let hiddenActivity = false;
 let userPointsSearch = "";
 let userPointsSearchTimer = null;
+let userPointsOverlayToken = "";
 const giftNamesById = window.TIKTOK_GIFT_NAMES || {};
 
 const $ = (selector) => document.querySelector(selector);
@@ -186,6 +187,7 @@ function serverTapParts(value) {
 function renderState(next) {
   appState = { ...next, account: next.account || appState?.account };
   const { config, minecraft, tiktok } = appState;
+  userPointsOverlayToken = appState.workspace?.overlayToken || userPointsOverlayToken;
   if (document.activeElement !== elements.tiktokUsername) elements.tiktokUsername.value = config.tiktokUsername || "";
   elements.eulerKeyState.textContent = config.eulerStreamApiKeyPresent ? "API Key guardada. Déjala vacía para conservarla." : "Necesitas una API Key de Euler Stream.";
   const serverTap = serverTapParts(config.serverTap.url);
@@ -336,7 +338,7 @@ function renderRankingOverlay(overlay) {
 }
 
 function userPointsOverlayUrl() {
-  return `${window.location.origin}/widget/${encodeURIComponent(appState?.workspace?.overlayToken || "")}/user-points`;
+  return `${window.location.origin}/widget/${encodeURIComponent(userPointsOverlayToken || appState?.workspace?.overlayToken || "")}/user-points`;
 }
 
 function renderUserPoints(entries, configured = true) {
@@ -390,6 +392,7 @@ async function loadUserPoints(query = "") {
     const response = await fetch(`/api/user-points?${parameters}`, { headers: { Authorization: `Bearer ${window.TikTokraftAuth?.accessToken || ""}` } });
     if (!response.ok) throw new Error("No se pudo cargar Usuario y Puntos.");
     const result = await response.json();
+    userPointsOverlayToken = String(result.overlayToken || userPointsOverlayToken);
     renderUserPoints(result.entries, result.configured);
   } catch (error) {
     elements.userPointsStatus.textContent = error.message;
@@ -805,14 +808,21 @@ elements.transactionForm.addEventListener("submit", async (event) => {
 });
 elements.userPointsCopy.addEventListener("click", async () => {
   try {
+    await loadUserPoints(userPointsSearch);
+    if (!userPointsOverlayToken) throw new Error("No se pudo obtener la URL pública del overlay.");
     await navigator.clipboard.writeText(elements.userPointsUrl.value);
-  } catch {
+  } catch (error) {
+    if (!userPointsOverlayToken) return toast(error.message, "error");
     elements.userPointsUrl.select();
     document.execCommand("copy");
   }
   toast("URL copiada", "success");
 });
-elements.userPointsPreview.addEventListener("click", () => window.open(userPointsOverlayUrl(), "_blank", "noopener"));
+elements.userPointsPreview.addEventListener("click", async () => {
+  await loadUserPoints(userPointsSearch);
+  if (!userPointsOverlayToken) return toast("No se pudo obtener la URL pública del overlay.", "error");
+  window.open(userPointsOverlayUrl(), "_blank", "noopener");
+});
 elements.userPointsLimitForm.addEventListener("submit", async (event) => {
   event.preventDefault();
   try {
