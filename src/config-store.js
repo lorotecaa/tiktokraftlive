@@ -221,14 +221,15 @@ function normalizeOverlayCustomization(raw = {}) {
     titleWaveAnimation: raw.titleWaveAnimation === true,
     usernameTextEffect: overlayEffects.has(stringOrEmpty(raw.usernameTextEffect)) ? stringOrEmpty(raw.usernameTextEffect) : "none",
     usernameWaveAnimation: raw.usernameWaveAnimation === true,
-    coinsAlias: stringOrEmpty(raw.coinsAlias).slice(0, 30) || "coins"
+    coinsAlias: stringOrEmpty(raw.coinsAlias).slice(0, 30) || "coins",
+    itemLimit: Math.max(1, Math.min(Math.round(Number(raw.itemLimit) || 10), 50))
   };
 }
 
 function normalizeOverlayCustomizations(raw) {
   if (!raw || typeof raw !== "object" || Array.isArray(raw)) return {};
   return Object.fromEntries(Object.entries(raw)
-    .filter(([key]) => /^(gift:(best-gift|best-streak)|ranking:top-donors|goal:[a-zA-Z0-9-]{1,80})$/.test(key))
+    .filter(([key]) => /^(gift:(best-gift|best-streak)|ranking:top-donors|user-points:historical|goal:[a-zA-Z0-9-]{1,80})$/.test(key))
     .slice(0, 100)
     .map(([key, value]) => [key, normalizeOverlayCustomization(value)]));
 }

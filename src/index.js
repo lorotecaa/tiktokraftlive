@@ -10,6 +10,8 @@ import { RuleEngine } from "./services/rule-engine.js";
 import { GoalEngine } from "./services/goal-engine.js";
 import { GiftOverlayEngine } from "./services/gift-overlay-engine.js";
 import { RankingOverlayEngine } from "./services/ranking-overlay-engine.js";
+import { HistoricalPointsEngine } from "./services/historical-points-engine.js";
+import { addUserPoints, listUserPoints, userPointsStoreConfigured } from "./services/user-points-store.js";
 import { ServerTapClient } from "./services/servertap.js";
 import { TikTokClient, isAllowedTtsUser } from "./services/tiktok.js";
 
@@ -31,6 +33,7 @@ const app = express();
 app.get("/widget/goal/:id", (_request, response) => response.sendFile(path.join(__dirname, "public", "goal-widget.html")));
 app.get("/widget/gift/:kind", (_request, response) => response.sendFile(path.join(__dirname, "public", "gift-widget.html")));
 app.get("/widget/ranking/top-donors", (_request, response) => response.sendFile(path.join(__dirname, "public", "ranking-widget.html")));
+app.get("/widget/user-points", (_request, response) => response.sendFile(path.join(__dirname, "public", "user-points-widget.html")));
 app.get("/api/health", (_request, response) => response.json({ ok: true, state: publicState() }));
 app.get("/api/goals/:id", (request, response) => {
   const goal = config.goals.find((item) => item.id === request.params.id);
@@ -47,6 +50,15 @@ app.get("/api/ranking-overlays/:kind", (request, response) => {
   if (!overlay) return response.status(404).json({ error: "No existe ese overlay." });
   return response.json({ overlay });
 });
+app.get("/api/user-points", async (request, response, next) => {
+  try {
+    const entries = await listUserPoints({ query: request.query.q, limit: request.query.limit });
+    response.json({ entries, configured: userPointsStoreConfigured });
+  } catch (error) {
+    next(error);
+  }
+});
+app.get("/api/user-points/overlay", (_request, response) => response.json({ overlay: publicUserPointsOverlay() }));
 app.get("/api/sounds", async (_request, response, next) => {
   try {
     response.json({ sounds: await listAvailableSounds() });
@@ -59,7 +71,12 @@ const server = http.createServer(app);
 const io = new Server(server, { serveClient: true });
 
 function publicState() {
-  return { ...state, config: publicConfig(config), rankings: { topDonors: rankingOverlayEngine.entries() } };
+  return {
+    ...state,
+    config: publicConfig(config),
+    rankings: { topDonors: rankingOverlayEngine.entries() },
+    userPoints: { entries: historicalPointsEngine.entries(100), configured: userPointsStoreConfigured }
+  };
 }
 
 function publicGoal(goal) {
@@ -83,6 +100,16 @@ function publicGiftOverlay(kind) {
 function publicRankingOverlay(kind) {
   if (kind !== "top-donors") return null;
   return { kind, title: "Top Donadores", entries: rankingOverlayEngine.entries(), customization: overlayCustomization(`ranking:${kind}`) };
+}
+
+function publicUserPointsOverlay() {
+  const customization = overlayCustomization("user-points:historical");
+  return {
+    kind: "historical",
+    title: "Usuario y Puntos",
+    entries: historicalPointsEngine.entries(customization?.itemLimit || 10),
+    customization
+  };
 }
 
 function broadcastState() {
@@ -141,6 +168,26 @@ const rankingOverlayEngine = new RankingOverlayEngine({
   onUpdate: ({ kind, entries }) => io.emit("ranking-overlay:update", { kind, title: "Top Donadores", entries, customization: overlayCustomization(`ranking:${kind}`) })
 });
 
+const historicalPointsEngine = new HistoricalPointsEngine({
+  list: listUserPoints,
+  add: addUserPoints,
+  onUpdate: (entries) => {
+    io.emit("user-points:update", { entries: entries.slice(0, 100), configured: userPointsStoreConfigured });
+    io.emit("user-points-overlay:update", publicUserPointsOverlay());
+  },
+  onError: (error) => reportError(`Usuario y Puntos: ${error.message}`)
+});
+
+if (userPointsStoreConfigured) {
+  try {
+    await historicalPointsEngine.load();
+  } catch (error) {
+    reportError(`Usuario y Puntos: ${error.message}`);
+  }
+} else {
+  console.warn("Usuario y Puntos no está disponible hasta configurar Supabase.");
+}
+
 const serverTap = new ServerTapClient({
   commandsPerSecond,
   onState: (next) => {
@@ -168,6 +215,7 @@ const tiktok = new TikTokClient({
   onGift: (event) => {
     if (giftOverlayEngine.process(event).length) queueLiveStateSave();
     rankingOverlayEngine.process(event);
+    historicalPointsEngine.process(event);
     addActivity({ type: "gift", event, message: `${event.nickname} envió ${event.giftName}` });
 
     try {
@@ -371,7 +419,7 @@ async function shutdown() {
   tiktok.disconnect("Aplicación detenida");
   serverTap.disconnect("Aplicación detenida");
   try {
-    await saveLiveStateNow();
+    await Promise.all([saveLiveStateNow(), historicalPointsEngine.flush()]);
   } finally {
     server.close(() => process.exit(0));
   }
