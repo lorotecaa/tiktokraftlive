@@ -44,6 +44,7 @@ app.post("/api/auth/signup", async (request, response, next) => { try { response
 app.post("/api/auth/signin", async (request, response, next) => { try { response.json(await signIn(String(request.body?.email || "").trim(), String(request.body?.password || ""))); } catch (error) { next(error); } });
 app.post("/api/auth/refresh", async (request, response, next) => { try { response.json(await refreshSession(String(request.body?.refresh_token || ""))); } catch (error) { next(error); } });
 app.get("/api/health", (_request, response) => response.json({ ok: true, authConfigured }));
+app.get("/api/state", protectedRoute, (request, response) => response.json(request.session.workspace.publicState()));
 app.get("/api/sounds", protectedRoute, async (_request, response, next) => { try { response.json({ sounds: await listAvailableSounds() }); } catch (error) { next(error); } });
 app.get("/api/user-points", protectedRoute, async (request, response, next) => { try { response.json({ entries: await listWorkspaceUserPoints(request.session.user.id, { query: request.query.q, limit: request.query.limit }), configured: true }); } catch (error) { next(error); } });
 
