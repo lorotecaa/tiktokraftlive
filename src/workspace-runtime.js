@@ -7,7 +7,7 @@ import { RankingOverlayEngine } from "./services/ranking-overlay-engine.js";
 import { HistoricalPointsEngine } from "./services/historical-points-engine.js";
 import { ServerTapClient } from "./services/servertap.js";
 import { TikTokClient, isAllowedTtsUser } from "./services/tiktok.js";
-import { addWorkspaceManualPoints, addWorkspaceUserPoints, listWorkspaceUserPoints } from "./services/user-points-store.js";
+import { addWorkspaceManualPoints, addWorkspaceUserPoints, deleteWorkspaceUserPoints, listWorkspaceUserPoints } from "./services/user-points-store.js";
 
 function serverTapUrl(input, current) {
   if (input.serverTapHost === undefined) return input.serverTapUrl ?? current.url;
@@ -29,7 +29,7 @@ export class WorkspaceRuntime {
     this.giftEngine = new GiftOverlayEngine({ getOverlays: () => this.config.giftOverlays, onUpdate: ({ kind, record }) => this.emit("gift-overlay:update", { ...this.publicGift(kind), record }) });
     this.rankingEngine = new RankingOverlayEngine({ onUpdate: ({ kind, entries }) => this.emit("ranking-overlay:update", { kind, title: "Top Donadores", entries, customization: this.custom(`ranking:${kind}`) }) });
     this.pointsEngine = new HistoricalPointsEngine({
-      list: (options) => listWorkspaceUserPoints(this.ownerId, options), add: (gift) => addWorkspaceUserPoints(this.ownerId, gift), addManual: (input) => addWorkspaceManualPoints(this.ownerId, input),
+      list: (options) => listWorkspaceUserPoints(this.ownerId, options), add: (gift) => addWorkspaceUserPoints(this.ownerId, gift), addManual: (input) => addWorkspaceManualPoints(this.ownerId, input), remove: (username) => deleteWorkspaceUserPoints(this.ownerId, username),
       onUpdate: (entries) => this.emit("user-points:update", { entries: entries.slice(0, 100), configured: true }), onError: (error) => this.error(`Usuario y Puntos: ${error.message}`)
     });
     this.serverTap = new ServerTapClient({ commandsPerSecond, onState: (next) => { this.state.minecraft = next; this.broadcast(); }, onConsole: (entry) => this.activity({ type: "console", entry, message: entry.message }), onError: (message) => this.error(message) });
