@@ -26,12 +26,11 @@ async function workspaceFor(id) {
     return new WorkspaceRuntime({ ...record, saveConfig: saveWorkspaceConfig, io, commandsPerSecond: commandRate, listSounds: listAvailableSounds }).initialize();
   })());
   try {
-    const workspace = await workspaces.get(id);
-    // Si la configuración fue recuperada o corregida mientras este proceso
-    // seguía activo, una nueva sesión debe recibir la versión persistida.
-    const record = await claimWorkspace(id);
-    workspace.reloadConfig(record);
-    return workspace;
+    // El workspace activo contiene los récords del LIVE que todavía pueden
+    // estar en cola para guardarse. Recargarlo ante cada consulta pública
+    // restauraba un snapshot anterior y podía bajar Mejor Racha o perder
+    // Mejor Regalo antes de persistirlo.
+    return await workspaces.get(id);
   } catch (error) { workspaces.delete(id); throw error; }
 }
 async function identity(token) { const user = await userFromAccessToken(token); return { user, workspace: await workspaceFor(user.id) }; }
