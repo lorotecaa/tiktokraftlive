@@ -362,7 +362,14 @@ function renderUserPoints(entries, configured = true) {
     user.append(name, username);
     const coins = document.createElement("b");
     coins.textContent = `${numberFormat(entry.coins)} coins`;
-    row.append(user, coins);
+    const remove = document.createElement("button");
+    remove.type = "button";
+    remove.className = "user-points-remove";
+    remove.dataset.username = entry.username;
+    remove.title = `Eliminar a ${entry.nickname || entry.username}`;
+    remove.setAttribute("aria-label", `Eliminar a ${entry.nickname || entry.username}`);
+    remove.textContent = "−";
+    row.append(user, coins, remove);
     elements.userPointsList.append(row);
     const option = document.createElement("option");
     option.value = entry.username;
@@ -784,6 +791,21 @@ elements.userPointsSearch.addEventListener("input", () => {
   userPointsSearchTimer = setTimeout(() => loadUserPoints(userPointsSearch), 220);
 });
 elements.userPointsAdd.addEventListener("click", openTransactionModal);
+elements.userPointsList.addEventListener("click", async (event) => {
+  const button = event.target.closest(".user-points-remove");
+  if (!button?.dataset.username) return;
+  const name = button.closest("li")?.querySelector("strong")?.textContent || button.dataset.username;
+  if (!confirm(`¿Eliminar a ${name} y todos sus puntos históricos?`)) return;
+  button.disabled = true;
+  try {
+    await request("user-points:delete", button.dataset.username);
+    toast("Usuario eliminado", "success");
+    await loadUserPoints(userPointsSearch);
+  } catch (error) {
+    toast(error.message, "error");
+    button.disabled = false;
+  }
+});
 elements.transactionModal.querySelectorAll("[data-transaction-modal-close]").forEach((button) => {
   button.addEventListener("click", closeTransactionModal);
 });
