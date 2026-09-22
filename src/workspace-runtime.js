@@ -70,7 +70,15 @@ export class WorkspaceRuntime {
   publicPoints() { const customization = this.custom("user-points:historical"); return { kind: "historical", title: "Usuario y Puntos", entries: this.pointsEngine.entries(customization?.itemLimit || 10), customization }; }
   publicState() { return { ...this.state, config: publicConfig(this.config), rankings: { topDonors: this.rankingEngine.entries() }, userPoints: { entries: this.pointsEngine.entries(100), configured: true }, workspace: { overlayToken: this.overlayToken } }; }
   broadcast() { this.emit("state", this.publicState()); }
-  async save(next = this.config) { this.config = await this.saveConfig(this.ownerId, next); this.broadcast(); return this.config; }
+  async save(next = this.config) {
+    // Conserva los cambios hechos mientras una escritura anterior espera a
+    // Supabase. Reemplazar la configuración con esa respuesta antigua podía
+    // restaurar un récord de Mejor Regalo ya superado.
+    this.config = next;
+    await this.saveConfig(this.ownerId, next);
+    this.broadcast();
+    return this.config;
+  }
   queueSave() { if (this.saveTimer) return; this.saveTimer = setTimeout(() => { this.saveTimer = null; this.saveQueue = this.saveQueue.then(() => this.save()).catch((error) => this.error(error.message)); }, 500); }
   async saveNow() { if (this.saveTimer) { clearTimeout(this.saveTimer); this.saveTimer = null; } this.saveQueue = this.saveQueue.then(() => this.save()); await this.saveQueue; }
   async dispose() { this.tiktok.disconnect("Sesión finalizada"); this.serverTap.disconnect("Sesión finalizada"); await Promise.all([this.saveNow(), this.pointsEngine.flush()]); }
