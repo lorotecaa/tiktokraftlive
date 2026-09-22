@@ -1,4 +1,6 @@
-const kind = decodeURIComponent(location.pathname.split("/").filter(Boolean).at(-1) || "");
+const route = location.pathname.split("/").filter(Boolean);
+const overlayToken = decodeURIComponent(route[1] || "");
+const kind = decodeURIComponent(route[3] || "");
 const widget = document.querySelector("#ranking-widget");
 const titleElement = document.querySelector("#ranking-title");
 const listElement = document.querySelector("#ranking-list");
@@ -57,7 +59,7 @@ function render(overlay) {
 }
 
 async function loadOverlay() {
-  const response = await fetch(`/api/ranking-overlays/${encodeURIComponent(kind)}`);
+  const response = await fetch(`/api/public/${encodeURIComponent(overlayToken)}/ranking`);
   if (!response.ok) throw new Error("No se encontró este overlay.");
   const { overlay } = await response.json();
   render(overlay);
@@ -71,7 +73,4 @@ loadOverlay().catch(() => {
   waiting.textContent = "Esperando conexión al LIVE…";
   listElement.append(waiting);
 });
-io().on("ranking-overlay:update", render);
-io().on("overlay-customization:update", ({ key, customization }) => {
-  if (key === `ranking:${kind}`) applyCustomization(customization);
-});
+setInterval(() => loadOverlay().catch(() => {}), 1500);

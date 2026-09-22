@@ -1,4 +1,4 @@
-const socket = io();
+const socket = io({ auth: { token: window.TikTokraftAuth?.accessToken || "" } });
 let appState = null;
 let hiddenActivity = false;
 let userPointsSearch = "";
@@ -125,7 +125,7 @@ function numberFormat(value) {
 }
 
 function goalUrl(id) {
-  return `${window.location.origin}/widget/goal/${encodeURIComponent(id)}`;
+  return `${window.location.origin}/widget/${encodeURIComponent(appState?.workspace?.overlayToken || "")}/goal/${encodeURIComponent(id)}`;
 }
 
 function goalCard(type) {
@@ -159,7 +159,7 @@ function renderGoals(goals) {
 }
 
 function giftOverlayUrl(kind) {
-  return `${window.location.origin}/widget/gift/${encodeURIComponent(kind)}`;
+  return `${window.location.origin}/widget/${encodeURIComponent(appState?.workspace?.overlayToken || "")}/gift/${encodeURIComponent(kind)}`;
 }
 
 function giftOverlayCard(kind) {
@@ -201,7 +201,7 @@ function renderGiftOverlays(overlays) {
 }
 
 function rankingOverlayUrl(kind) {
-  return `${window.location.origin}/widget/ranking/${encodeURIComponent(kind)}`;
+  return `${window.location.origin}/widget/${encodeURIComponent(appState?.workspace?.overlayToken || "")}/ranking/${encodeURIComponent(kind)}`;
 }
 
 function renderRankingOverlay(overlay) {
@@ -229,7 +229,7 @@ function renderRankingOverlay(overlay) {
 }
 
 function userPointsOverlayUrl() {
-  return `${window.location.origin}/widget/user-points`;
+  return `${window.location.origin}/widget/${encodeURIComponent(appState?.workspace?.overlayToken || "")}/user-points`;
 }
 
 function renderUserPoints(entries, configured = true) {
@@ -280,7 +280,7 @@ async function loadUserPoints(query = "") {
   try {
     const parameters = new URLSearchParams({ limit: "100" });
     if (query) parameters.set("q", query);
-    const response = await fetch(`/api/user-points?${parameters}`);
+    const response = await fetch(`/api/user-points?${parameters}`, { headers: { Authorization: `Bearer ${window.TikTokraftAuth?.accessToken || ""}` } });
     if (!response.ok) throw new Error("No se pudo cargar Usuario y Puntos.");
     const result = await response.json();
     renderUserPoints(result.entries, result.configured);
@@ -471,7 +471,7 @@ function renderSoundOptions(selectedAudio = elements.audio.value) {
 
 async function loadSounds() {
   try {
-    const response = await fetch("/api/sounds");
+    const response = await fetch("/api/sounds", { headers: { Authorization: `Bearer ${window.TikTokraftAuth?.accessToken || ""}` } });
     if (!response.ok) throw new Error();
     const payload = await response.json();
     availableSounds = Array.isArray(payload.sounds) ? payload.sounds : [];

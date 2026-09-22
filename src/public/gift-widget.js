@@ -1,4 +1,6 @@
-const kind = decodeURIComponent(location.pathname.split("/").filter(Boolean).at(-1) || "");
+const route = location.pathname.split("/").filter(Boolean);
+const overlayToken = decodeURIComponent(route[1] || "");
+const kind = decodeURIComponent(route[3] || "");
 const widget = document.querySelector("#gift-widget");
 const titleElement = document.querySelector("#gift-widget-title");
 const imageElement = document.querySelector("#gift-widget-image");
@@ -75,7 +77,7 @@ function render(overlay) {
 }
 
 async function loadOverlay() {
-  const response = await fetch(`/api/gift-overlays/${encodeURIComponent(kind)}`);
+  const response = await fetch(`/api/public/${encodeURIComponent(overlayToken)}/gift/${encodeURIComponent(kind)}`);
   if (!response.ok) throw new Error("No se encontró este overlay.");
   const { overlay } = await response.json();
   render(overlay);
@@ -83,7 +85,4 @@ async function loadOverlay() {
 
 imageElement.addEventListener("error", () => { imageElement.hidden = true; });
 loadOverlay().catch(() => { widget.hidden = true; });
-io().on("gift-overlay:update", render);
-io().on("overlay-customization:update", ({ key, customization }) => {
-  if (key === `gift:${kind}` && currentOverlay) render({ ...currentOverlay, customization });
-});
+setInterval(() => loadOverlay().catch(() => {}), 1500);

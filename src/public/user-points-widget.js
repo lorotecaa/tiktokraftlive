@@ -1,4 +1,6 @@
 const widget = document.querySelector("#user-points-widget");
+const route = location.pathname.split("/").filter(Boolean);
+const overlayToken = decodeURIComponent(route[1] || "");
 const titleElement = document.querySelector("#user-points-title");
 const listElement = document.querySelector("#user-points-ranking");
 let currentOverlay = null;
@@ -54,7 +56,7 @@ function render(overlay) {
 }
 
 async function loadOverlay() {
-  const response = await fetch("/api/user-points/overlay");
+  const response = await fetch(`/api/public/${encodeURIComponent(overlayToken)}/user-points`);
   if (!response.ok) throw new Error("No se encontró este overlay.");
   const { overlay } = await response.json();
   render(overlay);
@@ -65,10 +67,4 @@ loadOverlay().catch(() => {
   listElement.innerHTML = '<li class="user-points-waiting">Esperando conexión al panel…</li>';
 });
 
-const socket = io();
-socket.on("user-points-overlay:update", render);
-socket.on("overlay-customization:update", ({ key, customization }) => {
-  if (key !== "user-points:historical") return;
-  if (currentOverlay) render({ ...currentOverlay, customization });
-  else loadOverlay().catch(() => {});
-});
+setInterval(() => loadOverlay().catch(() => {}), 1500);

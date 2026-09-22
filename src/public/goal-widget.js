@@ -1,4 +1,6 @@
-const goalId = decodeURIComponent(location.pathname.split("/").filter(Boolean).at(-1) || "");
+const route = location.pathname.split("/").filter(Boolean);
+const overlayToken = decodeURIComponent(route[1] || "");
+const goalId = decodeURIComponent(route[3] || "");
 const widget = document.querySelector("#goal-widget");
 const nameElement = document.querySelector("#goal-name");
 const valueElement = document.querySelector("#goal-value");
@@ -37,14 +39,11 @@ function render(goal) {
 }
 
 async function loadGoal() {
-  const response = await fetch(`/api/goals/${encodeURIComponent(goalId)}`);
+  const response = await fetch(`/api/public/${encodeURIComponent(overlayToken)}/goal/${encodeURIComponent(goalId)}`);
   if (!response.ok) throw new Error("No se encontró esta meta.");
   const { goal } = await response.json();
   render(goal);
 }
 
 loadGoal().catch(() => { widget.hidden = true; });
-io().on("goal:update", render);
-io().on("overlay-customization:update", ({ key, customization }) => {
-  if (key === `goal:${goalId}`) applyCustomization(customization);
-});
+setInterval(() => loadGoal().catch(() => {}), 1500);
