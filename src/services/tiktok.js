@@ -31,6 +31,14 @@ function firstUrl(...values) {
   return "";
 }
 
+function firstPositiveNumber(...values) {
+  for (const value of values) {
+    const number = Number(value);
+    if (Number.isFinite(number) && number > 0) return number;
+  }
+  return 0;
+}
+
 function giftImageUrl(data, gift) {
   const image = data.giftImage || data.gift_image || gift.giftImage || gift.gift_image || gift.image || {};
   return firstUrl(
@@ -57,7 +65,14 @@ function normalizeGift(message) {
   const giftId = String(data.giftId ?? data.gift_id ?? gift.id ?? gift.giftId ?? gift.gift_id ?? "");
 
   const repeatCount = Math.max(1, Number(data.repeatCount ?? data.repeat_count ?? data.comboCount ?? data.combo_count ?? gift.repeatCount ?? gift.repeat_count ?? data.giftCount ?? data.gift_count ?? data.count) || 1);
-  const coinValue = Math.max(0, Number(data.diamondCount ?? data.diamond_count ?? data.coinCount ?? data.coin_count ?? gift.diamondCount ?? gift.diamond_count ?? gift.coinCount ?? gift.coin_count ?? gift.price ?? data.price) || 0);
+  // En algunos regalos TikTok deja diamondCount/coinCount en 0, aunque el
+  // detalle del regalo sí contiene su precio real. Ignorar los ceros aquí
+  // permite conservar el valor individual correcto para Mejor Regalo.
+  const coinValue = firstPositiveNumber(
+    data.diamondCount, data.diamond_count, data.coinCount, data.coin_count,
+    gift.diamondCount, gift.diamond_count, gift.coinCount, gift.coin_count,
+    gift.price, data.price
+  );
 
   return {
     giftId,
