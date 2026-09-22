@@ -57,7 +57,16 @@ app.get("/widget/:token/user-points", (_request, response) => response.sendFile(
 app.get("/api/public/:token/goal/:id", async (request, response) => { const w = await publicSpace(request.params.token); const goal = w?.config.goals.find((item) => item.id === request.params.id); if (!goal) return response.sendStatus(404); response.json({ goal: w.publicGoal(goal) }); });
 app.get("/api/public/:token/gift/:kind", async (request, response) => { const w = await publicSpace(request.params.token); const overlay = w?.publicGift(request.params.kind); if (!overlay) return response.sendStatus(404); response.json({ overlay }); });
 app.get("/api/public/:token/ranking", async (request, response) => { const w = await publicSpace(request.params.token); if (!w) return response.sendStatus(404); response.json({ overlay: w.publicRanking() }); });
-app.get("/api/public/:token/user-points", async (request, response) => { const w = await publicSpace(request.params.token); if (!w) return response.sendStatus(404); response.json({ overlay: w.publicPoints() }); });
+app.get("/api/public/:token/user-points", async (request, response, next) => {
+  try {
+    const workspace = await workspaceByOverlayToken(request.params.token);
+    if (!workspace) return response.sendStatus(404);
+    const customization = workspace.config.overlayCustomizations?.["user-points:historical"] || null;
+    const limit = Math.max(1, Math.min(Number(customization?.itemLimit) || 10, 50));
+    const entries = await listWorkspaceUserPoints(workspace.ownerId, { limit });
+    response.json({ overlay: { kind: "historical", title: "Usuario y Puntos", entries, customization } });
+  } catch (error) { next(error); }
+});
 app.use(express.static(path.join(directory, "public")));
 
 io.use(async (socket, next) => { try { const session = await identity(socket.handshake.auth?.token); socket.data.session = session; next(); } catch (error) { next(new Error(error.message)); } });
