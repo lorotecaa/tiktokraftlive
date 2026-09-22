@@ -72,7 +72,11 @@ La clave secreta se usa solamente en el servidor: nunca se envía al navegador. 
 
 Ejecuta `supabase/multiuser.sql` una vez en Supabase antes de desplegar la versión multiusuario. TikTokraft Live usa las cuentas de **Supabase Auth** con email y contraseña: la primera cuenta que se registre reclama la configuración y los puntos históricos de la instalación anterior; cada cuenta posterior empieza con un espacio privado. Los enlaces de overlays ahora incorporan un token aleatorio de su propietario, por lo que debes copiar nuevamente las URLs en OBS.
 
+Si la primera cuenta se creó antes de una actualización del schema y no muestra sus acciones antiguas, vuelve a ejecutar `supabase/multiuser.sql`: su reparación solo copia los mappings antiguos al workspace del propietario cuando ese workspace no tiene ninguno.
+
 En **Authentication → Providers → Email** de Supabase, deja habilitado el proveedor Email. Si mantienes activada la confirmación de email, cada persona debe confirmar su correo antes de iniciar sesión.
+
+En **Authentication → URL Configuration** configura **Site URL** como la URL pública de Render, por ejemplo `https://tiktokraftlive.onrender.com`, y añade esa misma URL en **Redirect URLs**. En Render configura también `APP_URL` con esa URL pública; si no se establece, la aplicación usa `RENDER_EXTERNAL_URL` cuando Render la proporciona.
 
 ## Crear acciones
 
