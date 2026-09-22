@@ -33,6 +33,11 @@ export function refreshSession(refreshToken) {
   return authRequest("token?grant_type=refresh_token", { method: "POST", headers: headers(), body: JSON.stringify({ refresh_token: refreshToken }) });
 }
 
+export async function changePassword(accessToken, password) {
+  if (String(password || "").length < 6) throw new Error("La contraseña debe tener al menos 6 caracteres.");
+  await authRequest("user", { method: "PUT", headers: headers({ Authorization: `Bearer ${accessToken}` }), body: JSON.stringify({ password }) });
+}
+
 export async function userFromAccessToken(token) {
   if (!token) throw new Error("Inicia sesión para continuar.");
   const user = await authRequest("user", { headers: headers({ Authorization: `Bearer ${token}` }) });

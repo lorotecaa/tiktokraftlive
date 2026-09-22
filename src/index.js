@@ -5,7 +5,7 @@ import { fileURLToPath } from "node:url";
 import express from "express";
 import { Server } from "socket.io";
 import { listAvailableSounds, sanitizeConfig } from "./config-store.js";
-import { authConfigured, refreshSession, signIn, signUp, userFromAccessToken } from "./auth-store.js";
+import { authConfigured, changePassword, refreshSession, signIn, signUp, userFromAccessToken } from "./auth-store.js";
 import { claimWorkspace, saveWorkspaceConfig, workspaceByOverlayToken } from "./workspace-store.js";
 import { WorkspaceRuntime } from "./workspace-runtime.js";
 import { listWorkspaceUserPoints } from "./services/user-points-store.js";
@@ -44,7 +44,8 @@ app.post("/api/auth/signup", async (request, response, next) => { try { response
 app.post("/api/auth/signin", async (request, response, next) => { try { response.json(await signIn(String(request.body?.email || "").trim(), String(request.body?.password || ""))); } catch (error) { next(error); } });
 app.post("/api/auth/refresh", async (request, response, next) => { try { response.json(await refreshSession(String(request.body?.refresh_token || ""))); } catch (error) { next(error); } });
 app.get("/api/health", (_request, response) => response.json({ ok: true, authConfigured }));
-app.get("/api/state", protectedRoute, (request, response) => response.json(request.session.workspace.publicState()));
+app.get("/api/state", protectedRoute, (request, response) => response.json({ ...request.session.workspace.publicState(), account: { email: request.session.user.email } }));
+app.post("/api/auth/password", protectedRoute, async (request, response, next) => { try { await changePassword(tokenFrom(request), String(request.body?.password || "")); response.json({ ok: true }); } catch (error) { next(error); } });
 app.get("/api/sounds", protectedRoute, async (_request, response, next) => { try { response.json({ sounds: await listAvailableSounds() }); } catch (error) { next(error); } });
 app.get("/api/user-points", protectedRoute, async (request, response, next) => { try { response.json({ entries: await listWorkspaceUserPoints(request.session.user.id, { query: request.query.q, limit: request.query.limit }), configured: true }); } catch (error) { next(error); } });
 
@@ -61,9 +62,10 @@ app.use(express.static(path.join(directory, "public")));
 
 io.use(async (socket, next) => { try { const session = await identity(socket.handshake.auth?.token); socket.data.session = session; next(); } catch (error) { next(new Error(error.message)); } });
 io.on("connection", (socket) => {
-  const w = socket.data.session.workspace; socket.join(w.room()); socket.emit("state", w.publicState());
+  const w = socket.data.session.workspace; socket.join(w.room()); socket.emit("state", { ...w.publicState(), account: { email: socket.data.session.user.email } });
   socket.on("settings:save", (input, done) => acknowledge(done, () => w.save(sanitizeConfig({ ...w.config, tiktokUsername: input.tiktokUsername ?? w.config.tiktokUsername, eulerStreamApiKey: input.eulerStreamApiKey || w.config.eulerStreamApiKey, serverTap: { ...w.config.serverTap, url: serverTapUrl(input, w.config.serverTap.url), key: input.serverTapKey || w.config.serverTap.key } })), w));
   socket.on("tts:save", (input, done) => acknowledge(done, async () => { await w.save({ ...w.config, tts: { ...w.config.tts, ...input } }); return w.config.tts; }, w));
+  socket.on("profile:save", (input, done) => acknowledge(done, async () => { const profile = sanitizeConfig({ profile: input }).profile; await w.save({ ...w.config, profile }); return profile; }, w));
   socket.on("user-points:transaction", (input, done) => acknowledge(done, async () => { const entry = await w.pointsEngine.addTransaction(input); w.activity({ type: "user-points", message: `Transacción manual: ${entry.nickname || entry.username}` }); return entry; }, w));
   socket.on("gift-overlays:save", (input, done) => acknowledge(done, async () => { await w.save({ ...w.config, giftOverlays: { ...w.config.giftOverlays, resetOnNewLive: input?.resetOnNewLive === true } }); return w.config.giftOverlays; }, w));
   socket.on("gift-overlays:reset", (_input, done) => acknowledge(done, async () => { w.giftEngine.reset(); await w.saveNow(); return w.config.giftOverlays; }, w));

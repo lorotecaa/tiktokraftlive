@@ -234,6 +234,12 @@ function normalizeOverlayCustomizations(raw) {
     .map(([key, value]) => [key, normalizeOverlayCustomization(value)]));
 }
 
+function normalizeProfile(raw) {
+  const avatarDataUrl = stringOrEmpty(raw?.avatarDataUrl);
+  const supportedImage = /^data:image\/(?:jpeg|png|webp);base64,[a-z0-9+/=]+$/i.test(avatarDataUrl);
+  return { avatarDataUrl: supportedImage && avatarDataUrl.length <= 350_000 ? avatarDataUrl : "" };
+}
+
 export async function listAvailableSounds() {
   try {
     const entries = await fs.readdir(soundsDirectory, { withFileTypes: true });
@@ -260,6 +266,7 @@ export function sanitizeConfig(raw = {}) {
     },
     tts: normalizeTts(raw.tts),
     giftOverlays: normalizeGiftOverlays(raw.giftOverlays),
+    profile: normalizeProfile(raw.profile),
     overlayCustomizations: normalizeOverlayCustomizations(raw.overlayCustomizations),
     goals: normalizedGoals.filter((goal, index) => normalizedGoals.findIndex((item) => item.type === goal.type) === index),
     mappings: mappings.map(normalizeMapping).filter((mapping) => mapping.command)
