@@ -3,10 +3,11 @@ function rank(entries) {
 }
 
 export class HistoricalPointsEngine {
-  constructor({ list, add, addManual, onUpdate, onError }) {
+  constructor({ list, add, addManual, remove, onUpdate, onError }) {
     this.list = list;
     this.add = add;
     this.addManual = addManual;
+    this.remove = remove;
     this.onUpdate = onUpdate;
     this.onError = onError;
     this.entriesByUsername = new Map();
@@ -36,6 +37,20 @@ export class HistoricalPointsEngine {
       this.entriesByUsername.set(saved.username, saved);
       this.onUpdate(this.entries());
       return saved;
+    });
+    this.writeQueue = write.catch((error) => this.onError(error));
+    return write;
+  }
+
+  delete(username) {
+    if (typeof this.remove !== "function") throw new Error("La eliminación de usuarios no está configurada.");
+    const key = String(username || "").trim().replace(/^@/, "").toLocaleLowerCase();
+    if (!key) throw new Error("No se encontró el usuario que deseas eliminar.");
+    const write = this.writeQueue.then(async () => {
+      await this.remove(key);
+      this.entriesByUsername.delete(key);
+      this.onUpdate(this.entries());
+      return { username: key };
     });
     this.writeQueue = write.catch((error) => this.onError(error));
     return write;

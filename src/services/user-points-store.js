@@ -127,3 +127,21 @@ export function addWorkspaceManualPoints(ownerId, input = {}) {
   if (!Number.isFinite(coins) || !coins) return Promise.reject(new Error("Indica una cantidad de monedas distinta de cero."));
   return workspacePointsRpc("tiktokraft_workspace_add_manual_points", { p_owner_id: ownerId, p_username: username, p_nickname: String(input.nickname || input.username || username).slice(0, 80), p_coins: coins, p_description: String(input.description || "").slice(0, 280) });
 }
+
+export async function deleteWorkspaceUserPoints(ownerId, value) {
+  const username = safeIdentity(value);
+  if (!username) throw new Error("No se encontró el usuario que deseas eliminar.");
+  const owner = encodeURIComponent(ownerId);
+  const user = encodeURIComponent(username);
+  await request(`${supabaseUrl}/rest/v1/tiktokraft_workspace_user_points?owner_id=eq.${owner}&username=eq.${user}`, {
+    method: "DELETE",
+    headers: headers({ Prefer: "return=minimal" })
+  });
+  // Las transacciones son privadas y no forman parte del ranking, pero se
+  // eliminan junto al usuario para que el historial quede realmente limpio.
+  await request(`${supabaseUrl}/rest/v1/tiktokraft_workspace_point_transactions?owner_id=eq.${owner}&username=eq.${user}`, {
+    method: "DELETE",
+    headers: headers({ Prefer: "return=minimal" })
+  });
+  return { username };
+}
