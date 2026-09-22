@@ -19,6 +19,7 @@
       </a>
       <div class="topbar-actions">
         <div class="live-pill"><span class="pulse"></span><span id="global-status">PANEL LOCAL</span></div>
+        <button id="profile-button" class="button text logout-button" type="button">Perfil</button>
         <button id="logout-button" class="button text logout-button" type="button">Cerrar sesión</button>
       </div>
     </header>
@@ -296,6 +297,21 @@
     </main>
 
     <div class="toast-stack" id="toasts" aria-live="polite"></div>
+    <div class="profile-modal" id="profile-modal" hidden>
+      <div class="profile-modal-backdrop" data-profile-modal-close></div>
+      <form class="profile-modal-dialog" id="profile-form">
+        <header><h2>Perfil</h2><button class="modal-close" type="button" data-profile-modal-close aria-label="Cerrar">×</button></header>
+        <div class="profile-modal-fields">
+          <div class="profile-avatar-wrap"><img id="profile-avatar" alt="Foto de perfil" hidden /><span id="profile-avatar-empty">Sin foto</span></div>
+          <label class="profile-file-label">Foto de perfil<input id="profile-avatar-input" type="file" accept="image/png,image/jpeg,image/webp" /><small>Selecciona una imagen desde tu PC.</small></label>
+          <label>Correo<input id="profile-email" type="email" readonly /></label>
+          <label>Nueva contraseña<input id="profile-password" type="password" minlength="6" autocomplete="new-password" placeholder="Déjalo vacío para conservarla" /></label>
+          <label>Confirmar contraseña<input id="profile-password-confirm" type="password" minlength="6" autocomplete="new-password" placeholder="Repite la contraseña nueva" /></label>
+          <small class="profile-message" id="profile-message"></small>
+        </div>
+        <footer><button class="button text" type="button" data-profile-modal-close>Cancelar</button><button class="button primary" type="submit">Guardar cambios</button></footer>
+      </form>
+    </div>
     <div class="transaction-modal" id="user-points-transaction-modal" hidden>
       <div class="transaction-modal-backdrop" data-transaction-modal-close></div>
       <form class="transaction-modal-dialog" id="user-points-transaction-form">
