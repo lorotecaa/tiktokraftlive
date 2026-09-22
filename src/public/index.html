@@ -123,6 +123,23 @@
         </div>
       </section>
 
+      <section class="workspace user-points-section" id="usuario-y-puntos">
+        <button class="goals-toggle user-points-toggle" id="user-points-toggle" type="button" aria-expanded="false" aria-controls="user-points-panel"><span>Usuario y Puntos</span><b aria-hidden="true">›</b></button>
+        <div class="goals-panel user-points-panel" id="user-points-panel" hidden>
+          <div class="user-points-heading"><h2>Usuario y Puntos</h2><p>Historial permanente de quienes han aportado coins en todos tus LIVE.</p></div>
+          <div class="user-points-card">
+            <div class="user-points-toolbar"><label class="user-points-search-label"><span aria-hidden="true">⌕</span><input id="user-points-search" type="search" maxlength="80" placeholder="Buscar usuario" /></label><small id="user-points-status"></small></div>
+            <div class="user-points-table-wrap"><div class="user-points-table-heading"><span>Usuario</span><span>Total de monedas</span></div><ol class="user-points-list" id="user-points-list"></ol><p class="empty-state" id="user-points-empty">Aún no hay usuarios con regalos registrados.</p></div>
+            <article class="user-points-overlay-option">
+              <h3>Ranking histórico</h3>
+              <p>Overlay público con los usuarios que más coins han aportado en total.</p>
+              <div class="user-points-overlay-url"><input id="user-points-overlay-url" aria-label="URL del ranking histórico" readonly /><button class="button text" id="user-points-overlay-copy" type="button">⛓ Copiar URL</button><button class="button text" id="user-points-overlay-preview" type="button">▷ Vista previa</button><button class="button text overlay-customize" type="button" data-overlay-key="user-points:historical" data-overlay-title="Usuario y Puntos">⚙ Personalizar</button></div>
+              <form class="user-points-overlay-settings" id="user-points-overlay-form"><label>Usuarios a mostrar<input id="user-points-overlay-limit" type="number" min="1" max="50" value="10" /></label><button class="button primary" type="submit">Guardar cantidad</button></form>
+            </article>
+          </div>
+        </div>
+      </section>
+
       <section class="workspace rankings-section" id="rankings-overlays">
         <button class="goals-toggle rankings-toggle" id="rankings-toggle" type="button" aria-expanded="false" aria-controls="rankings-panel"><span>Rankings Overlays</span><b aria-hidden="true">›</b></button>
         <div class="goals-panel rankings-panel" id="rankings-panel" hidden>
@@ -290,6 +307,7 @@
           <label>Espaciado de letras<input id="customization-letter-spacing" type="number" min="0" max="100" /></label>
           <label data-gift-hide>Color de fuente<input id="customization-text-color" type="color" /></label>
           <label data-gift-hide>Color de rango<input id="customization-rank-color" type="color" /></label>
+          <label data-user-points-only>Usuarios a mostrar<input id="user-points-customization-limit" type="number" min="1" max="50" /></label>
           <label data-gift-hide>Efecto de texto<select id="customization-text-effect"><option value="none">Ninguno</option><option value="shadow">Sombra</option><option value="glow">Brillo</option></select></label>
           <label class="modal-check" data-gift-hide><input id="customization-wave" type="checkbox" /> Animación de onda</label>
           <div class="gift-customization-heading" data-gift-only>Fondo y alineación</div>

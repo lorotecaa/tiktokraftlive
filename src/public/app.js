@@ -1,6 +1,8 @@
 const socket = io();
 let appState = null;
 let hiddenActivity = false;
+let userPointsSearch = "";
+let userPointsSearchTimer = null;
 const giftNamesById = window.TIKTOK_GIFT_NAMES || {};
 
 const $ = (selector) => document.querySelector(selector);
@@ -15,8 +17,9 @@ const elements = {
   allowedUsers: $("#allowed-users-form"), allowAllUsers: $("#tts-allow-all-users"), allowFollowers: $("#tts-allow-followers"), allowSubscribers: $("#tts-allow-subscribers"), allowModerators: $("#tts-allow-moderators"), allowTeamMembers: $("#tts-allow-team-members"), teamMembersMinLevel: $("#tts-team-members-min-level"), allowTopGifters: $("#tts-allow-top-gifters"), topGiftersTop: $("#tts-top-gifters-top"), allowList: $("#tts-allow-list"), manageAllowedUsers: $("#manage-allowed-users"), allowedUsersListEditor: $("#allowed-users-list-editor"), allowedUsernames: $("#tts-allowed-usernames"),
   goalsToggle: $("#goals-toggle"), goalsPanel: $("#goals-panel"), goalCards: [...document.querySelectorAll(".goal-card")],
   rankingsToggle: $("#rankings-toggle"), rankingsPanel: $("#rankings-panel"), rankingOverlayCards: [...document.querySelectorAll(".ranking-overlay-option")],
+  userPointsToggle: $("#user-points-toggle"), userPointsPanel: $("#user-points-panel"), userPointsSearch: $("#user-points-search"), userPointsList: $("#user-points-list"), userPointsEmpty: $("#user-points-empty"), userPointsStatus: $("#user-points-status"), userPointsUrl: $("#user-points-overlay-url"), userPointsCopy: $("#user-points-overlay-copy"), userPointsPreview: $("#user-points-overlay-preview"), userPointsLimit: $("#user-points-overlay-limit"), userPointsLimitForm: $("#user-points-overlay-form"),
   giftOverlaysToggle: $("#gift-overlays-toggle"), giftOverlaysPanel: $("#gift-overlays-panel"), giftOverlaysForm: $("#gift-overlays-form"), giftOverlaysResetOnLive: $("#gift-overlays-reset-on-live"), giftOverlaysResetNow: $("#gift-overlays-reset-now"), giftOverlayCards: [...document.querySelectorAll(".gift-overlay-option")],
-  customizationModal: $("#overlay-customization-modal"), customizationForm: $("#overlay-customization-form"), customizationTitle: $("#overlay-customization-title"), customizationFontFamily: $("#customization-font-family"), customizationFontSize: $("#customization-font-size"), customizationLineSpacing: $("#customization-line-spacing"), customizationLetterSpacing: $("#customization-letter-spacing"), customizationTextColor: $("#customization-text-color"), customizationValueColor: $("#customization-value-color"), customizationRankColor: $("#customization-rank-color"), customizationTextEffect: $("#customization-text-effect"), customizationWave: $("#customization-wave"), customizationBackground: $("#customization-background"), customizationBackgroundColor: $("#customization-background-color"), customizationShowRank: $("#customization-show-rank"), customizationShowValue: $("#customization-show-value"), customizationAlignRight: $("#customization-align-right"), customizationCrown: $("#customization-crown"), giftCustomizationTitle: $("#gift-customization-title"), giftCustomizationTitleSize: $("#gift-customization-title-size"), giftCustomizationTitleColor: $("#gift-customization-title-color"), giftCustomizationUsernameColor: $("#gift-customization-username-color"), giftCustomizationUsernameSize: $("#gift-customization-username-size"), giftCustomizationTitleOffset: $("#gift-customization-title-offset"), giftCustomizationImageOffset: $("#gift-customization-image-offset"), giftCustomizationUsernameOffset: $("#gift-customization-username-offset"), giftCustomizationCoinsOffset: $("#gift-customization-coins-offset"), giftCustomizationBorder: $("#gift-customization-border"), giftCustomizationBorderColor: $("#gift-customization-border-color"), giftCustomizationImageVisible: $("#gift-customization-image-visible"), giftCustomizationImageOpacity: $("#gift-customization-image-opacity"), giftCustomizationTitleEffect: $("#gift-customization-title-effect"), giftCustomizationTitleWave: $("#gift-customization-title-wave"), giftCustomizationUsernameEffect: $("#gift-customization-username-effect"), giftCustomizationUsernameWave: $("#gift-customization-username-wave"), giftCustomizationShowCoins: $("#gift-customization-show-coins"), giftCustomizationCoinsAlias: $("#gift-customization-coins-alias"),
+  customizationModal: $("#overlay-customization-modal"), customizationForm: $("#overlay-customization-form"), customizationTitle: $("#overlay-customization-title"), customizationFontFamily: $("#customization-font-family"), customizationFontSize: $("#customization-font-size"), customizationLineSpacing: $("#customization-line-spacing"), customizationLetterSpacing: $("#customization-letter-spacing"), customizationTextColor: $("#customization-text-color"), customizationValueColor: $("#customization-value-color"), customizationRankColor: $("#customization-rank-color"), customizationTextEffect: $("#customization-text-effect"), customizationWave: $("#customization-wave"), customizationBackground: $("#customization-background"), customizationBackgroundColor: $("#customization-background-color"), customizationShowRank: $("#customization-show-rank"), customizationShowValue: $("#customization-show-value"), customizationAlignRight: $("#customization-align-right"), customizationCrown: $("#customization-crown"), userPointsCustomizationLimit: $("#user-points-customization-limit"), giftCustomizationTitle: $("#gift-customization-title"), giftCustomizationTitleSize: $("#gift-customization-title-size"), giftCustomizationTitleColor: $("#gift-customization-title-color"), giftCustomizationUsernameColor: $("#gift-customization-username-color"), giftCustomizationUsernameSize: $("#gift-customization-username-size"), giftCustomizationTitleOffset: $("#gift-customization-title-offset"), giftCustomizationImageOffset: $("#gift-customization-image-offset"), giftCustomizationUsernameOffset: $("#gift-customization-username-offset"), giftCustomizationCoinsOffset: $("#gift-customization-coins-offset"), giftCustomizationBorder: $("#gift-customization-border"), giftCustomizationBorderColor: $("#gift-customization-border-color"), giftCustomizationImageVisible: $("#gift-customization-image-visible"), giftCustomizationImageOpacity: $("#gift-customization-image-opacity"), giftCustomizationTitleEffect: $("#gift-customization-title-effect"), giftCustomizationTitleWave: $("#gift-customization-title-wave"), giftCustomizationUsernameEffect: $("#gift-customization-username-effect"), giftCustomizationUsernameWave: $("#gift-customization-username-wave"), giftCustomizationShowCoins: $("#gift-customization-show-coins"), giftCustomizationCoinsAlias: $("#gift-customization-coins-alias"),
   minecraftDetail: $("#minecraft-detail"), minecraftDot: $("#minecraft-dot"),
   tiktokDetail: $("#tiktok-detail"), tiktokDot: $("#tiktok-dot"),
   globalStatus: $("#global-status"),
@@ -37,7 +40,7 @@ const defaultCustomization = {
   title: "", titleSize: 32, titleColor: "#d9d9d9", usernameColor: "#ffffff", usernameSize: 40,
   titleVerticalOffset: 0, giftVerticalOffset: 0, usernameVerticalOffset: 0, coinsVerticalOffset: 0,
   enableFontBorder: false, borderColor: "#242424", giftImageVisible: true, giftImageOpacity: 90,
-  titleTextEffect: "none", titleWaveAnimation: false, usernameTextEffect: "none", usernameWaveAnimation: false, coinsAlias: "coins"
+  titleTextEffect: "none", titleWaveAnimation: false, usernameTextEffect: "none", usernameWaveAnimation: false, coinsAlias: "coins", itemLimit: 10
 };
 
 function request(event, payload) {
@@ -112,6 +115,7 @@ function renderState(next) {
   renderMappings(config.mappings || []);
   renderGiftOverlays(config.giftOverlays || {});
   renderRankingOverlay({ kind: "top-donors", title: "Top Donadores", entries: next.rankings?.topDonors || [] });
+  renderUserPoints(next.userPoints?.entries || [], next.userPoints?.configured);
   renderGoals(config.goals || []);
   if (!hiddenActivity) renderActivity(next.activity || []);
 }
@@ -224,6 +228,49 @@ function renderRankingOverlay(overlay) {
   });
 }
 
+function userPointsOverlayUrl() {
+  return `${window.location.origin}/widget/user-points`;
+}
+
+function renderUserPoints(entries, configured = true) {
+  if (!elements.userPointsList) return;
+  const points = Array.isArray(entries) ? entries : [];
+  elements.userPointsList.replaceChildren();
+  elements.userPointsStatus.textContent = configured
+    ? `${numberFormat(points.length)} usuario${points.length === 1 ? "" : "s"} cargado${points.length === 1 ? "" : "s"}.`
+    : "Configura Supabase para guardar el historial permanentemente.";
+  elements.userPointsEmpty.hidden = points.length > 0;
+  for (const entry of points) {
+    const row = document.createElement("li");
+    const name = document.createElement("strong");
+    name.textContent = entry.nickname || entry.username || "Espectador";
+    const username = document.createElement("small");
+    username.textContent = entry.username && entry.nickname !== entry.username ? `@${entry.username}` : "";
+    const user = document.createElement("span");
+    user.className = "user-points-name";
+    user.append(name, username);
+    const coins = document.createElement("b");
+    coins.textContent = `${numberFormat(entry.coins)} coins`;
+    row.append(user, coins);
+    elements.userPointsList.append(row);
+  }
+  elements.userPointsUrl.value = userPointsOverlayUrl();
+  elements.userPointsLimit.value = String(customizationFor("user-points:historical").itemLimit);
+}
+
+async function loadUserPoints(query = "") {
+  try {
+    const parameters = new URLSearchParams({ limit: "100" });
+    if (query) parameters.set("q", query);
+    const response = await fetch(`/api/user-points?${parameters}`);
+    if (!response.ok) throw new Error("No se pudo cargar Usuario y Puntos.");
+    const result = await response.json();
+    renderUserPoints(result.entries, result.configured);
+  } catch (error) {
+    elements.userPointsStatus.textContent = error.message;
+  }
+}
+
 function customizationFor(key) {
   return { ...defaultCustomization, ...(appState?.config?.overlayCustomizations?.[key] || {}) };
 }
@@ -234,8 +281,9 @@ function openCustomization(button) {
   customizationKey = key;
   const customization = customizationFor(key);
   const isGiftOverlay = key.startsWith("gift:");
+  const isUserPointsOverlay = key === "user-points:historical";
   const isBestStreak = key === "gift:best-streak";
-  elements.customizationModal.dataset.variant = isGiftOverlay ? "gift" : "default";
+  elements.customizationModal.dataset.variant = isGiftOverlay ? "gift" : (isUserPointsOverlay ? "user-points" : "default");
   elements.customizationTitle.textContent = isGiftOverlay ? `Personalizar · ${button.dataset.overlayTitle}` : (button.dataset.overlayTitle || "Overlay");
   if (isGiftOverlay) {
     $("#gift-customization-overlay-heading").textContent = `Opciones de ${button.dataset.overlayTitle}`;
@@ -283,6 +331,7 @@ function openCustomization(button) {
   elements.giftCustomizationUsernameWave.checked = customization.usernameWaveAnimation;
   elements.giftCustomizationShowCoins.checked = customization.showValue;
   elements.giftCustomizationCoinsAlias.value = customization.coinsAlias;
+  elements.userPointsCustomizationLimit.value = customization.itemLimit;
   elements.customizationModal.hidden = false;
   document.body.classList.add("modal-open");
 }
@@ -311,6 +360,9 @@ function readCustomization() {
     alignRight: elements.customizationAlignRight.checked,
     showCrown: elements.customizationCrown.checked
   };
+  if (customizationKey === "user-points:historical") {
+    return { ...customization, itemLimit: Number(elements.userPointsCustomizationLimit.value) };
+  }
   if (!customizationKey.startsWith("gift:")) return customization;
   return {
     ...customization,
@@ -591,6 +643,43 @@ elements.goalsToggle.addEventListener("click", () => {
 elements.rankingsToggle.addEventListener("click", () => {
   toggleAccordion(elements.rankingsToggle, elements.rankingsPanel);
 });
+elements.userPointsToggle.addEventListener("click", () => {
+  toggleAccordion(elements.userPointsToggle, elements.userPointsPanel);
+  if (!userPointsSearch) loadUserPoints();
+});
+elements.userPointsSearch.addEventListener("input", () => {
+  userPointsSearch = elements.userPointsSearch.value.trim();
+  clearTimeout(userPointsSearchTimer);
+  userPointsSearchTimer = setTimeout(() => loadUserPoints(userPointsSearch), 220);
+});
+elements.userPointsCopy.addEventListener("click", async () => {
+  try {
+    await navigator.clipboard.writeText(elements.userPointsUrl.value);
+  } catch {
+    elements.userPointsUrl.select();
+    document.execCommand("copy");
+  }
+  toast("URL copiada", "success");
+});
+elements.userPointsPreview.addEventListener("click", () => window.open(userPointsOverlayUrl(), "_blank", "noopener"));
+elements.userPointsLimitForm.addEventListener("submit", async (event) => {
+  event.preventDefault();
+  try {
+    const key = "user-points:historical";
+    const saved = await request("overlay-customization:save", {
+      key,
+      customization: { ...customizationFor(key), itemLimit: Number(elements.userPointsLimit.value) }
+    });
+    if (appState?.config) {
+      appState.config.overlayCustomizations ||= {};
+      appState.config.overlayCustomizations[key] = saved.customization;
+    }
+    elements.userPointsLimit.value = String(saved.customization.itemLimit);
+    toast("Cantidad de usuarios guardada", "success");
+  } catch (error) {
+    toast(error.message, "error");
+  }
+});
 for (const card of elements.rankingOverlayCards) {
   const kind = card.dataset.rankingOverlayKind;
   card.querySelector(".ranking-overlay-copy").addEventListener("click", async () => {
@@ -741,10 +830,21 @@ socket.on("ranking-overlay:update", (overlay) => {
   }
   renderRankingOverlay(overlay);
 });
+socket.on("user-points:update", (overlay) => {
+  if (!overlay) return;
+  if (appState) {
+    appState.userPoints ||= {};
+    appState.userPoints.entries = overlay.entries || [];
+  }
+  if (!userPointsSearch) renderUserPoints(overlay.entries || [], true);
+});
 socket.on("overlay-customization:update", ({ key, customization }) => {
   if (!appState?.config || !key) return;
   appState.config.overlayCustomizations ||= {};
   appState.config.overlayCustomizations[key] = customization;
+  if (key === "user-points:historical") {
+    elements.userPointsLimit.value = String(customization.itemLimit);
+  }
 });
 socket.on("connect_error", () => toast("Se perdió la conexión con el panel local.", "error"));
 socket.on("mapping:sound", (data) => playSound(data?.audio));
