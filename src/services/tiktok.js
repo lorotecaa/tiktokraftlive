@@ -178,9 +178,10 @@ function giftOccurrenceKey(gift) {
 }
 
 export class TikTokClient {
-  constructor({ onState, onGift, onComment, onMetric = () => {}, shouldReadComment = () => true, onError }) {
+  constructor({ onState, onGift, onGiftProgress = () => {}, onComment, onMetric = () => {}, shouldReadComment = () => true, onError }) {
     this.onState = onState;
     this.onGift = onGift;
+    this.onGiftProgress = onGiftProgress;
     this.onComment = onComment;
     this.onMetric = onMetric;
     this.shouldReadComment = shouldReadComment;
@@ -288,11 +289,17 @@ export class TikTokClient {
       if (!isGiftMessage(message)) continue;
       const gift = normalizeGift(message);
       // Los regalos de racha envían actualizaciones; solo ejecutamos al finalizar la racha.
-      if (Number(gift.giftType) === 1 && !gift.repeatEnd) {
-        this.deferIncompleteStreak(gift);
-        continue;
+      if (Number(gift.giftType) === 1) {
+        // El contador del combo puede crecer durante varios eventos antes de
+        // repeatEnd. El overlay escucha cada progreso, pero la acción sigue
+        // procesándose solo una vez mediante deliverGift.
+        this.onGiftProgress(gift);
+        if (!gift.repeatEnd) {
+          this.deferIncompleteStreak(gift);
+          continue;
+        }
+        this.clearIncompleteStreak(this.incompleteStreakKey(gift));
       }
-      if (Number(gift.giftType) === 1) this.clearIncompleteStreak(this.incompleteStreakKey(gift));
       // TikTok reentrega cada regalo una segunda vez poco después. Procesamos solo la primera lectura.
       this.deliverGift(gift);
     }

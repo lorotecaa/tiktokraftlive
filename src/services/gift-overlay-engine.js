@@ -26,6 +26,17 @@ export class GiftOverlayEngine {
     this.onUpdate = onUpdate;
   }
 
+  processStreak(gift) {
+    const overlays = this.getOverlays();
+    const repeatCount = Math.max(1, Number(gift.repeatCount) || 1);
+    if (repeatCount <= (overlays.bestStreak?.repeatCount || 0)) return [];
+
+    overlays.bestStreak = recordFromGift(gift);
+    const update = { kind: "best-streak", record: overlays.bestStreak };
+    this.onUpdate(update);
+    return [update];
+  }
+
   process(gift) {
     const overlays = this.getOverlays();
     const updated = [];
@@ -34,12 +45,8 @@ export class GiftOverlayEngine {
       overlays.bestGift = recordFromGift(gift);
       updated.push({ kind: "best-gift", record: overlays.bestGift });
     }
-    if (gift.repeatCount > (overlays.bestStreak?.repeatCount || 0)) {
-      overlays.bestStreak = recordFromGift(gift);
-      updated.push({ kind: "best-streak", record: overlays.bestStreak });
-    }
     for (const item of updated) this.onUpdate(item);
-    return updated;
+    return [...updated, ...this.processStreak(gift)];
   }
 
   reset() {
