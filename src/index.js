@@ -10,7 +10,7 @@ import { claimWorkspace, saveWorkspaceConfig, workspaceByOverlayToken } from "./
 import { WorkspaceRuntime } from "./workspace-runtime.js";
 import { listWorkspaceUserPoints } from "./services/user-points-store.js";
 import { listGiftCatalog } from "./services/gift-catalog-store.js";
-import { authorizeTikTokUsername, isTikTokUsernameAuthorized, listAuthorizedTikTokUsers, revokeTikTokUsername } from "./services/access-store.js";
+import { assignAccountRole, authorizeTikTokUsername, getAccountRole, isTikTokUsernameAuthorized, listAccountRoles, listAuthorizedTikTokUsers, normalizeAccountEmail, removeAccountRole, revokeTikTokUsername } from "./services/access-store.js";
 
 const directory = path.dirname(fileURLToPath(import.meta.url));
 const app = express();
@@ -45,9 +45,10 @@ async function workspaceFor(id) {
     return await workspaces.get(id);
   } catch (error) { workspaces.delete(id); throw error; }
 }
-function isAdministrator(user) { return String(user?.email || "").trim().toLocaleLowerCase() === administratorEmail; }
-function requireAdministrator(session) { if (!session?.isAdmin) throw new Error("No tienes permiso para acceder al Panel de Administración."); }
-async function identity(token) { const user = await userFromAccessToken(token); return { user, isAdmin: isAdministrator(user), workspace: await workspaceFor(user.id) }; }
+function isPrimaryAdministrator(user) { return normalizeAccountEmail(user?.email) === administratorEmail; }
+async function accountRole(user) { return isPrimaryAdministrator(user) ? "administrator" : await getAccountRole(user?.id); }
+async function requireAdministrator(session) { if (!session?.user || (await accountRole(session.user)) !== "administrator") throw new Error("No tienes permiso para acceder al Panel de Administración."); }
+async function identity(token) { const user = await userFromAccessToken(token); const role = await accountRole(user); return { user, role, isAdmin: role === "administrator", workspace: await workspaceFor(user.id) }; }
 function tokenFrom(request) { return String(request.headers.authorization || "").replace(/^Bearer\s+/i, ""); }
 function serverTapUrl(input, current) { if (input.serverTapHost === undefined) return input.serverTapUrl || current; const host = String(input.serverTapHost || "").trim(); const port = String(input.serverTapPort || "").trim(); if (!host || !/^\d{1,5}$/.test(port) || Number(port) < 1 || Number(port) > 65535) throw new Error("Indica una IP y puerto ServerTap válidos."); const url = new URL(host.includes("://") ? host : `${input.serverTapProtocol === "https:" ? "https" : "http"}://${host}`); url.port = port; url.pathname = ""; url.search = ""; url.hash = ""; return url.toString().replace(/\/$/, ""); }
 async function protectedRoute(request, response, next) { try { request.session = await identity(tokenFrom(request)); next(); } catch (error) { response.status(401).json({ error: error.message }); } }
@@ -105,9 +106,12 @@ io.on("connection", (socket) => {
     return w.connectTikTok();
   }, w));
   socket.on("tiktok:disconnect", (_input, done) => acknowledge(done, async () => { w.tiktok.disconnect(); w.giftEngine.reset(); w.rankingEngine.reset(); await w.saveNow(); return w.config.giftOverlays; }, w));
-  socket.on("admin:authorized-tiktok:list", (_input, done) => acknowledge(done, async () => { requireAdministrator(session); return listAuthorizedTikTokUsers(); }, w));
-  socket.on("admin:authorized-tiktok:add", (input, done) => acknowledge(done, async () => { requireAdministrator(session); return authorizeTikTokUsername(input?.username, session.user.id); }, w));
-  socket.on("admin:authorized-tiktok:remove", (input, done) => acknowledge(done, async () => { requireAdministrator(session); return revokeTikTokUsername(input?.username); }, w));
+  socket.on("admin:authorized-tiktok:list", (_input, done) => acknowledge(done, async () => { await requireAdministrator(session); return listAuthorizedTikTokUsers(); }, w));
+  socket.on("admin:authorized-tiktok:add", (input, done) => acknowledge(done, async () => { await requireAdministrator(session); return authorizeTikTokUsername(input?.username, session.user.id); }, w));
+  socket.on("admin:authorized-tiktok:remove", (input, done) => acknowledge(done, async () => { await requireAdministrator(session); return revokeTikTokUsername(input?.username); }, w));
+  socket.on("admin:roles:list", (_input, done) => acknowledge(done, async () => { await requireAdministrator(session); return listAccountRoles(); }, w));
+  socket.on("admin:roles:assign", (input, done) => acknowledge(done, async () => { await requireAdministrator(session); return assignAccountRole(input?.email, input?.role, session.user.id); }, w));
+  socket.on("admin:roles:remove", (input, done) => acknowledge(done, async () => { await requireAdministrator(session); const email = normalizeAccountEmail(input?.email); if (email === administratorEmail) throw new Error("El administrador principal no puede perder sus permisos."); return removeAccountRole(email); }, w));
   socket.on("mapping:save", (input, done) => acknowledge(done, () => w.saveMapping(input), w));
   socket.on("mapping:delete", (id, done) => acknowledge(done, async () => { await w.save({ ...w.config, mappings: w.config.mappings.filter((item) => item.id !== id) }); return { id }; }, w));
   socket.on("mapping:test", (id, done) => acknowledge(done, () => { const mapping = w.config.mappings.find((item) => item.id === id); if (!mapping) throw new Error("No existe esa acción."); const event = { giftId: mapping.giftId || "demo", giftName: mapping.giftName || "Regalo de prueba", repeatCount: 1, username: "prueba", nickname: "Prueba" }; const command = w.rules.render(mapping.command, event); w.serverTap.enqueue(command, { test: true, mappingId: mapping.id }); w.activity({ type: "action", event, mapping, command, message: "Prueba enviada a Minecraft" }); return { command }; }, w));
