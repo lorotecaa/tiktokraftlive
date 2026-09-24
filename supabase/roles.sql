@@ -60,8 +60,8 @@ begin
   end if;
 
   select * into target_user
-  from auth.users
-  where lower(email) = lower(trim(p_email))
+  from auth.users as users
+  where lower(users.email) = lower(trim(p_email))
   limit 1;
 
   if target_user.id is null then
@@ -86,9 +86,9 @@ language plpgsql security definer set search_path = public, auth as $$
 declare
   target_id uuid;
 begin
-  select id into target_id
-  from auth.users
-  where lower(email) = lower(trim(p_email))
+  select users.id into target_id
+  from auth.users as users
+  where lower(users.email) = lower(trim(p_email))
   limit 1;
 
   if target_id is null then
