@@ -29,6 +29,7 @@ const elements = {
   command: $("#mapping-command"), audio: $("#mapping-audio"), audioTest: $("#audio-test"), audioState: $("#audio-state"), cooldown: $("#cooldown"), enabled: $("#mapping-enabled"), editorHeading: $("#editor-heading"),
   cancelEdit: $("#cancel-edit"), mappingList: $("#mapping-list"), mappingEmpty: $("#mapping-empty"),
   simulateForm: $("#simulate-form"), simulateGift: $("#simulate-gift"), simulateCount: $("#simulate-count"),
+  giftHistoryList: $("#gift-history-list"), giftHistoryEmpty: $("#gift-history-empty"),
   activityLog: $("#activity-log"), activityEmpty: $("#activity-empty"), toasts: $("#toasts")
 };
 elements.logout?.addEventListener("click", () => {
@@ -226,6 +227,7 @@ function renderState(next) {
   renderRankingOverlay({ kind: "top-donors", title: "Top Donadores", entries: next.rankings?.topDonors || [] });
   renderUserPoints(next.userPoints?.entries || [], next.userPoints?.configured);
   renderGoals(config.goals || []);
+  renderGiftHistory(next.giftHistory || []);
   if (!hiddenActivity) renderActivity(next.activity || []);
 }
 
@@ -642,6 +644,22 @@ function renderActivity(activity) {
   elements.activityEmpty.hidden = activity.length > 0;
 }
 
+function renderGiftHistory(gifts) {
+  const entries = Array.isArray(gifts) ? gifts : [];
+  elements.giftHistoryList.replaceChildren();
+  for (const gift of entries) {
+    const row = document.createElement("div");
+    row.className = "gift-history-row";
+    const name = document.createElement("strong");
+    name.textContent = gift.giftName || "Regalo";
+    const id = document.createElement("code");
+    id.textContent = gift.giftId || "Sin ID";
+    row.append(name, id);
+    elements.giftHistoryList.append(row);
+  }
+  elements.giftHistoryEmpty.hidden = entries.length > 0;
+}
+
 function resetEditor() {
   elements.mappingForm.reset();
   elements.mappingId.value = "";
@@ -986,6 +1004,10 @@ socket.on("state", (next) => { hiddenActivity = false; renderState(next); });
 socket.on("activity", (entry) => {
   if (hiddenActivity) return;
   if (appState) { appState.activity.unshift(entry); appState.activity = appState.activity.slice(0, 100); renderActivity(appState.activity); }
+});
+socket.on("gift-history:update", (gifts) => {
+  if (appState) appState.giftHistory = Array.isArray(gifts) ? gifts : [];
+  renderGiftHistory(gifts);
 });
 socket.on("tiktok:comment", (comment) => {
   if (!appState?.config?.tts?.enabled || !comment?.text) return;
