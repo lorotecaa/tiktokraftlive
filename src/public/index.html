@@ -310,14 +310,27 @@
     <div class="admin-modal" id="admin-modal" hidden>
       <div class="admin-modal-backdrop" data-admin-modal-close></div>
       <section class="admin-modal-dialog" role="dialog" aria-modal="true" aria-labelledby="admin-modal-title">
-        <header><div><h2 id="admin-modal-title">Panel de Administración</h2><p>Gestiona las cuentas de TikTok autorizadas para conectar LIVE.</p></div><button class="modal-close" type="button" data-admin-modal-close aria-label="Cerrar">×</button></header>
-        <form class="admin-authorized-form" id="admin-authorized-form">
-          <label>Usuario de TikTok autorizado<input id="admin-authorized-username" maxlength="80" autocomplete="off" placeholder="usuario_tiktok" /></label>
-          <button class="button primary" type="submit">Autorizar</button>
-        </form>
-        <label class="admin-search"><span>⌕</span><input id="admin-authorized-search" type="search" placeholder="Buscar usuario autorizado" autocomplete="off" /></label>
-        <div class="admin-authorized-list" id="admin-authorized-list"></div>
-        <p class="empty-state" id="admin-authorized-empty">No hay cuentas de TikTok autorizadas todavía.</p>
+        <header><div><h2 id="admin-modal-title">Panel de Administración</h2><p>Selecciona una herramienta para administrar TikTokraft Live.</p></div><button class="modal-close" type="button" data-admin-modal-close aria-label="Cerrar">×</button></header>
+        <div class="admin-menu-view" id="admin-menu-view">
+          <div class="admin-menu-grid">
+            <button class="admin-menu-card is-active" id="admin-open-authorization" type="button"><span class="admin-menu-icon" aria-hidden="true">🔒</span><strong>Autorización</strong><small>Gestiona el acceso al LIVE</small></button>
+            <button class="admin-menu-card is-placeholder" type="button" aria-disabled="true"><span class="admin-menu-icon" aria-hidden="true">◫</span><strong>Próximamente</strong><small>Nueva herramienta</small></button>
+            <button class="admin-menu-card is-placeholder" type="button" aria-disabled="true"><span class="admin-menu-icon" aria-hidden="true">⌁</span><strong>Próximamente</strong><small>Nueva herramienta</small></button>
+            <button class="admin-menu-card is-placeholder" type="button" aria-disabled="true"><span class="admin-menu-icon" aria-hidden="true">◉</span><strong>Próximamente</strong><small>Nueva herramienta</small></button>
+            <button class="admin-menu-card is-placeholder" type="button" aria-disabled="true"><span class="admin-menu-icon" aria-hidden="true">✦</span><strong>Próximamente</strong><small>Nueva herramienta</small></button>
+            <button class="admin-menu-card is-placeholder" type="button" aria-disabled="true"><span class="admin-menu-icon" aria-hidden="true">⚙</span><strong>Próximamente</strong><small>Nueva herramienta</small></button>
+          </div>
+        </div>
+        <div class="admin-authorization-view" id="admin-authorization-view" hidden>
+          <div class="admin-view-heading"><button class="button text admin-back-button" id="admin-back-menu" type="button">← Menú principal</button><div><p class="eyebrow">ACCESO AL LIVE</p><h3>Autorización</h3><span>Agrega, busca o revoca cuentas de TikTok autorizadas.</span></div></div>
+          <form class="admin-authorized-form" id="admin-authorized-form">
+            <label>Usuario de TikTok autorizado<input id="admin-authorized-username" maxlength="80" autocomplete="off" placeholder="usuario_tiktok" /></label>
+            <button class="button primary" type="submit">Autorizar</button>
+          </form>
+          <label class="admin-search"><span>⌕</span><input id="admin-authorized-search" type="search" placeholder="Buscar usuario autorizado" autocomplete="off" /></label>
+          <div class="admin-authorized-list" id="admin-authorized-list"></div>
+          <p class="empty-state" id="admin-authorized-empty">No hay cuentas de TikTok autorizadas todavía.</p>
+        </div>
       </section>
     </div>
     <div class="gift-selector-modal" id="gift-selector-modal" hidden>
