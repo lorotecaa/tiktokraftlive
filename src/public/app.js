@@ -28,7 +28,7 @@ const elements = {
   minecraftDetail: $("#minecraft-detail"), minecraftDot: $("#minecraft-dot"),
   tiktokDetail: $("#tiktok-detail"), tiktokDot: $("#tiktok-dot"),
   globalStatus: $("#global-status"), adminPanelButton: $("#admin-panel-button"), profileButton: $("#profile-button"), logout: $("#logout-button"),
-  adminModal: $("#admin-modal"), adminAuthorizedForm: $("#admin-authorized-form"), adminAuthorizedUsername: $("#admin-authorized-username"), adminAuthorizedSearch: $("#admin-authorized-search"), adminAuthorizedList: $("#admin-authorized-list"), adminAuthorizedEmpty: $("#admin-authorized-empty"),
+  adminModal: $("#admin-modal"), adminMenuView: $("#admin-menu-view"), adminAuthorizationView: $("#admin-authorization-view"), adminOpenAuthorization: $("#admin-open-authorization"), adminBackMenu: $("#admin-back-menu"), adminAuthorizedForm: $("#admin-authorized-form"), adminAuthorizedUsername: $("#admin-authorized-username"), adminAuthorizedSearch: $("#admin-authorized-search"), adminAuthorizedList: $("#admin-authorized-list"), adminAuthorizedEmpty: $("#admin-authorized-empty"),
   profileModal: $("#profile-modal"), profileForm: $("#profile-form"), profileAvatar: $("#profile-avatar"), profileAvatarEmpty: $("#profile-avatar-empty"), profileAvatarInput: $("#profile-avatar-input"), profileEmail: $("#profile-email"), profilePassword: $("#profile-password"), profilePasswordConfirm: $("#profile-password-confirm"), profileMessage: $("#profile-message"),
   mappingForm: $("#mapping-form"), mappingId: $("#mapping-id"), giftName: $("#gift-name"), giftId: $("#gift-id"),
   command: $("#mapping-command"), audio: $("#mapping-audio"), audioTest: $("#audio-test"), audioState: $("#audio-state"), cooldown: $("#cooldown"), enabled: $("#mapping-enabled"), editorHeading: $("#editor-heading"),
@@ -46,6 +46,8 @@ elements.profileButton?.addEventListener("click", openProfileModal);
 elements.profileModal?.querySelectorAll("[data-profile-modal-close]").forEach((button) => button.addEventListener("click", closeProfileModal));
 elements.adminPanelButton?.addEventListener("click", openAdminPanel);
 elements.adminModal?.querySelectorAll("[data-admin-modal-close]").forEach((button) => button.addEventListener("click", closeAdminPanel));
+elements.adminOpenAuthorization?.addEventListener("click", openAuthorizationPanel);
+elements.adminBackMenu?.addEventListener("click", showAdminMenu);
 elements.adminAuthorizedSearch?.addEventListener("input", () => { authorizedTikTokSearch = elements.adminAuthorizedSearch.value.trim(); renderAuthorizedTikTokUsers(); });
 elements.adminAuthorizedForm?.addEventListener("submit", async (event) => {
   event.preventDefault();
@@ -147,16 +149,27 @@ function closeAdminPanel() {
   document.body.classList.remove("modal-open");
 }
 
+function showAdminMenu() {
+  elements.adminMenuView.hidden = false;
+  elements.adminAuthorizationView.hidden = true;
+}
+
+function openAuthorizationPanel() {
+  elements.adminMenuView.hidden = true;
+  elements.adminAuthorizationView.hidden = false;
+  elements.adminAuthorizedUsername.focus();
+}
+
 async function openAdminPanel() {
   if (!appState?.account?.isAdmin) return toast("No tienes permiso para acceder al Panel de Administración.", "error");
   authorizedTikTokSearch = "";
   elements.adminAuthorizedSearch.value = "";
+  showAdminMenu();
   elements.adminModal.hidden = false;
   document.body.classList.add("modal-open");
   try {
     authorizedTikTokUsers = await request("admin:authorized-tiktok:list", null);
     renderAuthorizedTikTokUsers();
-    elements.adminAuthorizedUsername.focus();
   } catch (error) {
     toast(error.message, "error");
     closeAdminPanel();
