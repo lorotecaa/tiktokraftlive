@@ -24,7 +24,7 @@ export class WorkspaceRuntime {
   constructor({ ownerId, config, overlayToken, saveConfig, io, commandsPerSecond, listSounds }) {
     this.ownerId = ownerId; this.config = config; this.overlayToken = overlayToken; this.saveConfig = saveConfig; this.io = io; this.commandsPerSecond = commandsPerSecond; this.listSounds = listSounds;
     this.state = { minecraft: { status: "disconnected", detail: "Sin conectar" }, tiktok: { status: "disconnected", detail: "Sin conectar" }, activity: [] };
-    this.sequence = 0; this.saveQueue = Promise.resolve(); this.saveTimer = null;
+    this.sequence = 0; this.giftSequence = 0; this.giftHistory = []; this.saveQueue = Promise.resolve(); this.saveTimer = null;
     this.goalEngine = new GoalEngine({ getGoals: () => this.config.goals, onUpdate: (goal) => this.emit("goal:update", this.publicGoal(goal)) });
     this.giftEngine = new GiftOverlayEngine({ getOverlays: () => this.config.giftOverlays, onUpdate: ({ kind, record }) => this.emit("gift-overlay:update", { ...this.publicGift(kind), record }) });
     this.rankingEngine = new RankingOverlayEngine({ onUpdate: ({ kind, entries }) => this.emit("ranking-overlay:update", { kind, title: "Top Donadores", entries, customization: this.custom(`ranking:${kind}`) }) });
@@ -36,7 +36,7 @@ export class WorkspaceRuntime {
     this.rules = new RuleEngine({ sendCommand: (command, context) => this.serverTap.enqueue(command, context), onActivity: (entry) => { this.activity(entry); if (entry.type === "action" && entry.mapping?.audio) this.emit("mapping:sound", { audio: entry.mapping.audio, mappingId: entry.mapping.id }); } });
     this.tiktok = new TikTokClient({
       onState: (next) => { if (next.status === "disconnected") this.rankingEngine.reset(); this.state.tiktok = next; this.broadcast(); },
-      onGift: (event) => { if (this.giftEngine.process(event).length) this.queueSave(); this.rankingEngine.process(event); this.pointsEngine.process(event); this.activity({ type: "gift", event, message: `${event.nickname} envió ${event.giftName}` }); try { this.rules.process(event, this.config.mappings); } catch (error) { this.error(error.message); } },
+      onGift: (event) => { this.recordGift(event); if (this.giftEngine.process(event).length) this.queueSave(); this.rankingEngine.process(event); this.pointsEngine.process(event); this.activity({ type: "gift", event, message: `${event.nickname} envió ${event.giftName}` }); try { this.rules.process(event, this.config.mappings); } catch (error) { this.error(error.message); } },
       // Las actualizaciones parciales solo sirven para refrescar el overlay.
       // El récord se guarda al recibir el evento final en onGift, que contiene
       // el repeatCount completo y ya se usa para acciones y actividad.
@@ -61,6 +61,17 @@ export class WorkspaceRuntime {
     this.overlayToken = overlayToken;
   }
   emit(event, payload) { this.io.to(this.room()).emit(event, payload); }
+  recordGift(event) {
+    const gift = {
+      id: ++this.giftSequence,
+      at: Date.now(),
+      giftName: event.giftName || "Regalo",
+      giftId: String(event.giftId || "")
+    };
+    this.giftHistory.unshift(gift);
+    this.giftHistory = this.giftHistory.slice(0, 200);
+    this.emit("gift-history:update", this.giftHistory);
+  }
   activity(entry) { const item = { id: ++this.sequence, at: Date.now(), ...entry }; this.state.activity.unshift(item); this.state.activity = this.state.activity.slice(0, 100); this.emit("activity", item); }
   error(message) { console.error(`[${this.ownerId}] ${message}`); this.activity({ type: "error", message }); }
   custom(key) { return this.config.overlayCustomizations[key] || null; }
@@ -68,7 +79,7 @@ export class WorkspaceRuntime {
   publicGift(kind) { const definition = { "best-gift": ["bestGift", "Mejor Regalo"], "best-streak": ["bestStreak", "Mejor Racha"] }[kind]; return definition ? { kind, title: definition[1], record: this.config.giftOverlays[definition[0]], customization: this.custom(`gift:${kind}`) } : null; }
   publicRanking() { return { kind: "top-donors", title: "Top Donadores", entries: this.rankingEngine.entries(), customization: this.custom("ranking:top-donors") }; }
   publicPoints() { const customization = this.custom("user-points:historical"); return { kind: "historical", title: "Usuario y Puntos", entries: this.pointsEngine.entries(customization?.itemLimit || 10), customization }; }
-  publicState() { return { ...this.state, config: publicConfig(this.config), rankings: { topDonors: this.rankingEngine.entries() }, userPoints: { entries: this.pointsEngine.entries(100), configured: true }, workspace: { overlayToken: this.overlayToken } }; }
+  publicState() { return { ...this.state, giftHistory: this.giftHistory, config: publicConfig(this.config), rankings: { topDonors: this.rankingEngine.entries() }, userPoints: { entries: this.pointsEngine.entries(100), configured: true }, workspace: { overlayToken: this.overlayToken } }; }
   broadcast() { this.emit("state", this.publicState()); }
   async save(next = this.config) {
     // Conserva los cambios hechos mientras una escritura anterior espera a
@@ -84,5 +95,5 @@ export class WorkspaceRuntime {
   async dispose() { this.tiktok.disconnect("Sesión finalizada"); this.serverTap.disconnect("Sesión finalizada"); await Promise.all([this.saveNow(), this.pointsEngine.flush()]); }
   async saveMapping(input) { const mapping = sanitizeConfig({ mappings: [input] }).mappings[0]; if (!mapping) throw new Error("Añade un comando a la acción."); if (mapping.audio && !(await this.listSounds()).includes(mapping.audio)) throw new Error("El audio seleccionado ya no está disponible."); await this.saveNow(); const mappings = [...this.config.mappings]; const index = mappings.findIndex((entry) => entry.id === mapping.id); if (index >= 0) mappings[index] = mapping; else mappings.push(mapping); await this.save({ ...this.config, mappings }); return mapping; }
   async saveGoal(input) { const type = String(input?.type || "").toLowerCase(); const existing = this.config.goals.find((goal) => goal.id === input?.id || goal.type === type); const candidate = { ...input, id: existing?.id || randomUUID(), type }; const next = sanitizeConfig({ ...this.config, goals: [...this.config.goals.filter((goal) => goal.id !== existing?.id && goal.type !== type), candidate] }); const goal = next.goals.find((goal) => goal.id === candidate.id); if (!goal) throw new Error("Completa un objetivo válido."); await this.save(next); this.emit("goal:update", this.publicGoal(goal)); return this.publicGoal(goal); }
-  async connectTikTok() { const connection = await this.tiktok.connect(this.config.tiktokUsername, this.config.eulerStreamApiKey); if (this.config.giftOverlays.resetOnNewLive) { this.giftEngine.reset(); await this.saveNow(); } this.activity({ type: "system", message: `TikTok LIVE conectado: @${this.config.tiktokUsername}` }); return connection; }
+  async connectTikTok() { const connection = await this.tiktok.connect(this.config.tiktokUsername, this.config.eulerStreamApiKey); this.giftHistory = []; this.emit("gift-history:update", this.giftHistory); if (this.config.giftOverlays.resetOnNewLive) { this.giftEngine.reset(); await this.saveNow(); } this.activity({ type: "system", message: `TikTok LIVE conectado: @${this.config.tiktokUsername}` }); return connection; }
 }
