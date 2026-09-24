@@ -1089,6 +1089,14 @@ socket.on("gift-catalog:update", (gifts) => {
   if (appState) appState.giftCatalog = giftCatalog;
   if (!elements.giftSelectorModal.hidden) renderGiftSelector();
 });
+socket.on("gift-catalog:upsert", (gift) => {
+  if (!gift?.giftId) return;
+  const index = giftCatalog.findIndex((entry) => String(entry.giftId) === String(gift.giftId));
+  if (index >= 0) giftCatalog[index] = { ...giftCatalog[index], ...gift };
+  else giftCatalog.unshift(gift);
+  if (appState) appState.giftCatalog = giftCatalog;
+  if (!elements.giftSelectorModal.hidden) renderGiftSelector();
+});
 socket.on("tiktok:comment", (comment) => {
   if (!appState?.config?.tts?.enabled || !comment?.text) return;
   ttsQueue.enqueue(`${comment.nickname}: ${comment.text}`, currentTtsSettings());
