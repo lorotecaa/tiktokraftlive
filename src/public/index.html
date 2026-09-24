@@ -315,7 +315,7 @@
           <div class="admin-menu-grid">
             <button class="admin-menu-card is-active" id="admin-open-authorization" type="button"><span class="admin-menu-icon" aria-hidden="true">🔒</span><strong>Autorización</strong><small>Gestiona el acceso al LIVE</small></button>
             <button class="admin-menu-card is-active" id="admin-open-roles" type="button"><span class="admin-menu-icon" aria-hidden="true">♙</span><strong>Roles</strong><small>Gestiona permisos de cuentas</small></button>
-            <button class="admin-menu-card is-placeholder" type="button" aria-disabled="true"><span class="admin-menu-icon" aria-hidden="true">⌁</span><strong>Próximamente</strong><small>Nueva herramienta</small></button>
+            <button class="admin-menu-card is-active" id="admin-open-statistics" type="button"><span class="admin-menu-icon" aria-hidden="true">▥</span><strong>Estadísticas</strong><small>Consulta cuentas y actividad</small></button>
             <button class="admin-menu-card is-placeholder" type="button" aria-disabled="true"><span class="admin-menu-icon" aria-hidden="true">◉</span><strong>Próximamente</strong><small>Nueva herramienta</small></button>
             <button class="admin-menu-card is-placeholder" type="button" aria-disabled="true"><span class="admin-menu-icon" aria-hidden="true">✦</span><strong>Próximamente</strong><small>Nueva herramienta</small></button>
             <button class="admin-menu-card is-placeholder" type="button" aria-disabled="true"><span class="admin-menu-icon" aria-hidden="true">⚙</span><strong>Próximamente</strong><small>Nueva herramienta</small></button>
@@ -342,6 +342,28 @@
           <label class="admin-search"><span>⌕</span><input id="admin-roles-search" type="search" placeholder="Buscar cuenta por correo" autocomplete="off" /></label>
           <div class="admin-roles-list" id="admin-roles-list"></div>
           <p class="empty-state" id="admin-roles-empty">No hay cuentas con roles asignados todavía.</p>
+        </div>
+        <div class="admin-statistics-view" id="admin-statistics-view" hidden>
+          <div class="admin-view-heading"><button class="button text admin-back-button" id="admin-statistics-back-menu" type="button">← Menú principal</button><div><p class="eyebrow">VISTA ADMINISTRATIVA</p><h3>Estadísticas</h3><span>Consulta las cuentas registradas y la actividad actual del servicio.</span></div></div>
+          <div class="admin-statistics-cards">
+            <button class="admin-statistics-card" id="admin-open-registered-users" type="button"><span aria-hidden="true">👥</span><strong id="admin-registered-users-count">—</strong><b>Usuarios registrados</b><small>Ver todas las cuentas</small></button>
+            <button class="admin-statistics-card" id="admin-open-connected-users" type="button"><span aria-hidden="true">🟢</span><strong id="admin-connected-users-count">—</strong><b>Usuarios conectados</b><small>Ver actividad actual</small></button>
+          </div>
+        </div>
+        <div class="admin-statistics-list-view" id="admin-registered-users-view" hidden>
+          <div class="admin-view-heading"><button class="button text admin-back-button" id="admin-registered-users-back" type="button">← Estadísticas</button><div><p class="eyebrow">CUENTAS</p><h3>Usuarios registrados</h3><span>Selecciona una cuenta para ver su información administrativa.</span></div></div>
+          <label class="admin-search"><span>⌕</span><input id="admin-registered-users-search" type="search" placeholder="Buscar usuario por correo" autocomplete="off" /></label>
+          <div class="admin-statistics-list" id="admin-registered-users-list"></div>
+          <p class="empty-state" id="admin-registered-users-empty">No hay cuentas registradas todavía.</p>
+        </div>
+        <div class="admin-statistics-list-view" id="admin-connected-users-view" hidden>
+          <div class="admin-view-heading"><button class="button text admin-back-button" id="admin-connected-users-back" type="button">← Estadísticas</button><div><p class="eyebrow">ACTIVIDAD ACTUAL</p><h3>Usuarios conectados</h3><span>Estas cuentas tienen el panel abierto o un LIVE conectado en este momento.</span></div></div>
+          <div class="admin-statistics-list" id="admin-connected-users-list"></div>
+          <p class="empty-state" id="admin-connected-users-empty">No hay usuarios conectados en este momento.</p>
+        </div>
+        <div class="admin-user-profile-view" id="admin-user-profile-view" hidden>
+          <div class="admin-view-heading"><button class="button text admin-back-button" id="admin-user-profile-back" type="button">← Volver a usuarios</button><div><p class="eyebrow">PERFIL ADMINISTRATIVO</p><h3 id="admin-user-profile-title">Cuenta</h3><span>Información disponible de la cuenta seleccionada.</span></div></div>
+          <dl class="admin-user-profile-data" id="admin-user-profile-data"></dl>
         </div>
       </section>
     </div>

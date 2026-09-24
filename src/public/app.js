@@ -10,6 +10,10 @@ let authorizedTikTokUsers = [];
 let authorizedTikTokSearch = "";
 let accountRoles = [];
 let accountRolesSearch = "";
+let statisticsAccounts = [];
+let connectedStatisticsAccounts = [];
+let statisticsSearch = "";
+let statisticsProfileOrigin = "registered";
 const giftNamesById = window.TIKTOK_GIFT_NAMES || {};
 
 const $ = (selector) => document.querySelector(selector);
@@ -30,7 +34,7 @@ const elements = {
   minecraftDetail: $("#minecraft-detail"), minecraftDot: $("#minecraft-dot"),
   tiktokDetail: $("#tiktok-detail"), tiktokDot: $("#tiktok-dot"),
   globalStatus: $("#global-status"), adminPanelButton: $("#admin-panel-button"), profileButton: $("#profile-button"), logout: $("#logout-button"),
-  adminModal: $("#admin-modal"), adminMenuView: $("#admin-menu-view"), adminAuthorizationView: $("#admin-authorization-view"), adminRolesView: $("#admin-roles-view"), adminOpenAuthorization: $("#admin-open-authorization"), adminOpenRoles: $("#admin-open-roles"), adminBackMenu: $("#admin-back-menu"), adminRolesBackMenu: $("#admin-roles-back-menu"), adminAuthorizedForm: $("#admin-authorized-form"), adminAuthorizedUsername: $("#admin-authorized-username"), adminAuthorizedSearch: $("#admin-authorized-search"), adminAuthorizedList: $("#admin-authorized-list"), adminAuthorizedEmpty: $("#admin-authorized-empty"), adminRolesForm: $("#admin-roles-form"), adminRoleEmail: $("#admin-role-email"), adminRoleSelect: $("#admin-role-select"), adminRolesSearch: $("#admin-roles-search"), adminRolesList: $("#admin-roles-list"), adminRolesEmpty: $("#admin-roles-empty"),
+  adminModal: $("#admin-modal"), adminMenuView: $("#admin-menu-view"), adminAuthorizationView: $("#admin-authorization-view"), adminRolesView: $("#admin-roles-view"), adminStatisticsView: $("#admin-statistics-view"), adminRegisteredUsersView: $("#admin-registered-users-view"), adminConnectedUsersView: $("#admin-connected-users-view"), adminUserProfileView: $("#admin-user-profile-view"), adminOpenAuthorization: $("#admin-open-authorization"), adminOpenRoles: $("#admin-open-roles"), adminOpenStatistics: $("#admin-open-statistics"), adminBackMenu: $("#admin-back-menu"), adminRolesBackMenu: $("#admin-roles-back-menu"), adminStatisticsBackMenu: $("#admin-statistics-back-menu"), adminOpenRegisteredUsers: $("#admin-open-registered-users"), adminOpenConnectedUsers: $("#admin-open-connected-users"), adminRegisteredUsersBack: $("#admin-registered-users-back"), adminConnectedUsersBack: $("#admin-connected-users-back"), adminRegisteredUsersSearch: $("#admin-registered-users-search"), adminRegisteredUsersList: $("#admin-registered-users-list"), adminRegisteredUsersEmpty: $("#admin-registered-users-empty"), adminConnectedUsersList: $("#admin-connected-users-list"), adminConnectedUsersEmpty: $("#admin-connected-users-empty"), adminRegisteredUsersCount: $("#admin-registered-users-count"), adminConnectedUsersCount: $("#admin-connected-users-count"), adminUserProfileBack: $("#admin-user-profile-back"), adminUserProfileTitle: $("#admin-user-profile-title"), adminUserProfileData: $("#admin-user-profile-data"), adminAuthorizedForm: $("#admin-authorized-form"), adminAuthorizedUsername: $("#admin-authorized-username"), adminAuthorizedSearch: $("#admin-authorized-search"), adminAuthorizedList: $("#admin-authorized-list"), adminAuthorizedEmpty: $("#admin-authorized-empty"), adminRolesForm: $("#admin-roles-form"), adminRoleEmail: $("#admin-role-email"), adminRoleSelect: $("#admin-role-select"), adminRolesSearch: $("#admin-roles-search"), adminRolesList: $("#admin-roles-list"), adminRolesEmpty: $("#admin-roles-empty"),
   profileModal: $("#profile-modal"), profileForm: $("#profile-form"), profileAvatar: $("#profile-avatar"), profileAvatarEmpty: $("#profile-avatar-empty"), profileAvatarInput: $("#profile-avatar-input"), profileEmail: $("#profile-email"), profilePassword: $("#profile-password"), profilePasswordConfirm: $("#profile-password-confirm"), profileMessage: $("#profile-message"),
   mappingForm: $("#mapping-form"), mappingId: $("#mapping-id"), giftName: $("#gift-name"), giftId: $("#gift-id"),
   command: $("#mapping-command"), audio: $("#mapping-audio"), audioTest: $("#audio-test"), audioState: $("#audio-state"), cooldown: $("#cooldown"), enabled: $("#mapping-enabled"), editorHeading: $("#editor-heading"),
@@ -50,10 +54,18 @@ elements.adminPanelButton?.addEventListener("click", openAdminPanel);
 elements.adminModal?.querySelectorAll("[data-admin-modal-close]").forEach((button) => button.addEventListener("click", closeAdminPanel));
 elements.adminOpenAuthorization?.addEventListener("click", openAuthorizationPanel);
 elements.adminOpenRoles?.addEventListener("click", openRolesPanel);
+elements.adminOpenStatistics?.addEventListener("click", openStatisticsPanel);
 elements.adminBackMenu?.addEventListener("click", showAdminMenu);
 elements.adminRolesBackMenu?.addEventListener("click", showAdminMenu);
+elements.adminStatisticsBackMenu?.addEventListener("click", showAdminMenu);
+elements.adminOpenRegisteredUsers?.addEventListener("click", openRegisteredUsers);
+elements.adminOpenConnectedUsers?.addEventListener("click", openConnectedUsers);
+elements.adminRegisteredUsersBack?.addEventListener("click", openStatisticsPanel);
+elements.adminConnectedUsersBack?.addEventListener("click", openStatisticsPanel);
+elements.adminUserProfileBack?.addEventListener("click", () => statisticsProfileOrigin === "connected" ? openConnectedUsers() : openRegisteredUsers());
 elements.adminAuthorizedSearch?.addEventListener("input", () => { authorizedTikTokSearch = elements.adminAuthorizedSearch.value.trim(); renderAuthorizedTikTokUsers(); });
 elements.adminRolesSearch?.addEventListener("input", () => { accountRolesSearch = elements.adminRolesSearch.value.trim(); renderAccountRoles(); });
+elements.adminRegisteredUsersSearch?.addEventListener("input", () => { statisticsSearch = elements.adminRegisteredUsersSearch.value.trim(); renderRegisteredUsers(); });
 elements.adminAuthorizedForm?.addEventListener("submit", async (event) => {
   event.preventDefault();
   const username = elements.adminAuthorizedUsername.value.trim();
@@ -175,12 +187,20 @@ function showAdminMenu() {
   elements.adminMenuView.hidden = false;
   elements.adminAuthorizationView.hidden = true;
   elements.adminRolesView.hidden = true;
+  elements.adminStatisticsView.hidden = true;
+  elements.adminRegisteredUsersView.hidden = true;
+  elements.adminConnectedUsersView.hidden = true;
+  elements.adminUserProfileView.hidden = true;
 }
 
 function openAuthorizationPanel() {
   elements.adminMenuView.hidden = true;
   elements.adminAuthorizationView.hidden = false;
   elements.adminRolesView.hidden = true;
+  elements.adminStatisticsView.hidden = true;
+  elements.adminRegisteredUsersView.hidden = true;
+  elements.adminConnectedUsersView.hidden = true;
+  elements.adminUserProfileView.hidden = true;
   elements.adminAuthorizedUsername.focus();
 }
 
@@ -188,6 +208,10 @@ async function openRolesPanel() {
   elements.adminMenuView.hidden = true;
   elements.adminAuthorizationView.hidden = true;
   elements.adminRolesView.hidden = false;
+  elements.adminStatisticsView.hidden = true;
+  elements.adminRegisteredUsersView.hidden = true;
+  elements.adminConnectedUsersView.hidden = true;
+  elements.adminUserProfileView.hidden = true;
   accountRolesSearch = "";
   elements.adminRolesSearch.value = "";
   try {
@@ -291,6 +315,120 @@ function renderAccountRoles() {
     elements.adminRolesList.append(row);
   }
   elements.adminRolesEmpty.hidden = entries.length > 0;
+}
+
+function hideAdministrativeViews() {
+  elements.adminMenuView.hidden = true;
+  elements.adminAuthorizationView.hidden = true;
+  elements.adminRolesView.hidden = true;
+  elements.adminStatisticsView.hidden = true;
+  elements.adminRegisteredUsersView.hidden = true;
+  elements.adminConnectedUsersView.hidden = true;
+  elements.adminUserProfileView.hidden = true;
+}
+
+function formatAdministrativeDate(value) {
+  if (!value) return "No disponible";
+  const date = new Date(value);
+  return Number.isNaN(date.getTime()) ? "No disponible" : date.toLocaleString("es-CO", { dateStyle: "medium", timeStyle: "short" });
+}
+
+function updateStatisticsCounts() {
+  elements.adminRegisteredUsersCount.textContent = String(statisticsAccounts.length);
+  elements.adminConnectedUsersCount.textContent = String(statisticsAccounts.filter((account) => account.active).length);
+}
+
+async function loadStatisticsAccounts() {
+  statisticsAccounts = await request("admin:statistics:registered", null);
+  updateStatisticsCounts();
+  return statisticsAccounts;
+}
+
+async function openStatisticsPanel() {
+  hideAdministrativeViews();
+  elements.adminStatisticsView.hidden = false;
+  try { await loadStatisticsAccounts(); } catch (error) { toast(error.message, "error"); }
+}
+
+function createAdministrativeAccountRow(account, origin) {
+  const row = document.createElement("button");
+  row.className = "admin-statistics-row";
+  row.type = "button";
+  const detail = document.createElement("span");
+  const email = document.createElement("strong");
+  email.textContent = account.email;
+  const tiktok = document.createElement("small");
+  tiktok.textContent = account.tiktokUsername ? `TikTok: @${account.tiktokUsername}` : "TikTok: sin configurar";
+  detail.append(email, tiktok);
+  const status = document.createElement("b");
+  status.className = account.tiktokStatus === "connected" ? "admin-status-live" : account.active ? "admin-status-panel" : "admin-status-idle";
+  status.textContent = account.status;
+  row.append(detail, status);
+  row.addEventListener("click", () => openAdministrativeUserProfile(account.userId, origin));
+  return row;
+}
+
+function renderRegisteredUsers() {
+  const search = statisticsSearch.toLocaleLowerCase();
+  const entries = statisticsAccounts.filter((account) => account.email.toLocaleLowerCase().includes(search));
+  elements.adminRegisteredUsersList.replaceChildren(...entries.map((account) => createAdministrativeAccountRow(account, "registered")));
+  elements.adminRegisteredUsersEmpty.hidden = entries.length > 0;
+}
+
+async function openRegisteredUsers() {
+  hideAdministrativeViews();
+  elements.adminRegisteredUsersView.hidden = false;
+  statisticsSearch = "";
+  elements.adminRegisteredUsersSearch.value = "";
+  try {
+    await loadStatisticsAccounts();
+    renderRegisteredUsers();
+    elements.adminRegisteredUsersSearch.focus();
+  } catch (error) { toast(error.message, "error"); }
+}
+
+function renderConnectedUsers() {
+  elements.adminConnectedUsersList.replaceChildren(...connectedStatisticsAccounts.map((account) => createAdministrativeAccountRow(account, "connected")));
+  elements.adminConnectedUsersEmpty.hidden = connectedStatisticsAccounts.length > 0;
+}
+
+async function openConnectedUsers() {
+  hideAdministrativeViews();
+  elements.adminConnectedUsersView.hidden = false;
+  try {
+    connectedStatisticsAccounts = await request("admin:statistics:connected", null);
+    renderConnectedUsers();
+  } catch (error) { toast(error.message, "error"); }
+}
+
+async function openAdministrativeUserProfile(userId, origin) {
+  statisticsProfileOrigin = origin;
+  hideAdministrativeViews();
+  elements.adminUserProfileView.hidden = false;
+  elements.adminUserProfileTitle.textContent = "Cargando cuenta…";
+  elements.adminUserProfileData.replaceChildren();
+  try {
+    const account = await request("admin:statistics:profile", { userId });
+    elements.adminUserProfileTitle.textContent = account.email;
+    const fields = [
+      ["Correo", account.email],
+      ["Fecha de registro", formatAdministrativeDate(account.registeredAt)],
+      ["Último inicio de sesión", formatAdministrativeDate(account.lastSignInAt)],
+      ["Estado actual", account.status],
+      ["TikTok asociado", account.tiktokUsername ? `@${account.tiktokUsername}` : "No configurado"],
+      ["Estado del LIVE", account.tiktokStatus === "connected" ? "Conectado" : "No conectado"],
+      ["Conexiones del panel", account.panelConnections ? String(account.panelConnections) : "No hay conexiones activas"],
+      ["Última actualización de configuración", formatAdministrativeDate(account.workspaceUpdatedAt)]
+    ];
+    for (const [label, value] of fields) {
+      const term = document.createElement("dt"); term.textContent = label;
+      const detail = document.createElement("dd"); detail.textContent = value;
+      elements.adminUserProfileData.append(term, detail);
+    }
+  } catch (error) {
+    elements.adminUserProfileTitle.textContent = "No se pudo cargar la cuenta";
+    toast(error.message, "error");
+  }
 }
 
 function openProfileModal() {
