@@ -314,7 +314,7 @@
         <div class="admin-menu-view" id="admin-menu-view">
           <div class="admin-menu-grid">
             <button class="admin-menu-card is-active" id="admin-open-authorization" type="button"><span class="admin-menu-icon" aria-hidden="true">🔒</span><strong>Autorización</strong><small>Gestiona el acceso al LIVE</small></button>
-            <button class="admin-menu-card is-placeholder" type="button" aria-disabled="true"><span class="admin-menu-icon" aria-hidden="true">◫</span><strong>Próximamente</strong><small>Nueva herramienta</small></button>
+            <button class="admin-menu-card is-active" id="admin-open-roles" type="button"><span class="admin-menu-icon" aria-hidden="true">♙</span><strong>Roles</strong><small>Gestiona permisos de cuentas</small></button>
             <button class="admin-menu-card is-placeholder" type="button" aria-disabled="true"><span class="admin-menu-icon" aria-hidden="true">⌁</span><strong>Próximamente</strong><small>Nueva herramienta</small></button>
             <button class="admin-menu-card is-placeholder" type="button" aria-disabled="true"><span class="admin-menu-icon" aria-hidden="true">◉</span><strong>Próximamente</strong><small>Nueva herramienta</small></button>
             <button class="admin-menu-card is-placeholder" type="button" aria-disabled="true"><span class="admin-menu-icon" aria-hidden="true">✦</span><strong>Próximamente</strong><small>Nueva herramienta</small></button>
@@ -330,6 +330,18 @@
           <label class="admin-search"><span>⌕</span><input id="admin-authorized-search" type="search" placeholder="Buscar usuario autorizado" autocomplete="off" /></label>
           <div class="admin-authorized-list" id="admin-authorized-list"></div>
           <p class="empty-state" id="admin-authorized-empty">No hay cuentas de TikTok autorizadas todavía.</p>
+        </div>
+        <div class="admin-roles-view" id="admin-roles-view" hidden>
+          <div class="admin-view-heading"><button class="button text admin-back-button" id="admin-roles-back-menu" type="button">← Menú principal</button><div><p class="eyebrow">PERMISOS DE CUENTA</p><h3>Roles</h3><span>Asigna y administra los permisos de las cuentas registradas.</span></div></div>
+          <div class="admin-role-permissions"><strong>ADMINISTRADOR</strong><span>Acceso completo al Panel de Administración: roles y autorización de TikTok LIVE.</span></div>
+          <form class="admin-roles-form" id="admin-roles-form">
+            <label>Correo de la cuenta<input id="admin-role-email" type="email" maxlength="320" autocomplete="email" placeholder="correo@ejemplo.com" /></label>
+            <label>Rol<select id="admin-role-select"><option value="administrator">ADMINISTRADOR</option></select></label>
+            <button class="button primary" type="submit">Guardar rol</button>
+          </form>
+          <label class="admin-search"><span>⌕</span><input id="admin-roles-search" type="search" placeholder="Buscar cuenta por correo" autocomplete="off" /></label>
+          <div class="admin-roles-list" id="admin-roles-list"></div>
+          <p class="empty-state" id="admin-roles-empty">No hay cuentas con roles asignados todavía.</p>
         </div>
       </section>
     </div>

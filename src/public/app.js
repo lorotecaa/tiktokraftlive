@@ -8,6 +8,8 @@ let giftCatalog = [];
 let giftCatalogSearch = "";
 let authorizedTikTokUsers = [];
 let authorizedTikTokSearch = "";
+let accountRoles = [];
+let accountRolesSearch = "";
 const giftNamesById = window.TIKTOK_GIFT_NAMES || {};
 
 const $ = (selector) => document.querySelector(selector);
@@ -28,7 +30,7 @@ const elements = {
   minecraftDetail: $("#minecraft-detail"), minecraftDot: $("#minecraft-dot"),
   tiktokDetail: $("#tiktok-detail"), tiktokDot: $("#tiktok-dot"),
   globalStatus: $("#global-status"), adminPanelButton: $("#admin-panel-button"), profileButton: $("#profile-button"), logout: $("#logout-button"),
-  adminModal: $("#admin-modal"), adminMenuView: $("#admin-menu-view"), adminAuthorizationView: $("#admin-authorization-view"), adminOpenAuthorization: $("#admin-open-authorization"), adminBackMenu: $("#admin-back-menu"), adminAuthorizedForm: $("#admin-authorized-form"), adminAuthorizedUsername: $("#admin-authorized-username"), adminAuthorizedSearch: $("#admin-authorized-search"), adminAuthorizedList: $("#admin-authorized-list"), adminAuthorizedEmpty: $("#admin-authorized-empty"),
+  adminModal: $("#admin-modal"), adminMenuView: $("#admin-menu-view"), adminAuthorizationView: $("#admin-authorization-view"), adminRolesView: $("#admin-roles-view"), adminOpenAuthorization: $("#admin-open-authorization"), adminOpenRoles: $("#admin-open-roles"), adminBackMenu: $("#admin-back-menu"), adminRolesBackMenu: $("#admin-roles-back-menu"), adminAuthorizedForm: $("#admin-authorized-form"), adminAuthorizedUsername: $("#admin-authorized-username"), adminAuthorizedSearch: $("#admin-authorized-search"), adminAuthorizedList: $("#admin-authorized-list"), adminAuthorizedEmpty: $("#admin-authorized-empty"), adminRolesForm: $("#admin-roles-form"), adminRoleEmail: $("#admin-role-email"), adminRoleSelect: $("#admin-role-select"), adminRolesSearch: $("#admin-roles-search"), adminRolesList: $("#admin-roles-list"), adminRolesEmpty: $("#admin-roles-empty"),
   profileModal: $("#profile-modal"), profileForm: $("#profile-form"), profileAvatar: $("#profile-avatar"), profileAvatarEmpty: $("#profile-avatar-empty"), profileAvatarInput: $("#profile-avatar-input"), profileEmail: $("#profile-email"), profilePassword: $("#profile-password"), profilePasswordConfirm: $("#profile-password-confirm"), profileMessage: $("#profile-message"),
   mappingForm: $("#mapping-form"), mappingId: $("#mapping-id"), giftName: $("#gift-name"), giftId: $("#gift-id"),
   command: $("#mapping-command"), audio: $("#mapping-audio"), audioTest: $("#audio-test"), audioState: $("#audio-state"), cooldown: $("#cooldown"), enabled: $("#mapping-enabled"), editorHeading: $("#editor-heading"),
@@ -47,8 +49,11 @@ elements.profileModal?.querySelectorAll("[data-profile-modal-close]").forEach((b
 elements.adminPanelButton?.addEventListener("click", openAdminPanel);
 elements.adminModal?.querySelectorAll("[data-admin-modal-close]").forEach((button) => button.addEventListener("click", closeAdminPanel));
 elements.adminOpenAuthorization?.addEventListener("click", openAuthorizationPanel);
+elements.adminOpenRoles?.addEventListener("click", openRolesPanel);
 elements.adminBackMenu?.addEventListener("click", showAdminMenu);
+elements.adminRolesBackMenu?.addEventListener("click", showAdminMenu);
 elements.adminAuthorizedSearch?.addEventListener("input", () => { authorizedTikTokSearch = elements.adminAuthorizedSearch.value.trim(); renderAuthorizedTikTokUsers(); });
+elements.adminRolesSearch?.addEventListener("input", () => { accountRolesSearch = elements.adminRolesSearch.value.trim(); renderAccountRoles(); });
 elements.adminAuthorizedForm?.addEventListener("submit", async (event) => {
   event.preventDefault();
   const username = elements.adminAuthorizedUsername.value.trim();
@@ -63,6 +68,23 @@ elements.adminAuthorizedForm?.addEventListener("submit", async (event) => {
     elements.adminAuthorizedUsername.value = "";
     renderAuthorizedTikTokUsers();
     toast(`@${saved.username} autorizado`, "success");
+  } catch (error) { toast(error.message, "error"); } finally { submit.disabled = false; }
+});
+elements.adminRolesForm?.addEventListener("submit", async (event) => {
+  event.preventDefault();
+  const email = elements.adminRoleEmail.value.trim();
+  const role = elements.adminRoleSelect.value;
+  if (!email) return toast("Escribe el correo de una cuenta registrada.", "error");
+  const submit = event.submitter;
+  submit.disabled = true;
+  try {
+    const saved = await request("admin:roles:assign", { email, role });
+    const index = accountRoles.findIndex((entry) => entry.email === saved.email);
+    if (index >= 0) accountRoles[index] = saved;
+    else accountRoles.push(saved);
+    elements.adminRoleEmail.value = "";
+    renderAccountRoles();
+    toast(`${saved.email} ahora tiene el rol ADMINISTRADOR.`, "success");
   } catch (error) { toast(error.message, "error"); } finally { submit.disabled = false; }
 });
 elements.selectGiftButton?.addEventListener("click", openGiftSelector);
@@ -152,12 +174,27 @@ function closeAdminPanel() {
 function showAdminMenu() {
   elements.adminMenuView.hidden = false;
   elements.adminAuthorizationView.hidden = true;
+  elements.adminRolesView.hidden = true;
 }
 
 function openAuthorizationPanel() {
   elements.adminMenuView.hidden = true;
   elements.adminAuthorizationView.hidden = false;
+  elements.adminRolesView.hidden = true;
   elements.adminAuthorizedUsername.focus();
+}
+
+async function openRolesPanel() {
+  elements.adminMenuView.hidden = true;
+  elements.adminAuthorizationView.hidden = true;
+  elements.adminRolesView.hidden = false;
+  accountRolesSearch = "";
+  elements.adminRolesSearch.value = "";
+  try {
+    accountRoles = await request("admin:roles:list", null);
+    renderAccountRoles();
+    elements.adminRoleEmail.focus();
+  } catch (error) { toast(error.message, "error"); }
 }
 
 async function openAdminPanel() {
@@ -208,6 +245,52 @@ function renderAuthorizedTikTokUsers() {
     elements.adminAuthorizedList.append(row);
   }
   elements.adminAuthorizedEmpty.hidden = entries.length > 0;
+}
+
+function renderAccountRoles() {
+  const search = accountRolesSearch.toLocaleLowerCase();
+  const entries = accountRoles
+    .filter((entry) => String(entry.email || "").toLocaleLowerCase().includes(search))
+    .sort((left, right) => String(left.email || "").localeCompare(String(right.email || ""), "es"));
+  elements.adminRolesList.replaceChildren();
+  for (const entry of entries) {
+    const row = document.createElement("div");
+    row.className = "admin-role-row";
+    const details = document.createElement("span");
+    const email = document.createElement("strong");
+    email.textContent = entry.email;
+    const role = document.createElement("b");
+    role.className = "admin-role-badge";
+    role.textContent = entry.role === "administrator" ? "ADMINISTRADOR" : String(entry.role || "USUARIO").toUpperCase();
+    const permissions = document.createElement("small");
+    permissions.textContent = entry.role === "administrator" ? "Gestiona roles y autorizaciones de TikTok LIVE." : "Usuario normal.";
+    details.append(email, role, permissions);
+    row.append(details);
+    if (entry.email === "loroteca98@gmail.com") {
+      const primary = document.createElement("span");
+      primary.className = "admin-primary-role";
+      primary.textContent = "Principal";
+      row.append(primary);
+    } else {
+      const remove = document.createElement("button");
+      remove.className = "button text danger";
+      remove.type = "button";
+      remove.textContent = "Quitar rol";
+      remove.addEventListener("click", async () => {
+        if (!window.confirm(`¿Quitar el rol de ADMINISTRADOR a ${entry.email}? Esta cuenta volverá a ser un usuario normal.`)) return;
+        remove.disabled = true;
+        try {
+          await request("admin:roles:remove", { email: entry.email });
+          accountRoles = accountRoles.filter((item) => item.email !== entry.email);
+          renderAccountRoles();
+          toast(`Rol quitado a ${entry.email}.`, "success");
+        } catch (error) { toast(error.message, "error"); } finally { remove.disabled = false; }
+      });
+      row.append(remove);
+    }
+    elements.adminRolesList.append(row);
+  }
+  elements.adminRolesEmpty.hidden = entries.length > 0;
 }
 
 function openProfileModal() {
