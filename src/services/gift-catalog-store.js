@@ -39,27 +39,25 @@ async function request(path, options = {}) {
   return response;
 }
 
-export async function listWorkspaceGiftCatalog(ownerId, limit = 2_000) {
+export async function listGiftCatalog(limit = 2_000) {
   const params = new URLSearchParams({
-    owner_id: `eq.${ownerId}`,
     select: "gift_id,gift_name,coin_value,image_url,last_seen_at",
     order: "last_seen_at.desc",
     limit: String(Math.max(1, Math.min(Number(limit) || 2_000, 2_000)))
   });
-  const response = await request(`tiktokraft_workspace_gift_catalog?${params}`, { headers: headers() });
+  const response = await request(`tiktokraft_gift_catalog?${params}`, { headers: headers() });
   return (await response.json()).map(normalize);
 }
 
-export async function upsertWorkspaceGiftCatalog(ownerId, gift) {
+export async function upsertGiftCatalog(gift) {
   const giftId = value(gift?.giftId, 80);
   if (!giftId) return null;
   let response;
   try {
-    response = await request("rpc/tiktokraft_workspace_upsert_gift_catalog", {
+    response = await request("rpc/tiktokraft_upsert_gift_catalog", {
       method: "POST",
       headers: headers({ "Content-Type": "application/json", "Content-Profile": "public" }),
       body: JSON.stringify({
-        p_owner_id: ownerId,
         p_gift_id: giftId,
         p_gift_name: value(gift?.giftName, 80),
         p_coin_value: number(gift?.coinValue),
@@ -67,7 +65,7 @@ export async function upsertWorkspaceGiftCatalog(ownerId, gift) {
       })
     });
   } catch (error) {
-    if (error.status === 404 && String(error.detail || "").includes("tiktokraft_workspace_upsert_gift_catalog")) {
+    if (error.status === 404 && String(error.detail || "").includes("tiktokraft_upsert_gift_catalog")) {
       throw new Error("Falta aplicar la migración del catálogo de regalos en Supabase. Ejecuta supabase/gift-catalog.sql una vez en SQL Editor.");
     }
     throw error;
