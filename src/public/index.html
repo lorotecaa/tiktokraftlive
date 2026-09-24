@@ -263,10 +263,10 @@
         <div class="mapping-layout">
           <form id="mapping-form" class="mapping-editor">
             <input type="hidden" id="mapping-id" />
-            <div class="editor-title"><span class="pixel-icon wand">✦</span><h3 id="editor-heading">Nueva acción</h3></div>
+            <div class="editor-title"><span class="pixel-icon wand">✦</span><h3 id="editor-heading">Nueva acción</h3><button class="button text select-gift-button" id="select-gift-button" type="button">🎁 Seleccionar regalo</button></div>
             <div class="two-columns">
-              <label>Nombre del regalo <input id="gift-name" placeholder="Rosa" maxlength="80" /></label>
-              <label>ID del regalo <input id="gift-id" placeholder="5655" maxlength="80" /></label>
+              <label>Nombre del regalo <input id="gift-name" placeholder="Se completa al seleccionar" maxlength="80" /></label>
+              <label>ID del regalo <input id="gift-id" placeholder="ID manual si aún no fue detectado" maxlength="80" /></label>
             </div>
             <label>Comando de Minecraft <textarea id="mapping-command" rows="3" placeholder="effect give @a minecraft:speed 10 1 true" maxlength="256" required></textarea></label>
             <label>Audio al ejecutar la acción
@@ -306,6 +306,15 @@
     </main>
 
     <div class="toast-stack" id="toasts" aria-live="polite"></div>
+    <div class="gift-selector-modal" id="gift-selector-modal" hidden>
+      <div class="gift-selector-backdrop" data-gift-selector-close></div>
+      <section class="gift-selector-dialog" role="dialog" aria-modal="true" aria-labelledby="gift-selector-title">
+        <header><div><h2 id="gift-selector-title">Seleccionar regalo</h2><p>Regalos detectados en tus LIVE. Selecciona uno para completar la acción.</p></div><button class="modal-close" type="button" data-gift-selector-close aria-label="Cerrar">×</button></header>
+        <label class="gift-selector-search"><span>⌕</span><input id="gift-selector-search" type="search" placeholder="Buscar por nombre, ID o coins" autocomplete="off" /></label>
+        <div class="gift-selector-grid" id="gift-selector-grid"></div>
+        <p class="empty-state" id="gift-selector-empty">Todavía no hay regalos detectados. Puedes escribir un ID manualmente o recibir regalos durante un LIVE para agregarlos.</p>
+      </section>
+    </div>
     <div class="profile-modal" id="profile-modal" hidden>
       <div class="profile-modal-backdrop" data-profile-modal-close></div>
       <form class="profile-modal-dialog" id="profile-form">

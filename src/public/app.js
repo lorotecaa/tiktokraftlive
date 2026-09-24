@@ -4,6 +4,8 @@ let hiddenActivity = false;
 let userPointsSearch = "";
 let userPointsSearchTimer = null;
 let userPointsOverlayToken = "";
+let giftCatalog = [];
+let giftCatalogSearch = "";
 const giftNamesById = window.TIKTOK_GIFT_NAMES || {};
 
 const $ = (selector) => document.querySelector(selector);
@@ -27,7 +29,7 @@ const elements = {
   profileModal: $("#profile-modal"), profileForm: $("#profile-form"), profileAvatar: $("#profile-avatar"), profileAvatarEmpty: $("#profile-avatar-empty"), profileAvatarInput: $("#profile-avatar-input"), profileEmail: $("#profile-email"), profilePassword: $("#profile-password"), profilePasswordConfirm: $("#profile-password-confirm"), profileMessage: $("#profile-message"),
   mappingForm: $("#mapping-form"), mappingId: $("#mapping-id"), giftName: $("#gift-name"), giftId: $("#gift-id"),
   command: $("#mapping-command"), audio: $("#mapping-audio"), audioTest: $("#audio-test"), audioState: $("#audio-state"), cooldown: $("#cooldown"), enabled: $("#mapping-enabled"), editorHeading: $("#editor-heading"),
-  cancelEdit: $("#cancel-edit"), mappingList: $("#mapping-list"), mappingEmpty: $("#mapping-empty"),
+  cancelEdit: $("#cancel-edit"), mappingList: $("#mapping-list"), mappingEmpty: $("#mapping-empty"), selectGiftButton: $("#select-gift-button"), giftSelectorModal: $("#gift-selector-modal"), giftSelectorSearch: $("#gift-selector-search"), giftSelectorGrid: $("#gift-selector-grid"), giftSelectorEmpty: $("#gift-selector-empty"),
   simulateForm: $("#simulate-form"), simulateGift: $("#simulate-gift"), simulateCount: $("#simulate-count"),
   giftHistoryList: $("#gift-history-list"), giftHistoryEmpty: $("#gift-history-empty"),
   activityLog: $("#activity-log"), activityEmpty: $("#activity-empty"), toasts: $("#toasts")
@@ -39,6 +41,9 @@ elements.logout?.addEventListener("click", () => {
 });
 elements.profileButton?.addEventListener("click", openProfileModal);
 elements.profileModal?.querySelectorAll("[data-profile-modal-close]").forEach((button) => button.addEventListener("click", closeProfileModal));
+elements.selectGiftButton?.addEventListener("click", openGiftSelector);
+elements.giftSelectorModal?.querySelectorAll("[data-gift-selector-close]").forEach((button) => button.addEventListener("click", closeGiftSelector));
+elements.giftSelectorSearch?.addEventListener("input", () => { giftCatalogSearch = elements.giftSelectorSearch.value.trim(); renderGiftSelector(); });
 elements.profileAvatarInput?.addEventListener("change", async () => {
   const file = elements.profileAvatarInput.files?.[0];
   if (!file) return;
@@ -223,6 +228,8 @@ function renderState(next) {
   setStatus(elements.tiktokDetail, elements.tiktokDot, tiktok);
   elements.globalStatus.textContent = minecraft.status === "connected" && tiktok.status === "connected" ? "INTERACTIVO EN VIVO" : "PANEL LOCAL";
   renderMappings(config.mappings || []);
+  giftCatalog = Array.isArray(next.giftCatalog) ? next.giftCatalog : giftCatalog;
+  if (!elements.giftSelectorModal.hidden) renderGiftSelector();
   renderGiftOverlays(config.giftOverlays || {});
   renderRankingOverlay({ kind: "top-donors", title: "Top Donadores", entries: next.rankings?.topDonors || [] });
   renderUserPoints(next.userPoints?.entries || [], next.userPoints?.configured);
@@ -531,6 +538,74 @@ function renderMappings(mappings) {
       </div>
     </article>`).join("");
   elements.mappingEmpty.hidden = mappings.length > 0;
+}
+
+function closeGiftSelector() {
+  elements.giftSelectorModal.hidden = true;
+  document.body.classList.remove("modal-open");
+}
+
+async function openGiftSelector() {
+  giftCatalogSearch = "";
+  elements.giftSelectorSearch.value = "";
+  elements.giftSelectorModal.hidden = false;
+  document.body.classList.add("modal-open");
+  renderGiftSelector();
+  elements.giftSelectorSearch.focus();
+  try {
+    const response = await fetch("/api/gift-catalog?limit=2000", {
+      headers: { Authorization: `Bearer ${window.TikTokraftAuth?.accessToken || ""}` }
+    });
+    const payload = await response.json().catch(() => ({}));
+    if (!response.ok) throw new Error(payload.error || "No se pudo cargar el catálogo de regalos.");
+    giftCatalog = Array.isArray(payload.entries) ? payload.entries : [];
+    if (appState) appState.giftCatalog = giftCatalog;
+    renderGiftSelector();
+  } catch (error) {
+    toast(error.message, "error");
+  }
+}
+
+function renderGiftSelector() {
+  const search = giftCatalogSearch.toLocaleLowerCase();
+  const entries = giftCatalog.filter((gift) => {
+    if (!search) return true;
+    return [gift.giftName, gift.giftId, gift.coinValue].some((value) => String(value ?? "").toLocaleLowerCase().includes(search));
+  });
+  elements.giftSelectorGrid.replaceChildren();
+  for (const gift of entries) {
+    const card = document.createElement("button");
+    card.className = "gift-selector-card";
+    card.type = "button";
+    card.title = `Seleccionar ${gift.giftName || "regalo"}`;
+    const visual = document.createElement("span");
+    visual.className = "gift-selector-image";
+    const imageUrl = String(gift.giftImageUrl || "").trim();
+    if (imageUrl) {
+      const image = document.createElement("img");
+      image.src = imageUrl;
+      image.alt = "";
+      image.referrerPolicy = "no-referrer";
+      image.addEventListener("error", () => image.remove(), { once: true });
+      visual.append(image);
+    }
+    const name = document.createElement("strong");
+    name.textContent = gift.giftName || "Regalo";
+    const coins = document.createElement("span");
+    coins.className = "gift-selector-coins";
+    coins.textContent = `${numberFormat(gift.coinValue)} coins`;
+    const id = document.createElement("code");
+    id.textContent = `ID: ${gift.giftId}`;
+    card.append(visual, name, coins, id);
+    card.addEventListener("click", () => {
+      elements.giftName.value = String(gift.giftName || "");
+      elements.giftId.value = String(gift.giftId || "");
+      closeGiftSelector();
+      elements.command.focus();
+    });
+    elements.giftSelectorGrid.append(card);
+  }
+  elements.giftSelectorEmpty.hidden = entries.length > 0;
 }
 
 function soundUrl(filename) {
@@ -1008,6 +1083,11 @@ socket.on("activity", (entry) => {
 socket.on("gift-history:update", (gifts) => {
   if (appState) appState.giftHistory = Array.isArray(gifts) ? gifts : [];
   renderGiftHistory(gifts);
+});
+socket.on("gift-catalog:update", (gifts) => {
+  giftCatalog = Array.isArray(gifts) ? gifts : [];
+  if (appState) appState.giftCatalog = giftCatalog;
+  if (!elements.giftSelectorModal.hidden) renderGiftSelector();
 });
 socket.on("tiktok:comment", (comment) => {
   if (!appState?.config?.tts?.enabled || !comment?.text) return;
