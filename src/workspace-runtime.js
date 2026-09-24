@@ -8,7 +8,7 @@ import { HistoricalPointsEngine } from "./services/historical-points-engine.js";
 import { ServerTapClient } from "./services/servertap.js";
 import { TikTokClient, isAllowedTtsUser } from "./services/tiktok.js";
 import { addWorkspaceManualPoints, addWorkspaceUserPoints, deleteWorkspaceUserPoints, listWorkspaceUserPoints } from "./services/user-points-store.js";
-import { listWorkspaceGiftCatalog, upsertWorkspaceGiftCatalog } from "./services/gift-catalog-store.js";
+import { listGiftCatalog, upsertGiftCatalog } from "./services/gift-catalog-store.js";
 
 function serverTapUrl(input, current) {
   if (input.serverTapHost === undefined) return input.serverTapUrl ?? current.url;
@@ -22,8 +22,8 @@ function serverTapUrl(input, current) {
 }
 
 export class WorkspaceRuntime {
-  constructor({ ownerId, config, overlayToken, saveConfig, io, commandsPerSecond, listSounds }) {
-    this.ownerId = ownerId; this.config = config; this.overlayToken = overlayToken; this.saveConfig = saveConfig; this.io = io; this.commandsPerSecond = commandsPerSecond; this.listSounds = listSounds;
+  constructor({ ownerId, config, overlayToken, saveConfig, io, commandsPerSecond, listSounds, onGiftCatalogUpsert = async () => {} }) {
+    this.ownerId = ownerId; this.config = config; this.overlayToken = overlayToken; this.saveConfig = saveConfig; this.io = io; this.commandsPerSecond = commandsPerSecond; this.listSounds = listSounds; this.onGiftCatalogUpsert = onGiftCatalogUpsert;
     this.state = { minecraft: { status: "disconnected", detail: "Sin conectar" }, tiktok: { status: "disconnected", detail: "Sin conectar" }, activity: [] };
     this.sequence = 0; this.giftSequence = 0; this.giftHistory = []; this.giftCatalog = new Map(); this.giftCatalogWriteQueue = Promise.resolve(); this.saveQueue = Promise.resolve(); this.saveTimer = null;
     this.goalEngine = new GoalEngine({ getGoals: () => this.config.goals, onUpdate: (goal) => this.emit("goal:update", this.publicGoal(goal)) });
@@ -55,7 +55,7 @@ export class WorkspaceRuntime {
       console.error(`[${this.ownerId}] No se pudo cargar Usuario y Puntos: ${error.message}`);
     }
     try {
-      const catalog = await listWorkspaceGiftCatalog(this.ownerId);
+      const catalog = await listGiftCatalog();
       this.giftCatalog = new Map(catalog.map((gift) => [gift.giftId, gift]));
     } catch (error) {
       // El catálogo es una ayuda del editor; no debe impedir que el LIVE ni
@@ -86,6 +86,11 @@ export class WorkspaceRuntime {
     return [...this.giftCatalog.values()]
       .sort((left, right) => String(right.lastSeenAt || "").localeCompare(String(left.lastSeenAt || "")) || left.giftName.localeCompare(right.giftName, "es"));
   }
+  mergeGiftCatalog(gift) {
+    if (!gift?.giftId) return;
+    const current = this.giftCatalog.get(gift.giftId);
+    this.giftCatalog.set(gift.giftId, { ...current, ...gift });
+  }
   recordGiftCatalog(event) {
     const giftId = String(event?.giftId || "").trim();
     if (!giftId) return;
@@ -105,12 +110,10 @@ export class WorkspaceRuntime {
     this.emit("gift-catalog:update", this.giftCatalogEntries());
     if (!shouldPersist) return;
     const write = this.giftCatalogWriteQueue.then(async () => {
-      const saved = await upsertWorkspaceGiftCatalog(this.ownerId, gift);
+      const saved = await upsertGiftCatalog(gift);
       if (!saved) return;
-      const current = this.giftCatalog.get(saved.giftId);
-      if (current) this.giftCatalog.set(saved.giftId, { ...current, ...saved });
-      else this.giftCatalog.set(saved.giftId, saved);
-      this.emit("gift-catalog:update", this.giftCatalogEntries());
+      this.mergeGiftCatalog(saved);
+      await this.onGiftCatalogUpsert(saved);
     });
     this.giftCatalogWriteQueue = write.catch((error) => this.error(error.message));
   }
