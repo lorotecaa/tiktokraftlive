@@ -30,7 +30,7 @@ returns table (
   updated_at timestamptz
 )
 language sql security definer set search_path = public, auth as $$
-  select roles.user_id, users.email, roles.role, roles.assigned_at, roles.updated_at
+  select roles.user_id, users.email::text, roles.role, roles.assigned_at, roles.updated_at
   from public.tiktokraft_account_roles roles
   join auth.users users on users.id = roles.user_id
   order by lower(users.email);
@@ -74,7 +74,7 @@ begin
   set role = excluded.role, assigned_by = excluded.assigned_by, updated_at = now();
 
   return query
-  select account_roles.user_id, target_user.email, account_roles.role, account_roles.assigned_at, account_roles.updated_at
+  select account_roles.user_id, target_user.email::text, account_roles.role, account_roles.assigned_at, account_roles.updated_at
   from public.tiktokraft_account_roles as account_roles
   where account_roles.user_id = target_user.id;
 end;
