@@ -6,6 +6,8 @@ let userPointsSearchTimer = null;
 let userPointsOverlayToken = "";
 let giftCatalog = [];
 let giftCatalogSearch = "";
+let authorizedTikTokUsers = [];
+let authorizedTikTokSearch = "";
 const giftNamesById = window.TIKTOK_GIFT_NAMES || {};
 
 const $ = (selector) => document.querySelector(selector);
@@ -25,7 +27,8 @@ const elements = {
   customizationModal: $("#overlay-customization-modal"), customizationForm: $("#overlay-customization-form"), customizationTitle: $("#overlay-customization-title"), customizationFontFamily: $("#customization-font-family"), customizationFontSize: $("#customization-font-size"), customizationLineSpacing: $("#customization-line-spacing"), customizationLetterSpacing: $("#customization-letter-spacing"), customizationTextColor: $("#customization-text-color"), customizationValueColor: $("#customization-value-color"), customizationRankColor: $("#customization-rank-color"), customizationTextEffect: $("#customization-text-effect"), customizationWave: $("#customization-wave"), customizationBackground: $("#customization-background"), customizationBackgroundColor: $("#customization-background-color"), customizationShowRank: $("#customization-show-rank"), customizationShowValue: $("#customization-show-value"), customizationAlignRight: $("#customization-align-right"), customizationCrown: $("#customization-crown"), userPointsCustomizationLimit: $("#user-points-customization-limit"), giftCustomizationTitle: $("#gift-customization-title"), giftCustomizationTitleSize: $("#gift-customization-title-size"), giftCustomizationTitleColor: $("#gift-customization-title-color"), giftCustomizationUsernameColor: $("#gift-customization-username-color"), giftCustomizationUsernameSize: $("#gift-customization-username-size"), giftCustomizationTitleOffset: $("#gift-customization-title-offset"), giftCustomizationImageOffset: $("#gift-customization-image-offset"), giftCustomizationUsernameOffset: $("#gift-customization-username-offset"), giftCustomizationCoinsOffset: $("#gift-customization-coins-offset"), giftCustomizationBorder: $("#gift-customization-border"), giftCustomizationBorderColor: $("#gift-customization-border-color"), giftCustomizationImageVisible: $("#gift-customization-image-visible"), giftCustomizationImageOpacity: $("#gift-customization-image-opacity"), giftCustomizationTitleEffect: $("#gift-customization-title-effect"), giftCustomizationTitleWave: $("#gift-customization-title-wave"), giftCustomizationUsernameEffect: $("#gift-customization-username-effect"), giftCustomizationUsernameWave: $("#gift-customization-username-wave"), giftCustomizationShowCoins: $("#gift-customization-show-coins"), giftCustomizationCoinsAlias: $("#gift-customization-coins-alias"),
   minecraftDetail: $("#minecraft-detail"), minecraftDot: $("#minecraft-dot"),
   tiktokDetail: $("#tiktok-detail"), tiktokDot: $("#tiktok-dot"),
-  globalStatus: $("#global-status"), profileButton: $("#profile-button"), logout: $("#logout-button"),
+  globalStatus: $("#global-status"), adminPanelButton: $("#admin-panel-button"), profileButton: $("#profile-button"), logout: $("#logout-button"),
+  adminModal: $("#admin-modal"), adminAuthorizedForm: $("#admin-authorized-form"), adminAuthorizedUsername: $("#admin-authorized-username"), adminAuthorizedSearch: $("#admin-authorized-search"), adminAuthorizedList: $("#admin-authorized-list"), adminAuthorizedEmpty: $("#admin-authorized-empty"),
   profileModal: $("#profile-modal"), profileForm: $("#profile-form"), profileAvatar: $("#profile-avatar"), profileAvatarEmpty: $("#profile-avatar-empty"), profileAvatarInput: $("#profile-avatar-input"), profileEmail: $("#profile-email"), profilePassword: $("#profile-password"), profilePasswordConfirm: $("#profile-password-confirm"), profileMessage: $("#profile-message"),
   mappingForm: $("#mapping-form"), mappingId: $("#mapping-id"), giftName: $("#gift-name"), giftId: $("#gift-id"),
   command: $("#mapping-command"), audio: $("#mapping-audio"), audioTest: $("#audio-test"), audioState: $("#audio-state"), cooldown: $("#cooldown"), enabled: $("#mapping-enabled"), editorHeading: $("#editor-heading"),
@@ -41,6 +44,25 @@ elements.logout?.addEventListener("click", () => {
 });
 elements.profileButton?.addEventListener("click", openProfileModal);
 elements.profileModal?.querySelectorAll("[data-profile-modal-close]").forEach((button) => button.addEventListener("click", closeProfileModal));
+elements.adminPanelButton?.addEventListener("click", openAdminPanel);
+elements.adminModal?.querySelectorAll("[data-admin-modal-close]").forEach((button) => button.addEventListener("click", closeAdminPanel));
+elements.adminAuthorizedSearch?.addEventListener("input", () => { authorizedTikTokSearch = elements.adminAuthorizedSearch.value.trim(); renderAuthorizedTikTokUsers(); });
+elements.adminAuthorizedForm?.addEventListener("submit", async (event) => {
+  event.preventDefault();
+  const username = elements.adminAuthorizedUsername.value.trim();
+  if (!username) return toast("Escribe un nombre de usuario de TikTok.", "error");
+  const submit = event.submitter;
+  submit.disabled = true;
+  try {
+    const saved = await request("admin:authorized-tiktok:add", { username });
+    const index = authorizedTikTokUsers.findIndex((entry) => entry.username === saved.username);
+    if (index >= 0) authorizedTikTokUsers[index] = saved;
+    else authorizedTikTokUsers.push(saved);
+    elements.adminAuthorizedUsername.value = "";
+    renderAuthorizedTikTokUsers();
+    toast(`@${saved.username} autorizado`, "success");
+  } catch (error) { toast(error.message, "error"); } finally { submit.disabled = false; }
+});
 elements.selectGiftButton?.addEventListener("click", openGiftSelector);
 elements.giftSelectorModal?.querySelectorAll("[data-gift-selector-close]").forEach((button) => button.addEventListener("click", closeGiftSelector));
 elements.giftSelectorSearch?.addEventListener("input", () => { giftCatalogSearch = elements.giftSelectorSearch.value.trim(); renderGiftSelector(); });
@@ -120,6 +142,61 @@ function closeProfileModal() {
   document.body.classList.remove("modal-open");
 }
 
+function closeAdminPanel() {
+  elements.adminModal.hidden = true;
+  document.body.classList.remove("modal-open");
+}
+
+async function openAdminPanel() {
+  if (!appState?.account?.isAdmin) return toast("No tienes permiso para acceder al Panel de Administración.", "error");
+  authorizedTikTokSearch = "";
+  elements.adminAuthorizedSearch.value = "";
+  elements.adminModal.hidden = false;
+  document.body.classList.add("modal-open");
+  try {
+    authorizedTikTokUsers = await request("admin:authorized-tiktok:list", null);
+    renderAuthorizedTikTokUsers();
+    elements.adminAuthorizedUsername.focus();
+  } catch (error) {
+    toast(error.message, "error");
+    closeAdminPanel();
+  }
+}
+
+function renderAuthorizedTikTokUsers() {
+  const search = authorizedTikTokSearch.toLocaleLowerCase();
+  const entries = authorizedTikTokUsers
+    .filter((entry) => String(entry.username || "").toLocaleLowerCase().includes(search))
+    .sort((left, right) => String(left.username || "").localeCompare(String(right.username || ""), "es"));
+  elements.adminAuthorizedList.replaceChildren();
+  for (const entry of entries) {
+    const row = document.createElement("div");
+    row.className = "admin-authorized-row";
+    const user = document.createElement("strong");
+    user.textContent = `@${entry.username}`;
+    const added = document.createElement("small");
+    added.textContent = entry.addedAt ? `Autorizado ${new Date(entry.addedAt).toLocaleDateString("es-CO")}` : "Autorizado";
+    const remove = document.createElement("button");
+    remove.className = "button text danger";
+    remove.type = "button";
+    remove.textContent = "Revocar";
+    remove.addEventListener("click", async () => {
+      remove.disabled = true;
+      try {
+        await request("admin:authorized-tiktok:remove", { username: entry.username });
+        authorizedTikTokUsers = authorizedTikTokUsers.filter((item) => item.username !== entry.username);
+        renderAuthorizedTikTokUsers();
+        toast(`@${entry.username} revocado`, "success");
+      } catch (error) { toast(error.message, "error"); } finally { remove.disabled = false; }
+    });
+    const copy = document.createElement("span");
+    copy.append(user, added);
+    row.append(copy, remove);
+    elements.adminAuthorizedList.append(row);
+  }
+  elements.adminAuthorizedEmpty.hidden = entries.length > 0;
+}
+
 function openProfileModal() {
   elements.profileForm.reset();
   profileAvatarData = appState?.config?.profile?.avatarDataUrl || "";
@@ -194,6 +271,7 @@ function renderState(next) {
   appState = { ...next, account: next.account || appState?.account };
   const { config, minecraft, tiktok } = appState;
   userPointsOverlayToken = appState.workspace?.overlayToken || userPointsOverlayToken;
+  elements.adminPanelButton.hidden = !Boolean(appState.account?.isAdmin);
   if (document.activeElement !== elements.tiktokUsername) elements.tiktokUsername.value = config.tiktokUsername || "";
   elements.eulerKeyState.textContent = config.eulerStreamApiKeyPresent ? "API Key guardada. Déjala vacía para conservarla." : "Necesitas una API Key de Euler Stream.";
   const serverTap = serverTapParts(config.serverTap.url);
@@ -851,7 +929,8 @@ elements.customizationForm.addEventListener("submit", async (event) => {
 });
 document.addEventListener("keydown", (event) => {
   if (event.key !== "Escape") return;
-  if (!elements.profileModal.hidden) closeProfileModal();
+  if (!elements.adminModal.hidden) closeAdminPanel();
+  else if (!elements.profileModal.hidden) closeProfileModal();
   else if (!elements.transactionModal.hidden) closeTransactionModal();
   else if (!elements.customizationModal.hidden) closeCustomization();
 });

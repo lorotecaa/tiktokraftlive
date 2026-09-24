@@ -19,6 +19,7 @@
       </a>
       <div class="topbar-actions">
         <div class="live-pill"><span class="pulse"></span><span id="global-status">PANEL LOCAL</span></div>
+        <button id="admin-panel-button" class="button text admin-panel-button" type="button" hidden>Administración</button>
         <button id="profile-button" class="button text logout-button" type="button">Perfil</button>
         <button id="logout-button" class="button text logout-button" type="button">Cerrar sesión</button>
       </div>
@@ -306,6 +307,19 @@
     </main>
 
     <div class="toast-stack" id="toasts" aria-live="polite"></div>
+    <div class="admin-modal" id="admin-modal" hidden>
+      <div class="admin-modal-backdrop" data-admin-modal-close></div>
+      <section class="admin-modal-dialog" role="dialog" aria-modal="true" aria-labelledby="admin-modal-title">
+        <header><div><h2 id="admin-modal-title">Panel de Administración</h2><p>Gestiona las cuentas de TikTok autorizadas para conectar LIVE.</p></div><button class="modal-close" type="button" data-admin-modal-close aria-label="Cerrar">×</button></header>
+        <form class="admin-authorized-form" id="admin-authorized-form">
+          <label>Usuario de TikTok autorizado<input id="admin-authorized-username" maxlength="80" autocomplete="off" placeholder="usuario_tiktok" /></label>
+          <button class="button primary" type="submit">Autorizar</button>
+        </form>
+        <label class="admin-search"><span>⌕</span><input id="admin-authorized-search" type="search" placeholder="Buscar usuario autorizado" autocomplete="off" /></label>
+        <div class="admin-authorized-list" id="admin-authorized-list"></div>
+        <p class="empty-state" id="admin-authorized-empty">No hay cuentas de TikTok autorizadas todavía.</p>
+      </section>
+    </div>
     <div class="gift-selector-modal" id="gift-selector-modal" hidden>
       <div class="gift-selector-backdrop" data-gift-selector-close></div>
       <section class="gift-selector-dialog" role="dialog" aria-modal="true" aria-labelledby="gift-selector-title">
