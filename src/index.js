@@ -10,6 +10,7 @@ import { claimWorkspace, saveWorkspaceConfig, workspaceByOverlayToken } from "./
 import { WorkspaceRuntime } from "./workspace-runtime.js";
 import { listWorkspaceUserPoints } from "./services/user-points-store.js";
 import { listGiftCatalog } from "./services/gift-catalog-store.js";
+import { authorizeTikTokUsername, isTikTokUsernameAuthorized, listAuthorizedTikTokUsers, revokeTikTokUsername } from "./services/access-store.js";
 
 const directory = path.dirname(fileURLToPath(import.meta.url));
 const app = express();
@@ -19,6 +20,7 @@ const workspaces = new Map();
 const port = Number(process.env.PORT || 3180);
 const host = process.env.HOST || "0.0.0.0";
 const commandRate = Number(process.env.COMMANDS_PER_SECOND || 5);
+const administratorEmail = "loroteca98@gmail.com";
 app.use(express.json({ limit: "32kb" }));
 
 async function publishGlobalGiftCatalog(gift) {
@@ -43,7 +45,9 @@ async function workspaceFor(id) {
     return await workspaces.get(id);
   } catch (error) { workspaces.delete(id); throw error; }
 }
-async function identity(token) { const user = await userFromAccessToken(token); return { user, workspace: await workspaceFor(user.id) }; }
+function isAdministrator(user) { return String(user?.email || "").trim().toLocaleLowerCase() === administratorEmail; }
+function requireAdministrator(session) { if (!session?.isAdmin) throw new Error("No tienes permiso para acceder al Panel de Administración."); }
+async function identity(token) { const user = await userFromAccessToken(token); return { user, isAdmin: isAdministrator(user), workspace: await workspaceFor(user.id) }; }
 function tokenFrom(request) { return String(request.headers.authorization || "").replace(/^Bearer\s+/i, ""); }
 function serverTapUrl(input, current) { if (input.serverTapHost === undefined) return input.serverTapUrl || current; const host = String(input.serverTapHost || "").trim(); const port = String(input.serverTapPort || "").trim(); if (!host || !/^\d{1,5}$/.test(port) || Number(port) < 1 || Number(port) > 65535) throw new Error("Indica una IP y puerto ServerTap válidos."); const url = new URL(host.includes("://") ? host : `${input.serverTapProtocol === "https:" ? "https" : "http"}://${host}`); url.port = port; url.pathname = ""; url.search = ""; url.hash = ""; return url.toString().replace(/\/$/, ""); }
 async function protectedRoute(request, response, next) { try { request.session = await identity(tokenFrom(request)); next(); } catch (error) { response.status(401).json({ error: error.message }); } }
@@ -53,7 +57,7 @@ app.post("/api/auth/signup", async (request, response, next) => { try { response
 app.post("/api/auth/signin", async (request, response, next) => { try { response.json(await signIn(String(request.body?.email || "").trim(), String(request.body?.password || ""))); } catch (error) { next(error); } });
 app.post("/api/auth/refresh", async (request, response, next) => { try { response.json(await refreshSession(String(request.body?.refresh_token || ""))); } catch (error) { next(error); } });
 app.get("/api/health", (_request, response) => response.json({ ok: true, authConfigured }));
-app.get("/api/state", protectedRoute, (request, response) => response.json({ ...request.session.workspace.publicState(), account: { email: request.session.user.email } }));
+app.get("/api/state", protectedRoute, (request, response) => response.json({ ...request.session.workspace.publicState(), account: { email: request.session.user.email, isAdmin: request.session.isAdmin } }));
 app.post("/api/auth/password", protectedRoute, async (request, response, next) => { try { await changePassword(tokenFrom(request), String(request.body?.password || "")); response.json({ ok: true }); } catch (error) { next(error); } });
 app.get("/api/sounds", protectedRoute, async (_request, response, next) => { try { response.json({ sounds: await listAvailableSounds() }); } catch (error) { next(error); } });
 app.get("/api/user-points", protectedRoute, async (request, response, next) => { try { response.json({ entries: await listWorkspaceUserPoints(request.session.user.id, { query: request.query.q, limit: request.query.limit }), configured: true, overlayToken: request.session.workspace.overlayToken }); } catch (error) { next(error); } });
@@ -81,7 +85,8 @@ app.use(express.static(path.join(directory, "public")));
 
 io.use(async (socket, next) => { try { const session = await identity(socket.handshake.auth?.token); socket.data.session = session; next(); } catch (error) { next(new Error(error.message)); } });
 io.on("connection", (socket) => {
-  const w = socket.data.session.workspace; socket.join(w.room()); socket.emit("state", { ...w.publicState(), account: { email: socket.data.session.user.email } });
+  const session = socket.data.session;
+  const w = session.workspace; socket.join(w.room()); socket.emit("state", { ...w.publicState(), account: { email: session.user.email, isAdmin: session.isAdmin } });
   socket.on("settings:save", (input, done) => acknowledge(done, () => w.save(sanitizeConfig({ ...w.config, tiktokUsername: input.tiktokUsername ?? w.config.tiktokUsername, eulerStreamApiKey: input.eulerStreamApiKey || w.config.eulerStreamApiKey, serverTap: { ...w.config.serverTap, url: serverTapUrl(input, w.config.serverTap.url), key: input.serverTapKey || w.config.serverTap.key } })), w));
   socket.on("tts:save", (input, done) => acknowledge(done, async () => { await w.save({ ...w.config, tts: { ...w.config.tts, ...input } }); return w.config.tts; }, w));
   socket.on("profile:save", (input, done) => acknowledge(done, async () => { const profile = sanitizeConfig({ profile: input }).profile; await w.save({ ...w.config, profile }); return profile; }, w));
@@ -93,8 +98,16 @@ io.on("connection", (socket) => {
   socket.on("goal:save", (input, done) => acknowledge(done, () => w.saveGoal(input), w));
   socket.on("minecraft:connect", (_input, done) => acknowledge(done, () => w.serverTap.connect(w.config.serverTap), w));
   socket.on("minecraft:disconnect", (_input, done) => acknowledge(done, () => w.serverTap.disconnect(), w));
-  socket.on("tiktok:connect", (_input, done) => acknowledge(done, () => w.connectTikTok(), w));
+  socket.on("tiktok:connect", (_input, done) => acknowledge(done, async () => {
+    if (!(await isTikTokUsernameAuthorized(w.config.tiktokUsername))) {
+      throw new Error("🔒 Tu cuenta aún no tiene acceso a TikTokraft Live.\nContacta al administrador.");
+    }
+    return w.connectTikTok();
+  }, w));
   socket.on("tiktok:disconnect", (_input, done) => acknowledge(done, async () => { w.tiktok.disconnect(); w.giftEngine.reset(); w.rankingEngine.reset(); await w.saveNow(); return w.config.giftOverlays; }, w));
+  socket.on("admin:authorized-tiktok:list", (_input, done) => acknowledge(done, async () => { requireAdministrator(session); return listAuthorizedTikTokUsers(); }, w));
+  socket.on("admin:authorized-tiktok:add", (input, done) => acknowledge(done, async () => { requireAdministrator(session); return authorizeTikTokUsername(input?.username, session.user.id); }, w));
+  socket.on("admin:authorized-tiktok:remove", (input, done) => acknowledge(done, async () => { requireAdministrator(session); return revokeTikTokUsername(input?.username); }, w));
   socket.on("mapping:save", (input, done) => acknowledge(done, () => w.saveMapping(input), w));
   socket.on("mapping:delete", (id, done) => acknowledge(done, async () => { await w.save({ ...w.config, mappings: w.config.mappings.filter((item) => item.id !== id) }); return { id }; }, w));
   socket.on("mapping:test", (id, done) => acknowledge(done, () => { const mapping = w.config.mappings.find((item) => item.id === id); if (!mapping) throw new Error("No existe esa acción."); const event = { giftId: mapping.giftId || "demo", giftName: mapping.giftName || "Regalo de prueba", repeatCount: 1, username: "prueba", nickname: "Prueba" }; const command = w.rules.render(mapping.command, event); w.serverTap.enqueue(command, { test: true, mappingId: mapping.id }); w.activity({ type: "action", event, mapping, command, message: "Prueba enviada a Minecraft" }); return { command }; }, w));
