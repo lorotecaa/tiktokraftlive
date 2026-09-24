@@ -9,7 +9,7 @@ import { authConfigured, changePassword, refreshSession, signIn, signUp, userFro
 import { claimWorkspace, saveWorkspaceConfig, workspaceByOverlayToken } from "./workspace-store.js";
 import { WorkspaceRuntime } from "./workspace-runtime.js";
 import { listWorkspaceUserPoints } from "./services/user-points-store.js";
-import { listWorkspaceGiftCatalog } from "./services/gift-catalog-store.js";
+import { listGiftCatalog } from "./services/gift-catalog-store.js";
 
 const directory = path.dirname(fileURLToPath(import.meta.url));
 const app = express();
@@ -21,10 +21,19 @@ const host = process.env.HOST || "0.0.0.0";
 const commandRate = Number(process.env.COMMANDS_PER_SECOND || 5);
 app.use(express.json({ limit: "32kb" }));
 
+async function publishGlobalGiftCatalog(gift) {
+  // Solo el catálogo es común. Cada workspace conserva sus propios mappings,
+  // ajustes, puntos, rankings y conexión de LIVE.
+  for (const pendingWorkspace of workspaces.values()) {
+    try { (await pendingWorkspace).mergeGiftCatalog(gift); } catch { /* Un workspace que no pudo iniciar se limpia al reintentar. */ }
+  }
+  io.emit("gift-catalog:upsert", gift);
+}
+
 async function workspaceFor(id) {
   if (!workspaces.has(id)) workspaces.set(id, (async () => {
     const record = await claimWorkspace(id);
-    return new WorkspaceRuntime({ ...record, saveConfig: saveWorkspaceConfig, io, commandsPerSecond: commandRate, listSounds: listAvailableSounds }).initialize();
+    return new WorkspaceRuntime({ ...record, saveConfig: saveWorkspaceConfig, io, commandsPerSecond: commandRate, listSounds: listAvailableSounds, onGiftCatalogUpsert: publishGlobalGiftCatalog }).initialize();
   })());
   try {
     // El workspace activo contiene los récords del LIVE que todavía pueden
@@ -48,7 +57,7 @@ app.get("/api/state", protectedRoute, (request, response) => response.json({ ...
 app.post("/api/auth/password", protectedRoute, async (request, response, next) => { try { await changePassword(tokenFrom(request), String(request.body?.password || "")); response.json({ ok: true }); } catch (error) { next(error); } });
 app.get("/api/sounds", protectedRoute, async (_request, response, next) => { try { response.json({ sounds: await listAvailableSounds() }); } catch (error) { next(error); } });
 app.get("/api/user-points", protectedRoute, async (request, response, next) => { try { response.json({ entries: await listWorkspaceUserPoints(request.session.user.id, { query: request.query.q, limit: request.query.limit }), configured: true, overlayToken: request.session.workspace.overlayToken }); } catch (error) { next(error); } });
-app.get("/api/gift-catalog", protectedRoute, async (request, response, next) => { try { response.json({ entries: await listWorkspaceGiftCatalog(request.session.user.id, request.query.limit) }); } catch (error) { next(error); } });
+app.get("/api/gift-catalog", protectedRoute, async (request, response, next) => { try { response.json({ entries: await listGiftCatalog(request.query.limit) }); } catch (error) { next(error); } });
 
 async function publicSpace(token) { const data = await workspaceByOverlayToken(token); return data ? workspaceFor(data.ownerId) : null; }
 app.get("/widget/:token/goal/:id", (_request, response) => response.sendFile(path.join(directory, "public", "goal-widget.html")));
