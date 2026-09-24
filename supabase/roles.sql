@@ -18,7 +18,7 @@ insert into public.tiktokraft_account_roles (user_id, role)
 select id, 'administrator'
 from auth.users
 where lower(email) = 'loroteca98@gmail.com'
-on conflict (user_id) do update
+on conflict on constraint tiktokraft_account_roles_pkey do update
 set role = 'administrator', updated_at = now();
 
 create or replace function public.tiktokraft_list_account_roles()
@@ -68,15 +68,15 @@ begin
     raise exception 'No existe una cuenta registrada con ese correo.';
   end if;
 
-  insert into public.tiktokraft_account_roles as roles (user_id, role, assigned_by)
+  insert into public.tiktokraft_account_roles as account_roles (user_id, role, assigned_by)
   values (target_user.id, lower(trim(p_role)), p_assigned_by)
-  on conflict (user_id) do update
+  on conflict on constraint tiktokraft_account_roles_pkey do update
   set role = excluded.role, assigned_by = excluded.assigned_by, updated_at = now();
 
   return query
-  select roles.user_id, target_user.email, roles.role, roles.assigned_at, roles.updated_at
-  from public.tiktokraft_account_roles roles
-  where roles.user_id = target_user.id;
+  select account_roles.user_id, target_user.email, account_roles.role, account_roles.assigned_at, account_roles.updated_at
+  from public.tiktokraft_account_roles as account_roles
+  where account_roles.user_id = target_user.id;
 end;
 $$;
 
@@ -95,7 +95,8 @@ begin
     raise exception 'No existe una cuenta registrada con ese correo.';
   end if;
 
-  delete from public.tiktokraft_account_roles where user_id = target_id;
+  delete from public.tiktokraft_account_roles as account_roles
+  where account_roles.user_id = target_id;
 end;
 $$;
 
