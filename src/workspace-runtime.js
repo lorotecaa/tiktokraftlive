@@ -8,6 +8,7 @@ import { HistoricalPointsEngine } from "./services/historical-points-engine.js";
 import { ServerTapClient } from "./services/servertap.js";
 import { TikTokClient, isAllowedTtsUser } from "./services/tiktok.js";
 import { addWorkspaceManualPoints, addWorkspaceUserPoints, deleteWorkspaceUserPoints, listWorkspaceUserPoints } from "./services/user-points-store.js";
+import { listWorkspaceGiftCatalog, upsertWorkspaceGiftCatalog } from "./services/gift-catalog-store.js";
 
 function serverTapUrl(input, current) {
   if (input.serverTapHost === undefined) return input.serverTapUrl ?? current.url;
@@ -24,7 +25,7 @@ export class WorkspaceRuntime {
   constructor({ ownerId, config, overlayToken, saveConfig, io, commandsPerSecond, listSounds }) {
     this.ownerId = ownerId; this.config = config; this.overlayToken = overlayToken; this.saveConfig = saveConfig; this.io = io; this.commandsPerSecond = commandsPerSecond; this.listSounds = listSounds;
     this.state = { minecraft: { status: "disconnected", detail: "Sin conectar" }, tiktok: { status: "disconnected", detail: "Sin conectar" }, activity: [] };
-    this.sequence = 0; this.giftSequence = 0; this.giftHistory = []; this.saveQueue = Promise.resolve(); this.saveTimer = null;
+    this.sequence = 0; this.giftSequence = 0; this.giftHistory = []; this.giftCatalog = new Map(); this.giftCatalogWriteQueue = Promise.resolve(); this.saveQueue = Promise.resolve(); this.saveTimer = null;
     this.goalEngine = new GoalEngine({ getGoals: () => this.config.goals, onUpdate: (goal) => this.emit("goal:update", this.publicGoal(goal)) });
     this.giftEngine = new GiftOverlayEngine({ getOverlays: () => this.config.giftOverlays, onUpdate: ({ kind, record }) => this.emit("gift-overlay:update", { ...this.publicGift(kind), record }) });
     this.rankingEngine = new RankingOverlayEngine({ onUpdate: ({ kind, entries }) => this.emit("ranking-overlay:update", { kind, title: "Top Donadores", entries, customization: this.custom(`ranking:${kind}`) }) });
@@ -53,6 +54,14 @@ export class WorkspaceRuntime {
       // migración o una caché de esquema de Supabase no debe rechazar Socket.IO.
       console.error(`[${this.ownerId}] No se pudo cargar Usuario y Puntos: ${error.message}`);
     }
+    try {
+      const catalog = await listWorkspaceGiftCatalog(this.ownerId);
+      this.giftCatalog = new Map(catalog.map((gift) => [gift.giftId, gift]));
+    } catch (error) {
+      // El catálogo es una ayuda del editor; no debe impedir que el LIVE ni
+      // las acciones existentes arranquen si falta aplicar su migración.
+      console.warn(`[${this.ownerId}] No se pudo cargar el catálogo de regalos: ${error.message}`);
+    }
     return this;
   }
   room() { return `workspace:${this.ownerId}`; }
@@ -71,6 +80,39 @@ export class WorkspaceRuntime {
     this.giftHistory.unshift(gift);
     this.giftHistory = this.giftHistory.slice(0, 200);
     this.emit("gift-history:update", this.giftHistory);
+    this.recordGiftCatalog(event);
+  }
+  giftCatalogEntries() {
+    return [...this.giftCatalog.values()]
+      .sort((left, right) => String(right.lastSeenAt || "").localeCompare(String(left.lastSeenAt || "")) || left.giftName.localeCompare(right.giftName, "es"));
+  }
+  recordGiftCatalog(event) {
+    const giftId = String(event?.giftId || "").trim();
+    if (!giftId) return;
+    const previous = this.giftCatalog.get(giftId);
+    const gift = {
+      giftId,
+      giftName: String(event?.giftName || giftId).trim().slice(0, 80),
+      coinValue: Math.max(0, Math.floor(Number(event?.coinValue) || 0)),
+      giftImageUrl: String(event?.giftImageUrl || "").trim().slice(0, 2_048),
+      lastSeenAt: new Date().toISOString()
+    };
+    const shouldPersist = !previous
+      || (!previous.giftImageUrl && gift.giftImageUrl)
+      || (!previous.coinValue && gift.coinValue)
+      || /^regalo\s*#/i.test(previous.giftName || "");
+    this.giftCatalog.set(giftId, { ...previous, ...gift });
+    this.emit("gift-catalog:update", this.giftCatalogEntries());
+    if (!shouldPersist) return;
+    const write = this.giftCatalogWriteQueue.then(async () => {
+      const saved = await upsertWorkspaceGiftCatalog(this.ownerId, gift);
+      if (!saved) return;
+      const current = this.giftCatalog.get(saved.giftId);
+      if (current) this.giftCatalog.set(saved.giftId, { ...current, ...saved });
+      else this.giftCatalog.set(saved.giftId, saved);
+      this.emit("gift-catalog:update", this.giftCatalogEntries());
+    });
+    this.giftCatalogWriteQueue = write.catch((error) => this.error(error.message));
   }
   activity(entry) { const item = { id: ++this.sequence, at: Date.now(), ...entry }; this.state.activity.unshift(item); this.state.activity = this.state.activity.slice(0, 100); this.emit("activity", item); }
   error(message) { console.error(`[${this.ownerId}] ${message}`); this.activity({ type: "error", message }); }
@@ -79,7 +121,7 @@ export class WorkspaceRuntime {
   publicGift(kind) { const definition = { "best-gift": ["bestGift", "Mejor Regalo"], "best-streak": ["bestStreak", "Mejor Racha"] }[kind]; return definition ? { kind, title: definition[1], record: this.config.giftOverlays[definition[0]], customization: this.custom(`gift:${kind}`) } : null; }
   publicRanking() { return { kind: "top-donors", title: "Top Donadores", entries: this.rankingEngine.entries(), customization: this.custom("ranking:top-donors") }; }
   publicPoints() { const customization = this.custom("user-points:historical"); return { kind: "historical", title: "Usuario y Puntos", entries: this.pointsEngine.entries(customization?.itemLimit || 10), customization }; }
-  publicState() { return { ...this.state, giftHistory: this.giftHistory, config: publicConfig(this.config), rankings: { topDonors: this.rankingEngine.entries() }, userPoints: { entries: this.pointsEngine.entries(100), configured: true }, workspace: { overlayToken: this.overlayToken } }; }
+  publicState() { return { ...this.state, giftHistory: this.giftHistory, giftCatalog: this.giftCatalogEntries(), config: publicConfig(this.config), rankings: { topDonors: this.rankingEngine.entries() }, userPoints: { entries: this.pointsEngine.entries(100), configured: true }, workspace: { overlayToken: this.overlayToken } }; }
   broadcast() { this.emit("state", this.publicState()); }
   async save(next = this.config) {
     // Conserva los cambios hechos mientras una escritura anterior espera a
@@ -92,7 +134,7 @@ export class WorkspaceRuntime {
   }
   queueSave() { if (this.saveTimer) return; this.saveTimer = setTimeout(() => { this.saveTimer = null; this.saveQueue = this.saveQueue.then(() => this.save()).catch((error) => this.error(error.message)); }, 500); }
   async saveNow() { if (this.saveTimer) { clearTimeout(this.saveTimer); this.saveTimer = null; } this.saveQueue = this.saveQueue.then(() => this.save()); await this.saveQueue; }
-  async dispose() { this.tiktok.disconnect("Sesión finalizada"); this.serverTap.disconnect("Sesión finalizada"); await Promise.all([this.saveNow(), this.pointsEngine.flush()]); }
+  async dispose() { this.tiktok.disconnect("Sesión finalizada"); this.serverTap.disconnect("Sesión finalizada"); await Promise.all([this.saveNow(), this.pointsEngine.flush(), this.giftCatalogWriteQueue]); }
   async saveMapping(input) { const mapping = sanitizeConfig({ mappings: [input] }).mappings[0]; if (!mapping) throw new Error("Añade un comando a la acción."); if (mapping.audio && !(await this.listSounds()).includes(mapping.audio)) throw new Error("El audio seleccionado ya no está disponible."); await this.saveNow(); const mappings = [...this.config.mappings]; const index = mappings.findIndex((entry) => entry.id === mapping.id); if (index >= 0) mappings[index] = mapping; else mappings.push(mapping); await this.save({ ...this.config, mappings }); return mapping; }
   async saveGoal(input) { const type = String(input?.type || "").toLowerCase(); const existing = this.config.goals.find((goal) => goal.id === input?.id || goal.type === type); const candidate = { ...input, id: existing?.id || randomUUID(), type }; const next = sanitizeConfig({ ...this.config, goals: [...this.config.goals.filter((goal) => goal.id !== existing?.id && goal.type !== type), candidate] }); const goal = next.goals.find((goal) => goal.id === candidate.id); if (!goal) throw new Error("Completa un objetivo válido."); await this.save(next); this.emit("goal:update", this.publicGoal(goal)); return this.publicGoal(goal); }
   async connectTikTok() { const connection = await this.tiktok.connect(this.config.tiktokUsername, this.config.eulerStreamApiKey); this.giftHistory = []; this.emit("gift-history:update", this.giftHistory); if (this.config.giftOverlays.resetOnNewLive) { this.giftEngine.reset(); await this.saveNow(); } this.activity({ type: "system", message: `TikTok LIVE conectado: @${this.config.tiktokUsername}` }); return connection; }
