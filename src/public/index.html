@@ -63,12 +63,14 @@
 
       <section class="workspace">
         <div class="section-heading"><div><p class="eyebrow">CONTROL CENTRAL</p><h2>Conexión</h2></div><span class="hint">La clave nunca sale de este equipo</span></div>
-        <form id="settings-form" class="settings-card">
-          <label>IP o dominio de ServerTap <input id="servertap-host" name="serverTapHost" placeholder="127.0.0.1 o 192.168.1.50" autocomplete="off" required /></label>
-          <label>Puerto <input id="servertap-port" name="serverTapPort" type="number" min="1" max="65535" value="4567" placeholder="4567" required /></label>
-          <label>Protocolo <select id="servertap-protocol" name="serverTapProtocol"><option value="http:">HTTP</option><option value="https:">HTTPS / TLS</option></select></label>
-          <label>Clave de ServerTap <input id="servertap-key" name="serverTapKey" type="password" placeholder="Se guarda localmente" autocomplete="new-password" /><small id="key-state"></small></label>
-          <button class="button primary" type="submit">Guardar conexión</button>
+        <form id="settings-form" class="settings-card server-tap-settings-card">
+          <div class="server-tap-fields">
+            <label class="server-tap-field"><span>IP o dominio</span><input id="servertap-host" name="serverTapHost" placeholder="127.0.0.1 o 192.168.1.50" autocomplete="off" required /></label>
+            <label class="server-tap-field"><span>Puerto</span><input id="servertap-port" name="serverTapPort" type="number" min="1" max="65535" value="4567" placeholder="4567" required /></label>
+            <label class="server-tap-field"><span>Protocolo</span><select id="servertap-protocol" name="serverTapProtocol"><option value="http:">HTTP</option><option value="https:">HTTPS / TLS</option></select></label>
+            <label class="server-tap-field"><span>Contraseña de ServerTap</span><input id="servertap-key" name="serverTapKey" type="password" placeholder="Se guarda localmente" autocomplete="new-password" /><small id="key-state"></small></label>
+          </div>
+          <div class="server-tap-actions"><button class="button primary" type="submit">Guardar conexión</button></div>
         </form>
       </section>
 
