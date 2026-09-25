@@ -21,7 +21,7 @@ const elements = {
   settings: $("#settings-form"),
   tiktokUsername: $("#tiktok-live-username"), eulerStreamApiKey: $("#euler-stream-api-key"), eulerKeyState: $("#euler-key-state"),
   serverTapHost: $("#servertap-host"), serverTapPort: $("#servertap-port"), serverTapProtocol: $("#servertap-protocol"),
-  serverTapKey: $("#servertap-key"), serverTapKeyToggle: $("#servertap-key-toggle"),
+  serverTapKey: $("#servertap-key"), serverTapVisibilityToggles: [...document.querySelectorAll(".server-tap-visibility-toggle")],
   keyState: $("#key-state"),
   ttsSettings: $("#tts-settings-form"), ttsEnabled: $("#tts-enabled"), ttsReadUsername: $("#tts-read-username"), ttsLanguage: $("#tts-language"), ttsVolume: $("#tts-volume"), ttsVolumeValue: $("#tts-volume-value"),
   ttsStop: $("#tts-stop"), ttsResume: $("#tts-resume"),
@@ -1087,19 +1087,26 @@ async function control(button, event, payload, success) {
   try { await request(event, payload); toast(success, "success"); } catch (error) { toast(error.message, "error"); } finally { button.disabled = false; }
 }
 
-function setServerTapPasswordVisible(visible) {
-  elements.serverTapKey.type = visible ? "text" : "password";
-  elements.serverTapKeyToggle.setAttribute("aria-pressed", String(visible));
-  elements.serverTapKeyToggle.setAttribute("aria-label", visible ? "Ocultar contraseña" : "Mostrar contraseña");
-  elements.serverTapKeyToggle.title = visible ? "Ocultar contraseña" : "Mostrar contraseña";
+function setServerTapFieldVisible(button, visible) {
+  const field = document.getElementById(button.dataset.target);
+  const control = button.closest(".server-tap-visibility-control");
+  if (!field || !control) return;
+  control.classList.toggle("is-concealed", !visible);
+  if (field === elements.serverTapKey) field.type = visible ? "text" : "password";
+  const fieldName = button.dataset.target === "servertap-host" ? "IP o dominio"
+    : button.dataset.target === "servertap-port" ? "puerto"
+      : button.dataset.target === "servertap-protocol" ? "protocolo"
+        : "contraseña";
+  button.setAttribute("aria-pressed", String(visible));
+  button.setAttribute("aria-label", `${visible ? "Ocultar" : "Mostrar"} ${fieldName}`);
+  button.title = `${visible ? "Ocultar" : "Mostrar"} ${fieldName}`;
 }
 
-elements.serverTapKeyToggle.addEventListener("click", (event) => {
-  event.preventDefault();
-  event.stopPropagation();
-  setServerTapPasswordVisible(elements.serverTapKey.type === "password");
-  elements.serverTapKey.focus({ preventScroll: true });
-});
+elements.serverTapVisibilityToggles.forEach((button) => button.addEventListener("click", () => {
+  const visible = button.getAttribute("aria-pressed") !== "true";
+  setServerTapFieldVisible(button, visible);
+  if (visible) document.getElementById(button.dataset.target)?.focus({ preventScroll: true });
+}));
 
 elements.settings.addEventListener("submit", async (event) => {
   event.preventDefault();
@@ -1111,7 +1118,8 @@ elements.settings.addEventListener("submit", async (event) => {
     serverTapKey: elements.serverTapKey.value
   }, "Conexión guardada");
   elements.serverTapKey.value = "";
-  setServerTapPasswordVisible(false);
+  const passwordToggle = elements.serverTapVisibilityToggles.find((button) => button.dataset.target === "servertap-key");
+  if (passwordToggle) setServerTapFieldVisible(passwordToggle, false);
 });
 
 $("#minecraft-connect").addEventListener("click", (event) => control(event.currentTarget, "minecraft:connect", null, "Minecraft conectado"));
