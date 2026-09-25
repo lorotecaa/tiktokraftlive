@@ -15,6 +15,8 @@ const giftConfirmationWindowMs = 5_000;
 const incompleteStreakGraceMs = 1_500;
 const maxPendingGiftOccurrences = 2_000;
 const maxCommentLength = 220;
+const reconnectDelaysMs = [3_000, 6_000, 12_000, 24_000, 30_000];
+const nonRetryableCloseCodes = new Set([4400, 4401, 4403, 4404]);
 
 function normalizeText(value, fallback) {
   return typeof value === "string" && value.trim() ? value.trim() : fallback;
@@ -204,6 +206,13 @@ export class TikTokClient {
     this.socket = null;
     this.status = "disconnected";
     this.username = "";
+    this.connectionSettings = null;
+    this.reconnectEnabled = false;
+    this.reconnectAttempt = 0;
+    this.reconnectTimer = null;
+    this.connectingPromise = null;
+    this.connectingSocket = null;
+    this.connectingReject = null;
     this.pendingGiftOccurrences = new Map();
     this.pendingIncompleteStreaks = new Map();
   }
@@ -222,6 +231,70 @@ export class TikTokClient {
     url.searchParams.set("features.normalizeUniqueId", "true");
     url.searchParams.set("features.rawMessages", "false");
     return url;
+  }
+
+  clearReconnectTimer() {
+    if (!this.reconnectTimer) return;
+    clearTimeout(this.reconnectTimer);
+    this.reconnectTimer = null;
+  }
+
+  closeCurrentSocket() {
+    if (!this.socket) return;
+    const socket = this.socket;
+    this.socket = null;
+    if (this.connectingSocket === socket) {
+      const reject = this.connectingReject;
+      this.connectingSocket = null;
+      this.connectingPromise = null;
+      this.connectingReject = null;
+      reject?.(new Error("La conexión fue reemplazada."));
+    }
+    socket.removeAllListeners();
+    socket.close();
+  }
+
+  closeDetail(code, reason) {
+    return closeDetails[code]?.replace("{username}", this.username) || reason?.toString() || `Conexión cerrada (${code}).`;
+  }
+
+  scheduleReconnect(detail) {
+    if (!this.reconnectEnabled || !this.connectionSettings || this.reconnectTimer) return;
+    const attempt = ++this.reconnectAttempt;
+    const delay = reconnectDelaysMs[Math.min(attempt - 1, reconnectDelaysMs.length - 1)];
+    this.emitState("reconnecting", `${detail} Reintentando en ${Math.ceil(delay / 1_000)} s (intento ${attempt})…`);
+    this.reconnectTimer = setTimeout(() => {
+      this.reconnectTimer = null;
+      if (!this.reconnectEnabled || !this.connectionSettings || this.socket || this.connectingPromise) return;
+      this.openConnection({ reconnecting: true }).catch(() => {
+        // El cierre del socket programa el siguiente intento. Si el error no
+        // generó cierre, el catch de openConnection lo agenda una sola vez.
+      });
+    }, delay);
+    this.reconnectTimer.unref?.();
+  }
+
+  handleSocketClose(socket, code, reason) {
+    if (this.socket !== socket) return;
+    this.socket = null;
+    if (this.connectingSocket === socket) {
+      this.connectingSocket = null;
+      this.connectingPromise = null;
+      this.connectingReject = null;
+    }
+    this.clearAllIncompleteStreaks();
+    const detail = this.closeDetail(code, reason);
+    if (!this.reconnectEnabled) {
+      this.emitState("disconnected", detail);
+      return;
+    }
+    if (nonRetryableCloseCodes.has(code)) {
+      this.reconnectEnabled = false;
+      this.clearReconnectTimer();
+      this.emitState("error", detail);
+      return;
+    }
+    this.scheduleReconnect(detail);
   }
 
   isFirstGiftOccurrence(gift) {
@@ -321,59 +394,88 @@ export class TikTokClient {
   }
 
   async connect(username, eulerStreamApiKey) {
-    this.disconnect("Reconectando");
     if (!username) throw new Error("Escribe el usuario de un TikTok LIVE activo.");
     if (!eulerStreamApiKey) throw new Error("Añade una Euler Stream API Key.");
 
-    this.username = username.replace(/^@/, "").trim();
+    const connectionSettings = { username: username.replace(/^@/, "").trim(), eulerStreamApiKey };
+    if (this.socket && this.status === "connected" && this.connectionSettings?.username === connectionSettings.username && this.connectionSettings?.eulerStreamApiKey === connectionSettings.eulerStreamApiKey) return { isConnected: true, roomId: null };
+    this.reconnectEnabled = true;
+    this.connectionSettings = connectionSettings;
+    this.reconnectAttempt = 0;
+    this.clearReconnectTimer();
+    this.closeCurrentSocket();
     this.pendingGiftOccurrences.clear();
-    this.emitState("connecting", `Conectando a @${this.username} mediante Euler Stream…`);
-    const socket = new WebSocket(this.buildUrl(this.username, eulerStreamApiKey));
+    this.clearAllIncompleteStreaks();
+    return this.openConnection();
+  }
+
+  async openConnection({ reconnecting = false } = {}) {
+    if (!this.reconnectEnabled || !this.connectionSettings) throw new Error("La reconexión fue cancelada.");
+    if (this.connectingPromise) return this.connectingPromise;
+    if (this.socket && this.status === "connected") return { isConnected: true, roomId: null };
+
+    this.username = this.connectionSettings.username;
+    this.emitState(reconnecting ? "reconnecting" : "connecting", reconnecting ? `Reconectando a @${this.username} mediante Euler Stream…` : `Conectando a @${this.username} mediante Euler Stream…`);
+    const socket = new WebSocket(this.buildUrl(this.username, this.connectionSettings.eulerStreamApiKey));
     this.socket = socket;
 
     socket.on("message", (data) => this.handleMessage(data));
     socket.on("error", (error) => this.onError(`Euler Stream: ${error.message}`));
-    socket.on("close", (code, reason) => {
-      if (this.socket !== socket) return;
-      this.socket = null;
-      this.clearAllIncompleteStreaks();
-      const detail = closeDetails[code]?.replace("{username}", this.username) || reason.toString() || `Conexión cerrada (${code}).`;
-      this.emitState(code === 1000 ? "disconnected" : "error", detail);
+    socket.on("close", (code, reason) => this.handleSocketClose(socket, code, reason));
+
+    let rejectOpening;
+    const opening = new Promise((resolve, reject) => {
+      rejectOpening = reject;
+      const timeout = setTimeout(() => reject(new Error("Euler Stream tardó demasiado en responder.")), 10_000);
+      socket.once("open", () => {
+        clearTimeout(timeout);
+        resolve();
+      });
+      socket.once("error", (error) => {
+        clearTimeout(timeout);
+        reject(error);
+      });
+      socket.once("close", (code, reason) => {
+        clearTimeout(timeout);
+        reject(new Error(this.closeDetail(code, reason)));
+      });
     });
+    this.connectingSocket = socket;
+    this.connectingPromise = opening;
+    this.connectingReject = rejectOpening;
 
     try {
-      await new Promise((resolve, reject) => {
-        const timeout = setTimeout(() => reject(new Error("Euler Stream tardó demasiado en responder.")), 10_000);
-        socket.once("open", () => {
-          clearTimeout(timeout);
-          resolve();
-        });
-        socket.once("error", (error) => {
-          clearTimeout(timeout);
-          reject(error);
-        });
-        socket.once("close", (code, reason) => {
-          clearTimeout(timeout);
-          reject(new Error(closeDetails[code]?.replace("{username}", this.username) || reason.toString() || `Conexión cerrada (${code}).`));
-        });
-      });
+      await opening;
+      if (this.socket !== socket) throw new Error("La conexión fue reemplazada.");
+      this.connectingSocket = null;
+      this.connectingPromise = null;
+      this.connectingReject = null;
+      this.reconnectAttempt = 0;
       this.emitState("connected", `LIVE de @${this.username} conectado vía Euler Stream`);
       return { isConnected: true, roomId: null };
     } catch (error) {
-      if (this.socket === socket) this.socket = null;
-      socket.close();
-      this.emitState("error", error.message);
+      const ownsSocket = this.socket === socket;
+      if (this.connectingSocket === socket) {
+        this.connectingSocket = null;
+        this.connectingPromise = null;
+        this.connectingReject = null;
+      }
+      if (ownsSocket) {
+        this.socket = null;
+        socket.removeAllListeners();
+        socket.close();
+      }
+      if (this.reconnectEnabled && ownsSocket) this.scheduleReconnect(error.message || "No se pudo conectar a Euler Stream.");
       throw error;
     }
   }
 
   disconnect(detail = "Desconectado") {
-    if (this.socket) {
-      const socket = this.socket;
-      this.socket = null;
-      socket.removeAllListeners();
-      socket.close();
-    }
+    this.reconnectEnabled = false;
+    this.connectionSettings = null;
+    this.reconnectAttempt = 0;
+    this.clearReconnectTimer();
+    this.closeCurrentSocket();
     this.pendingGiftOccurrences.clear();
     this.clearAllIncompleteStreaks();
     this.emitState("disconnected", detail);
