@@ -16,6 +16,8 @@ const incompleteStreakGraceMs = 1_500;
 const maxPendingGiftOccurrences = 2_000;
 const maxCommentLength = 220;
 const maxRememberedCommentIds = 10_000;
+const commentReplayDrainMs = 2_000;
+const commentReplayBarrierMs = 60_000;
 const reconnectDelaysMs = [3_000, 6_000, 12_000, 24_000, 30_000];
 const nonRetryableCloseCodes = new Set([4400, 4401, 4403, 4404]);
 
@@ -49,6 +51,20 @@ function messageIdentifier(...values) {
     if (identifier) return identifier.slice(0, 256);
   }
   return "";
+}
+
+function eventTimeMs(...values) {
+  for (const value of values) {
+    if (value === undefined || value === null || value === "") continue;
+    const numeric = Number(value);
+    if (Number.isFinite(numeric) && numeric > 0) {
+      // TikTok/Euler puede entregar segundos o milisegundos Unix.
+      return numeric < 10_000_000_000 ? Math.floor(numeric * 1_000) : Math.floor(numeric);
+    }
+    const parsed = Date.parse(String(value));
+    if (Number.isFinite(parsed)) return parsed;
+  }
+  return 0;
 }
 
 function giftImageUrl(data, gift) {
@@ -156,11 +172,13 @@ function normalizeComment(message) {
   // de creación original. Es estable aunque el mismo evento se reenvíe tras
   // reconectar. Nunca se usa solo texto + usuario como clave.
   const createdAt = messageIdentifier(data.createTime, data.create_time, data.createdAt, data.created_at, data.eventTime, data.event_time, data.timestampMs, data.timestamp_ms, common.createTime, common.create_time, common.createdAt, common.created_at, common.eventTime, common.event_time);
+  const eventAt = eventTimeMs(data.createTime, data.create_time, data.createdAt, data.created_at, data.eventTime, data.event_time, data.timestampMs, data.timestamp_ms, common.createTime, common.create_time, common.createdAt, common.created_at, common.eventTime, common.event_time);
   return {
     // Dos mensajes idénticos nuevos siguen teniendo un ID o momento de evento
     // distinto. Si Euler no entrega ninguno, no se deduplica para no silenciar
     // mensajes legítimos.
     messageId: eventId || (createdAt ? `chat:${username}:${createdAt}:${String(text || "")}` : ""),
+    eventAt,
     nickname: normalizeText(user.nickname || user.displayName || user.display_name || user.uniqueId || data.nickname, "espectador"),
     username,
     text: Array.from(normalizeText(text, "")).slice(0, maxCommentLength).join(""),
@@ -243,6 +261,7 @@ export class TikTokClient {
     // El WorkspaceRuntime entrega este Map para que la memoria esté ligada al
     // LIVE actual, no al WebSocket que Euler puede reemplazar al reconectar.
     this.readCommentIds = readCommentIds instanceof Map ? readCommentIds : new Map();
+    this.commentReplayBarrier = null;
     this.pendingIncompleteStreaks = new Map();
   }
 
@@ -353,6 +372,22 @@ export class TikTokClient {
     return true;
   }
 
+  shouldDiscardReplayedComment(comment, sourceSocket) {
+    const barrier = this.commentReplayBarrier;
+    if (!barrier || barrier.socket !== sourceSocket) return false;
+    const now = Date.now();
+    if (now > barrier.expiresAt) {
+      this.commentReplayBarrier = null;
+      return false;
+    }
+    // Con hora de evento real, el corte es exacto incluso si Euler demora en
+    // reenviar el historial. Los mensajes posteriores al nuevo socket pasan.
+    if (comment.eventAt) return comment.eventAt < barrier.connectedAt;
+    // Sin hora original no se puede distinguir con certeza el historial. Se
+    // descarta solo el bloque inicial que Euler entrega al restablecerse.
+    return now <= barrier.drainUntil;
+  }
+
   incompleteStreakKey(gift) {
     return gift.groupId || [gift.username, gift.giftId || gift.giftName].map((value) => String(value || "").trim()).join("\0");
   }
@@ -386,7 +421,7 @@ export class TikTokClient {
     this.pendingIncompleteStreaks.set(key, { timer });
   }
 
-  handleMessage(raw) {
+  handleMessage(raw, sourceSocket = this.socket) {
     let frame;
     try {
       frame = JSON.parse(raw.toString());
@@ -412,7 +447,7 @@ export class TikTokClient {
       }
       if (isCommentMessage(message)) {
         const comment = normalizeComment(message);
-        if (comment.text && !comment.text.startsWith("!") && this.shouldReadComment(comment) && this.isFirstReadComment(comment)) this.onComment(comment);
+        if (comment.text && !comment.text.startsWith("!") && !this.shouldDiscardReplayedComment(comment, sourceSocket) && this.shouldReadComment(comment) && this.isFirstReadComment(comment)) this.onComment(comment);
         continue;
       }
       if (!isGiftMessage(message)) continue;
@@ -447,6 +482,7 @@ export class TikTokClient {
     this.closeCurrentSocket();
     this.pendingGiftOccurrences.clear();
     this.readCommentIds.clear();
+    this.commentReplayBarrier = null;
     this.clearAllIncompleteStreaks();
     return this.openConnection();
   }
@@ -461,7 +497,7 @@ export class TikTokClient {
     const socket = new WebSocket(this.buildUrl(this.username, this.connectionSettings.eulerStreamApiKey));
     this.socket = socket;
 
-    socket.on("message", (data) => this.handleMessage(data));
+    socket.on("message", (data) => this.handleMessage(data, socket));
     socket.on("error", (error) => this.onError(`Euler Stream: ${error.message}`));
     socket.on("close", (code, reason) => this.handleSocketClose(socket, code, reason));
 
@@ -471,6 +507,15 @@ export class TikTokClient {
       const timeout = setTimeout(() => reject(new Error("Euler Stream tardó demasiado en responder.")), 10_000);
       socket.once("open", () => {
         clearTimeout(timeout);
+        if (reconnecting) {
+          const connectedAt = Date.now();
+          this.commentReplayBarrier = {
+            socket,
+            connectedAt,
+            drainUntil: connectedAt + commentReplayDrainMs,
+            expiresAt: connectedAt + commentReplayBarrierMs
+          };
+        }
         resolve();
       });
       socket.once("error", (error) => {
@@ -520,6 +565,7 @@ export class TikTokClient {
     this.closeCurrentSocket();
     this.pendingGiftOccurrences.clear();
     this.readCommentIds.clear();
+    this.commentReplayBarrier = null;
     this.clearAllIncompleteStreaks();
     this.emitState("disconnected", detail);
   }
