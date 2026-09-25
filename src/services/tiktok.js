@@ -15,6 +15,7 @@ const giftConfirmationWindowMs = 5_000;
 const incompleteStreakGraceMs = 1_500;
 const maxPendingGiftOccurrences = 2_000;
 const maxCommentLength = 220;
+const maxRememberedCommentIds = 10_000;
 const reconnectDelaysMs = [3_000, 6_000, 12_000, 24_000, 30_000];
 const nonRetryableCloseCodes = new Set([4400, 4401, 4403, 4404]);
 
@@ -39,6 +40,15 @@ function firstPositiveNumber(...values) {
     if (Number.isFinite(number) && number > 0) return number;
   }
   return 0;
+}
+
+function messageIdentifier(...values) {
+  for (const value of values) {
+    if (value === undefined || value === null) continue;
+    const identifier = String(value).trim();
+    if (identifier) return identifier.slice(0, 256);
+  }
+  return "";
 }
 
 function giftImageUrl(data, gift) {
@@ -135,6 +145,10 @@ function normalizeComment(message) {
   const text = data.comment ?? data.text ?? data.commentText ?? data.content;
   const badges = collectUserBadges(data, user);
   return {
+    // Euler conserva este identificador cuando reenvía un mensaje tras una
+    // reconexión. No se usa el texto como clave: dos mensajes idénticos pero
+    // nuevos deben seguir pasando al TTS.
+    messageId: messageIdentifier(data.msgId, data.msg_id, data.messageId, data.message_id, data.logId, data.log_id, data.eventId, data.event_id, message?.msgId, message?.msg_id, message?.messageId, message?.message_id, message?.logId, message?.log_id, message?.eventId, message?.event_id),
     nickname: normalizeText(user.nickname || user.displayName || user.display_name || user.uniqueId || data.nickname, "espectador"),
     username: normalizeText(user.uniqueId || user.unique_id || user.username || user.displayId, ""),
     text: Array.from(normalizeText(text, "")).slice(0, maxCommentLength).join(""),
@@ -214,6 +228,7 @@ export class TikTokClient {
     this.connectingSocket = null;
     this.connectingReject = null;
     this.pendingGiftOccurrences = new Map();
+    this.readCommentIds = new Map();
     this.pendingIncompleteStreaks = new Map();
   }
 
@@ -312,6 +327,18 @@ export class TikTokClient {
     return true;
   }
 
+  isFirstReadComment(comment) {
+    // Si Euler no proporciona un ID estable, no intentamos adivinarlo usando
+    // texto/usuario: así un mensaje nuevo e idéntico nunca se descarta.
+    if (!comment.messageId) return true;
+    if (this.readCommentIds.has(comment.messageId)) return false;
+    this.readCommentIds.set(comment.messageId, Date.now());
+    if (this.readCommentIds.size > maxRememberedCommentIds) {
+      this.readCommentIds.delete(this.readCommentIds.keys().next().value);
+    }
+    return true;
+  }
+
   incompleteStreakKey(gift) {
     return gift.groupId || [gift.username, gift.giftId || gift.giftName].map((value) => String(value || "").trim()).join("\0");
   }
@@ -371,7 +398,7 @@ export class TikTokClient {
       }
       if (isCommentMessage(message)) {
         const comment = normalizeComment(message);
-        if (comment.text && !comment.text.startsWith("!") && this.shouldReadComment(comment)) this.onComment(comment);
+        if (comment.text && !comment.text.startsWith("!") && this.shouldReadComment(comment) && this.isFirstReadComment(comment)) this.onComment(comment);
         continue;
       }
       if (!isGiftMessage(message)) continue;
@@ -405,6 +432,7 @@ export class TikTokClient {
     this.clearReconnectTimer();
     this.closeCurrentSocket();
     this.pendingGiftOccurrences.clear();
+    this.readCommentIds.clear();
     this.clearAllIncompleteStreaks();
     return this.openConnection();
   }
@@ -477,6 +505,7 @@ export class TikTokClient {
     this.clearReconnectTimer();
     this.closeCurrentSocket();
     this.pendingGiftOccurrences.clear();
+    this.readCommentIds.clear();
     this.clearAllIncompleteStreaks();
     this.emitState("disconnected", detail);
   }
