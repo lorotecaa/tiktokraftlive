@@ -23,7 +23,7 @@ const elements = {
   serverTapHost: $("#servertap-host"), serverTapPort: $("#servertap-port"), serverTapProtocol: $("#servertap-protocol"),
   serverTapKey: $("#servertap-key"),
   keyState: $("#key-state"),
-  ttsSettings: $("#tts-settings-form"), ttsEnabled: $("#tts-enabled"), ttsLanguage: $("#tts-language"), ttsVolume: $("#tts-volume"), ttsVolumeValue: $("#tts-volume-value"),
+  ttsSettings: $("#tts-settings-form"), ttsEnabled: $("#tts-enabled"), ttsReadUsername: $("#tts-read-username"), ttsLanguage: $("#tts-language"), ttsVolume: $("#tts-volume"), ttsVolumeValue: $("#tts-volume-value"),
   ttsStop: $("#tts-stop"), ttsResume: $("#tts-resume"),
   voiceTester: $("#voice-tester-form"), voiceTesterText: $("#voice-tester-text"), ttsSpeed: $("#tts-speed"), ttsPitch: $("#tts-pitch"),
   allowedUsers: $("#allowed-users-form"), allowAllUsers: $("#tts-allow-all-users"), allowFollowers: $("#tts-allow-followers"), allowSubscribers: $("#tts-allow-subscribers"), allowModerators: $("#tts-allow-moderators"), allowTeamMembers: $("#tts-allow-team-members"), teamMembersMinLevel: $("#tts-team-members-min-level"), allowTopGifters: $("#tts-allow-top-gifters"), topGiftersTop: $("#tts-top-gifters-top"), allowList: $("#tts-allow-list"), manageAllowedUsers: $("#manage-allowed-users"), allowedUsersListEditor: $("#allowed-users-list-editor"), allowedUsernames: $("#tts-allowed-usernames"),
@@ -527,6 +527,7 @@ function renderState(next) {
   elements.keyState.textContent = config.serverTap.keyPresent ? "Clave guardada. Déjalo vacío para conservarla." : "Aún no hay una clave guardada.";
   if (!elements.ttsSettings.contains(document.activeElement) && ![elements.ttsSpeed, elements.ttsPitch].includes(document.activeElement)) {
     elements.ttsEnabled.checked = Boolean(config.tts?.enabled);
+    elements.ttsReadUsername.checked = config.tts?.readUsername !== false;
     elements.ttsLanguage.value = config.tts?.language || "es-CO";
     elements.ttsVolume.value = String(config.tts?.volume ?? 1);
     elements.ttsVolumeValue.textContent = `${Math.round((config.tts?.volume ?? 1) * 100)}%`;
@@ -1130,7 +1131,8 @@ elements.ttsSettings.addEventListener("submit", async (event) => {
     language: elements.ttsLanguage.value,
     volume: Number(elements.ttsVolume.value),
     speed: Number(elements.ttsSpeed.value),
-    pitch: Number(elements.ttsPitch.value)
+    pitch: Number(elements.ttsPitch.value),
+    readUsername: elements.ttsReadUsername.checked
   }, "Configuración TTS guardada");
 });
 elements.ttsStop.addEventListener("click", () => ttsQueue.pause());
@@ -1424,7 +1426,10 @@ socket.on("gift-catalog:upsert", (gift) => {
 });
 socket.on("tiktok:comment", (comment) => {
   if (!appState?.config?.tts?.enabled || !comment?.text) return;
-  ttsQueue.enqueue(`${comment.nickname}: ${comment.text}`, currentTtsSettings());
+  const spokenComment = appState.config.tts?.readUsername === false
+    ? comment.text
+    : `${comment.nickname}: ${comment.text}`;
+  ttsQueue.enqueue(spokenComment, currentTtsSettings());
 });
 socket.on("goal:update", (goal) => {
   if (!appState || !goal?.id) return;
