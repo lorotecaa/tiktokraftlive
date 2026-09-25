@@ -17,6 +17,7 @@ const maxPendingGiftOccurrences = 2_000;
 const maxCommentLength = 220;
 const maxRememberedCommentIds = 10_000;
 const commentReplayQuietMs = 3_000;
+const commentReplayMinimumMs = 15_000;
 const reconnectDelaysMs = [3_000, 6_000, 12_000, 24_000, 30_000];
 const nonRetryableCloseCodes = new Set([4400, 4401, 4403, 4404]);
 
@@ -50,6 +51,17 @@ function messageIdentifier(...values) {
     if (identifier) return identifier.slice(0, 256);
   }
   return "";
+}
+
+function eventTimeMs(...values) {
+  for (const value of values) {
+    if (value === undefined || value === null || value === "") continue;
+    const numeric = Number(value);
+    if (Number.isFinite(numeric) && numeric > 0) return numeric < 10_000_000_000 ? Math.floor(numeric * 1_000) : Math.floor(numeric);
+    const parsed = Date.parse(String(value));
+    if (Number.isFinite(parsed)) return parsed;
+  }
+  return 0;
 }
 
 function giftImageUrl(data, gift) {
@@ -156,11 +168,13 @@ function normalizeComment(message) {
   // Algunos esquemas normalizados de Euler no exponen msgId, pero sí la marca
   // de creación original. Se conserva solo como apoyo para duplicados reales.
   const createdAt = messageIdentifier(data.createTime, data.create_time, data.createdAt, data.created_at, data.eventTime, data.event_time, data.timestampMs, data.timestamp_ms, common.createTime, common.create_time, common.createdAt, common.created_at, common.eventTime, common.event_time);
+  const eventAt = eventTimeMs(data.createTime, data.create_time, data.createdAt, data.created_at, data.eventTime, data.event_time, data.timestampMs, data.timestamp_ms, common.createTime, common.create_time, common.createdAt, common.created_at, common.eventTime, common.event_time);
   return {
     // Dos mensajes idénticos nuevos siguen teniendo un ID o momento de evento
     // distinto. Si Euler no entrega ninguno, no se deduplica para no silenciar
     // mensajes legítimos.
     messageId: eventId || (createdAt ? `chat:${username}:${createdAt}:${String(text || "")}` : ""),
+    eventAt,
     nickname: normalizeText(user.nickname || user.displayName || user.display_name || user.uniqueId || data.nickname, "espectador"),
     username,
     text: Array.from(normalizeText(text, "")).slice(0, maxCommentLength).join(""),
@@ -281,17 +295,20 @@ export class TikTokClient {
   armCommentReplayBarrier(barrier) {
     if (this.commentReplayBarrier !== barrier) return;
     if (barrier.timer) clearTimeout(barrier.timer);
+    const quietUntil = barrier.lastCommentAt + commentReplayQuietMs;
+    const acceptAt = Math.max(barrier.minimumUntil, quietUntil);
     barrier.timer = setTimeout(() => {
       if (this.commentReplayBarrier !== barrier) return;
       barrier.timer = null;
       barrier.accepting = true;
-    }, commentReplayQuietMs);
+    }, Math.max(0, acceptAt - Date.now()));
     barrier.timer.unref?.();
   }
 
   beginCommentReplayBarrier(socket) {
     this.clearCommentReplayBarrier();
-    const barrier = { socket, accepting: false, timer: null };
+    const connectedAt = Date.now();
+    const barrier = { socket, accepting: false, connectedAt, minimumUntil: connectedAt + commentReplayMinimumMs, lastCommentAt: connectedAt, timer: null };
     this.commentReplayBarrier = barrier;
     // Si Euler no entrega historial, el punto cero queda listo tras la misma
     // pausa corta que se usa para separar el bloque de repetición.
@@ -388,10 +405,19 @@ export class TikTokClient {
   shouldDiscardReplayedComment(comment, sourceSocket) {
     const barrier = this.commentReplayBarrier;
     if (!barrier || barrier.socket !== sourceSocket) return false;
+    // Si Euler aporta la hora original, el corte sigue activo durante toda la
+    // conexión: un evento anterior al socket jamás llega al TTS, aunque su
+    // reenvío aparezca tarde.
+    if (comment.eventAt && comment.eventAt < barrier.connectedAt) {
+      barrier.accepting = false;
+      barrier.lastCommentAt = Date.now();
+      this.armCommentReplayBarrier(barrier);
+      return true;
+    }
     if (barrier.accepting) return false;
-    // Cada comentario inicial extiende la fase de descarte. Al completarse el
-    // bloque de historial y quedar el stream en silencio, se fija el punto
-    // cero y los siguientes comentarios pasan al TTS.
+    // Sin hora original, se descarta el bloque de arranque durante al menos
+    // 15 segundos y hasta que Euler termine de emitir comentarios por 3 s.
+    barrier.lastCommentAt = Date.now();
     this.armCommentReplayBarrier(barrier);
     return true;
   }
