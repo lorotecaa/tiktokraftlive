@@ -142,15 +142,27 @@ function metricAmount(message, fields, fallback = 1) {
 function normalizeComment(message) {
   const data = message?.data || message || {};
   const user = data.user || data.sender || data.fromUser || data;
+  const common = data.common || data.webcastMessage?.common || message?.common || {};
   const text = data.comment ?? data.text ?? data.commentText ?? data.content;
   const badges = collectUserBadges(data, user);
+  const username = normalizeText(user.uniqueId || user.unique_id || user.username || user.displayId, "");
+  const eventId = messageIdentifier(
+    data.msgId, data.msg_id, data.messageId, data.message_id, data.logId, data.log_id, data.eventId, data.event_id,
+    data.webcastMessage?.msgId, data.webcastMessage?.msg_id, data.webcastMessage?.messageId, data.webcastMessage?.message_id,
+    common.msgId, common.msg_id, common.messageId, common.message_id, common.logId, common.log_id,
+    message?.msgId, message?.msg_id, message?.messageId, message?.message_id, message?.logId, message?.log_id, message?.eventId, message?.event_id
+  );
+  // Algunos esquemas normalizados de Euler no exponen msgId, pero sí la marca
+  // de creación original. Es estable aunque el mismo evento se reenvíe tras
+  // reconectar. Nunca se usa solo texto + usuario como clave.
+  const createdAt = messageIdentifier(data.createTime, data.create_time, data.createdAt, data.created_at, data.eventTime, data.event_time, data.timestampMs, data.timestamp_ms, common.createTime, common.create_time, common.createdAt, common.created_at, common.eventTime, common.event_time);
   return {
-    // Euler conserva este identificador cuando reenvía un mensaje tras una
-    // reconexión. No se usa el texto como clave: dos mensajes idénticos pero
-    // nuevos deben seguir pasando al TTS.
-    messageId: messageIdentifier(data.msgId, data.msg_id, data.messageId, data.message_id, data.logId, data.log_id, data.eventId, data.event_id, message?.msgId, message?.msg_id, message?.messageId, message?.message_id, message?.logId, message?.log_id, message?.eventId, message?.event_id),
+    // Dos mensajes idénticos nuevos siguen teniendo un ID o momento de evento
+    // distinto. Si Euler no entrega ninguno, no se deduplica para no silenciar
+    // mensajes legítimos.
+    messageId: eventId || (createdAt ? `chat:${username}:${createdAt}:${String(text || "")}` : ""),
     nickname: normalizeText(user.nickname || user.displayName || user.display_name || user.uniqueId || data.nickname, "espectador"),
-    username: normalizeText(user.uniqueId || user.unique_id || user.username || user.displayId, ""),
+    username,
     text: Array.from(normalizeText(text, "")).slice(0, maxCommentLength).join(""),
     isFollower: Boolean(data.isFollower ?? user.isFollower) || Number(data.followRole ?? data.followInfo?.followStatus ?? user.followStatus ?? user.followInfo?.followStatus) > 0,
     isSubscriber: Boolean(data.isSubscriber ?? user.isSubscriber ?? user.subscribeInfo ?? user.fansClubInfo ?? user.fansClub) || badges.some((badge) => badge.sceneType === 4 || badge.sceneType === 7 || badge.url.toLowerCase().includes("/sub_")),
@@ -209,7 +221,7 @@ function giftOccurrenceKey(gift) {
 }
 
 export class TikTokClient {
-  constructor({ onState, onGift, onGiftProgress = () => {}, onComment, onMetric = () => {}, shouldReadComment = () => true, onError }) {
+  constructor({ onState, onGift, onGiftProgress = () => {}, onComment, onMetric = () => {}, shouldReadComment = () => true, readCommentIds = null, onError }) {
     this.onState = onState;
     this.onGift = onGift;
     this.onGiftProgress = onGiftProgress;
@@ -228,7 +240,9 @@ export class TikTokClient {
     this.connectingSocket = null;
     this.connectingReject = null;
     this.pendingGiftOccurrences = new Map();
-    this.readCommentIds = new Map();
+    // El WorkspaceRuntime entrega este Map para que la memoria esté ligada al
+    // LIVE actual, no al WebSocket que Euler puede reemplazar al reconectar.
+    this.readCommentIds = readCommentIds instanceof Map ? readCommentIds : new Map();
     this.pendingIncompleteStreaks = new Map();
   }
 
