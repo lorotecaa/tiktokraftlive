@@ -16,8 +16,7 @@ const incompleteStreakGraceMs = 1_500;
 const maxPendingGiftOccurrences = 2_000;
 const maxCommentLength = 220;
 const maxRememberedCommentIds = 10_000;
-const commentReplayDrainMs = 2_000;
-const commentReplayBarrierMs = 60_000;
+const commentReplayQuietMs = 3_000;
 const reconnectDelaysMs = [3_000, 6_000, 12_000, 24_000, 30_000];
 const nonRetryableCloseCodes = new Set([4400, 4401, 4403, 4404]);
 
@@ -51,20 +50,6 @@ function messageIdentifier(...values) {
     if (identifier) return identifier.slice(0, 256);
   }
   return "";
-}
-
-function eventTimeMs(...values) {
-  for (const value of values) {
-    if (value === undefined || value === null || value === "") continue;
-    const numeric = Number(value);
-    if (Number.isFinite(numeric) && numeric > 0) {
-      // TikTok/Euler puede entregar segundos o milisegundos Unix.
-      return numeric < 10_000_000_000 ? Math.floor(numeric * 1_000) : Math.floor(numeric);
-    }
-    const parsed = Date.parse(String(value));
-    if (Number.isFinite(parsed)) return parsed;
-  }
-  return 0;
 }
 
 function giftImageUrl(data, gift) {
@@ -169,16 +154,13 @@ function normalizeComment(message) {
     message?.msgId, message?.msg_id, message?.messageId, message?.message_id, message?.logId, message?.log_id, message?.eventId, message?.event_id
   );
   // Algunos esquemas normalizados de Euler no exponen msgId, pero sí la marca
-  // de creación original. Es estable aunque el mismo evento se reenvíe tras
-  // reconectar. Nunca se usa solo texto + usuario como clave.
+  // de creación original. Se conserva solo como apoyo para duplicados reales.
   const createdAt = messageIdentifier(data.createTime, data.create_time, data.createdAt, data.created_at, data.eventTime, data.event_time, data.timestampMs, data.timestamp_ms, common.createTime, common.create_time, common.createdAt, common.created_at, common.eventTime, common.event_time);
-  const eventAt = eventTimeMs(data.createTime, data.create_time, data.createdAt, data.created_at, data.eventTime, data.event_time, data.timestampMs, data.timestamp_ms, common.createTime, common.create_time, common.createdAt, common.created_at, common.eventTime, common.event_time);
   return {
     // Dos mensajes idénticos nuevos siguen teniendo un ID o momento de evento
     // distinto. Si Euler no entrega ninguno, no se deduplica para no silenciar
     // mensajes legítimos.
     messageId: eventId || (createdAt ? `chat:${username}:${createdAt}:${String(text || "")}` : ""),
-    eventAt,
     nickname: normalizeText(user.nickname || user.displayName || user.display_name || user.uniqueId || data.nickname, "espectador"),
     username,
     text: Array.from(normalizeText(text, "")).slice(0, maxCommentLength).join(""),
@@ -287,10 +269,38 @@ export class TikTokClient {
     this.reconnectTimer = null;
   }
 
+  clearCommentReplayBarrier(socket = null) {
+    const barrier = this.commentReplayBarrier;
+    if (!barrier || (socket && barrier.socket !== socket)) return;
+    if (barrier.timer) clearTimeout(barrier.timer);
+    this.commentReplayBarrier = null;
+  }
+
+  armCommentReplayBarrier(barrier) {
+    if (this.commentReplayBarrier !== barrier) return;
+    if (barrier.timer) clearTimeout(barrier.timer);
+    barrier.timer = setTimeout(() => {
+      if (this.commentReplayBarrier !== barrier) return;
+      barrier.timer = null;
+      barrier.accepting = true;
+    }, commentReplayQuietMs);
+    barrier.timer.unref?.();
+  }
+
+  beginCommentReplayBarrier(socket) {
+    this.clearCommentReplayBarrier();
+    const barrier = { socket, accepting: false, timer: null };
+    this.commentReplayBarrier = barrier;
+    // Si Euler no entrega historial, el punto cero queda listo tras la misma
+    // pausa corta que se usa para separar el bloque de repetición.
+    this.armCommentReplayBarrier(barrier);
+  }
+
   closeCurrentSocket() {
     if (!this.socket) return;
     const socket = this.socket;
     this.socket = null;
+    this.clearCommentReplayBarrier(socket);
     if (this.connectingSocket === socket) {
       const reject = this.connectingReject;
       this.connectingSocket = null;
@@ -325,6 +335,7 @@ export class TikTokClient {
   handleSocketClose(socket, code, reason) {
     if (this.socket !== socket) return;
     this.socket = null;
+    this.clearCommentReplayBarrier(socket);
     if (this.connectingSocket === socket) {
       this.connectingSocket = null;
       this.connectingPromise = null;
@@ -375,17 +386,12 @@ export class TikTokClient {
   shouldDiscardReplayedComment(comment, sourceSocket) {
     const barrier = this.commentReplayBarrier;
     if (!barrier || barrier.socket !== sourceSocket) return false;
-    const now = Date.now();
-    if (now > barrier.expiresAt) {
-      this.commentReplayBarrier = null;
-      return false;
-    }
-    // Con hora de evento real, el corte es exacto incluso si Euler demora en
-    // reenviar el historial. Los mensajes posteriores al nuevo socket pasan.
-    if (comment.eventAt) return comment.eventAt < barrier.connectedAt;
-    // Sin hora original no se puede distinguir con certeza el historial. Se
-    // descarta solo el bloque inicial que Euler entrega al restablecerse.
-    return now <= barrier.drainUntil;
+    if (barrier.accepting) return false;
+    // Cada comentario inicial extiende la fase de descarte. Al completarse el
+    // bloque de historial y quedar el stream en silencio, se fija el punto
+    // cero y los siguientes comentarios pasan al TTS.
+    this.armCommentReplayBarrier(barrier);
+    return true;
   }
 
   incompleteStreakKey(gift) {
@@ -482,7 +488,7 @@ export class TikTokClient {
     this.closeCurrentSocket();
     this.pendingGiftOccurrences.clear();
     this.readCommentIds.clear();
-    this.commentReplayBarrier = null;
+    this.clearCommentReplayBarrier();
     this.clearAllIncompleteStreaks();
     return this.openConnection();
   }
@@ -507,15 +513,7 @@ export class TikTokClient {
       const timeout = setTimeout(() => reject(new Error("Euler Stream tardó demasiado en responder.")), 10_000);
       socket.once("open", () => {
         clearTimeout(timeout);
-        if (reconnecting) {
-          const connectedAt = Date.now();
-          this.commentReplayBarrier = {
-            socket,
-            connectedAt,
-            drainUntil: connectedAt + commentReplayDrainMs,
-            expiresAt: connectedAt + commentReplayBarrierMs
-          };
-        }
+        if (reconnecting) this.beginCommentReplayBarrier(socket);
         resolve();
       });
       socket.once("error", (error) => {
@@ -565,7 +563,7 @@ export class TikTokClient {
     this.closeCurrentSocket();
     this.pendingGiftOccurrences.clear();
     this.readCommentIds.clear();
-    this.commentReplayBarrier = null;
+    this.clearCommentReplayBarrier();
     this.clearAllIncompleteStreaks();
     this.emitState("disconnected", detail);
   }
