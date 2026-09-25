@@ -44,6 +44,7 @@ const defaultConfig = {
     volume: 1,
     speed: 60,
     pitch: 70,
+    readUsername: true,
     allowedUsers: {
       allUsers: true,
       followers: false,
@@ -121,6 +122,7 @@ function normalizeTts(raw) {
     volume: Number.isFinite(volume) ? Math.max(0, Math.min(volume, 1)) : defaultConfig.tts.volume,
     speed: Number.isFinite(speed) ? Math.max(1, Math.min(Math.round(speed), 100)) : defaultConfig.tts.speed,
     pitch: Number.isFinite(pitch) ? Math.max(1, Math.min(Math.round(pitch), 100)) : defaultConfig.tts.pitch,
+    readUsername: raw?.readUsername !== false,
     allowedUsers: {
       allUsers: allowed.allUsers !== false,
       followers: allowed.followers === true,
