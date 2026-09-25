@@ -15,6 +15,9 @@
     enqueue(text, settings) {
       const value = String(text || "").trim();
       if (!value) return;
+      // STOP es un corte de lectura: lo que llega mientras está activo no se
+      // acumula para ser reproducido cuando se vuelva a activar el audio.
+      if (this.paused) return;
       if (!("speechSynthesis" in window) || !("SpeechSynthesisUtterance" in window)) {
         this.onError("Este navegador no admite síntesis de voz.");
         return;
@@ -28,6 +31,7 @@
       if (this.paused || this.speaking || this.items.length === 0) return;
       const next = this.items.shift();
       const utterance = new SpeechSynthesisUtterance(next.text);
+      this.activeUtterance = utterance;
       utterance.lang = next.settings.language;
       utterance.volume = next.settings.volume;
       utterance.rate = Math.max(0.1, Math.min(10, (Number(next.settings.speed) || 60) / 50));
@@ -35,6 +39,8 @@
       this.speaking = true;
       this.notifyState();
       const finish = () => {
+        if (this.activeUtterance !== utterance) return;
+        this.activeUtterance = null;
         this.speaking = false;
         this.notifyState();
         this.playNext();
@@ -57,9 +63,13 @@
     resume() {
       if (!this.paused) return;
       this.paused = false;
-      if ("speechSynthesis" in window && window.speechSynthesis.paused) window.speechSynthesis.resume();
+      // Al reanudar se empieza un punto nuevo: se descarta el mensaje que
+      // estaba pausado y cualquier elemento pendiente de una versión previa.
+      this.items = [];
+      this.activeUtterance = null;
+      this.speaking = false;
+      if ("speechSynthesis" in window) window.speechSynthesis.cancel();
       this.notifyState();
-      this.playNext();
     }
   }
 
