@@ -21,7 +21,7 @@ const elements = {
   settings: $("#settings-form"),
   tiktokUsername: $("#tiktok-live-username"), eulerStreamApiKey: $("#euler-stream-api-key"), eulerKeyState: $("#euler-key-state"),
   serverTapHost: $("#servertap-host"), serverTapPort: $("#servertap-port"), serverTapProtocol: $("#servertap-protocol"),
-  serverTapKey: $("#servertap-key"),
+  serverTapKey: $("#servertap-key"), serverTapKeyToggle: $("#servertap-key-toggle"),
   keyState: $("#key-state"),
   ttsSettings: $("#tts-settings-form"), ttsEnabled: $("#tts-enabled"), ttsReadUsername: $("#tts-read-username"), ttsLanguage: $("#tts-language"), ttsVolume: $("#tts-volume"), ttsVolumeValue: $("#tts-volume-value"),
   ttsStop: $("#tts-stop"), ttsResume: $("#tts-resume"),
@@ -1087,6 +1087,20 @@ async function control(button, event, payload, success) {
   try { await request(event, payload); toast(success, "success"); } catch (error) { toast(error.message, "error"); } finally { button.disabled = false; }
 }
 
+function setServerTapPasswordVisible(visible) {
+  elements.serverTapKey.type = visible ? "text" : "password";
+  elements.serverTapKeyToggle.setAttribute("aria-pressed", String(visible));
+  elements.serverTapKeyToggle.setAttribute("aria-label", visible ? "Ocultar contraseña" : "Mostrar contraseña");
+  elements.serverTapKeyToggle.title = visible ? "Ocultar contraseña" : "Mostrar contraseña";
+}
+
+elements.serverTapKeyToggle.addEventListener("click", (event) => {
+  event.preventDefault();
+  event.stopPropagation();
+  setServerTapPasswordVisible(elements.serverTapKey.type === "password");
+  elements.serverTapKey.focus({ preventScroll: true });
+});
+
 elements.settings.addEventListener("submit", async (event) => {
   event.preventDefault();
   const submit = event.submitter;
@@ -1097,6 +1111,7 @@ elements.settings.addEventListener("submit", async (event) => {
     serverTapKey: elements.serverTapKey.value
   }, "Conexión guardada");
   elements.serverTapKey.value = "";
+  setServerTapPasswordVisible(false);
 });
 
 $("#minecraft-connect").addEventListener("click", (event) => control(event.currentTarget, "minecraft:connect", null, "Minecraft conectado"));
