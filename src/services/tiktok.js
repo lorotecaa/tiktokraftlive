@@ -232,6 +232,8 @@ export class TikTokClient {
     this.socket = null;
     this.status = "disconnected";
     this.username = "";
+    this.lastLiveUsername = "";
+    this.hasOpenedLiveConnection = false;
     this.connectionSettings = null;
     this.reconnectEnabled = false;
     this.reconnectAttempt = 0;
@@ -481,13 +483,19 @@ export class TikTokClient {
 
     const connectionSettings = { username: username.replace(/^@/, "").trim(), eulerStreamApiKey };
     if (this.socket && this.status === "connected" && this.connectionSettings?.username === connectionSettings.username && this.connectionSettings?.eulerStreamApiKey === connectionSettings.eulerStreamApiKey) return { isConnected: true, roomId: null };
+    // Solo un LIVE distinto inicia una memoria nueva. Volver a abrir el mismo
+    // usuario, incluso mediante el botón Conectar, sigue siendo reconexión.
+    if (this.lastLiveUsername !== connectionSettings.username) {
+      this.lastLiveUsername = connectionSettings.username;
+      this.hasOpenedLiveConnection = false;
+      this.readCommentIds.clear();
+    }
     this.reconnectEnabled = true;
     this.connectionSettings = connectionSettings;
     this.reconnectAttempt = 0;
     this.clearReconnectTimer();
     this.closeCurrentSocket();
     this.pendingGiftOccurrences.clear();
-    this.readCommentIds.clear();
     this.clearCommentReplayBarrier();
     this.clearAllIncompleteStreaks();
     return this.openConnection();
@@ -513,7 +521,12 @@ export class TikTokClient {
       const timeout = setTimeout(() => reject(new Error("Euler Stream tardó demasiado en responder.")), 10_000);
       socket.once("open", () => {
         clearTimeout(timeout);
-        if (reconnecting) this.beginCommentReplayBarrier(socket);
+        // La primera apertura de este LIVE acepta su historial. Todas las
+        // siguientes, sin importar si son automáticas o manuales, descartan
+        // el bloque inicial que Euler reenvía.
+        if (this.hasOpenedLiveConnection) this.beginCommentReplayBarrier(socket);
+        else this.clearCommentReplayBarrier();
+        this.hasOpenedLiveConnection = true;
         resolve();
       });
       socket.once("error", (error) => {
@@ -562,7 +575,6 @@ export class TikTokClient {
     this.clearReconnectTimer();
     this.closeCurrentSocket();
     this.pendingGiftOccurrences.clear();
-    this.readCommentIds.clear();
     this.clearCommentReplayBarrier();
     this.clearAllIncompleteStreaks();
     this.emitState("disconnected", detail);
