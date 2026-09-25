@@ -86,6 +86,10 @@
           </label>
           <label>Volume <output id="tts-volume-value" for="tts-volume">100%</output><input id="tts-volume" type="range" min="0" max="1" step="0.1" value="1" /></label>
           <button class="button primary" type="submit">Guardar TTS</button>
+          <div class="tts-playback-controls" aria-label="Controles de audio en vivo">
+            <button id="tts-stop" class="button stop" type="button" disabled>STOP</button>
+            <button id="tts-resume" class="button" type="button" disabled>Reanudar</button>
+          </div>
         </form>
       </section>
 

@@ -24,6 +24,7 @@ const elements = {
   serverTapKey: $("#servertap-key"),
   keyState: $("#key-state"),
   ttsSettings: $("#tts-settings-form"), ttsEnabled: $("#tts-enabled"), ttsLanguage: $("#tts-language"), ttsVolume: $("#tts-volume"), ttsVolumeValue: $("#tts-volume-value"),
+  ttsStop: $("#tts-stop"), ttsResume: $("#tts-resume"),
   voiceTester: $("#voice-tester-form"), voiceTesterText: $("#voice-tester-text"), ttsSpeed: $("#tts-speed"), ttsPitch: $("#tts-pitch"),
   allowedUsers: $("#allowed-users-form"), allowAllUsers: $("#tts-allow-all-users"), allowFollowers: $("#tts-allow-followers"), allowSubscribers: $("#tts-allow-subscribers"), allowModerators: $("#tts-allow-moderators"), allowTeamMembers: $("#tts-allow-team-members"), teamMembersMinLevel: $("#tts-team-members-min-level"), allowTopGifters: $("#tts-allow-top-gifters"), topGiftersTop: $("#tts-top-gifters-top"), allowList: $("#tts-allow-list"), manageAllowedUsers: $("#manage-allowed-users"), allowedUsersListEditor: $("#allowed-users-list-editor"), allowedUsernames: $("#tts-allowed-usernames"),
   goalsToggle: $("#goals-toggle"), goalsPanel: $("#goals-panel"), goalCards: [...document.querySelectorAll(".goal-card")],
@@ -146,7 +147,16 @@ elements.profileForm?.addEventListener("submit", async (event) => {
 });
 let availableSounds = [];
 let profileAvatarData = "";
-const ttsQueue = new window.TtsQueue({ onError: (message) => toast(message, "error") });
+function updateTtsPlaybackControls({ paused = false, speaking = false } = {}) {
+  if (!elements.ttsStop || !elements.ttsResume) return;
+  elements.ttsStop.disabled = !speaking || paused;
+  elements.ttsResume.disabled = !paused;
+}
+const ttsQueue = new window.TtsQueue({
+  onError: (message) => toast(message, "error"),
+  onState: updateTtsPlaybackControls
+});
+updateTtsPlaybackControls();
 let customizationKey = "";
 const defaultCustomization = {
   fontFamily: "Space Grotesk", fontSize: 75, lineSpacing: 55, letterSpacing: 50,
@@ -1123,6 +1133,8 @@ elements.ttsSettings.addEventListener("submit", async (event) => {
     pitch: Number(elements.ttsPitch.value)
   }, "Configuración TTS guardada");
 });
+elements.ttsStop.addEventListener("click", () => ttsQueue.pause());
+elements.ttsResume.addEventListener("click", () => ttsQueue.resume());
 elements.voiceTester.addEventListener("submit", (event) => {
   event.preventDefault();
   playTts(elements.voiceTesterText.value, { allowWhenDisabled: true });

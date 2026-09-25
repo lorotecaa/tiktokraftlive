@@ -1,9 +1,15 @@
 (() => {
   class TtsQueue {
-    constructor({ onError = () => {} } = {}) {
+    constructor({ onError = () => {}, onState = () => {} } = {}) {
       this.onError = onError;
+      this.onState = onState;
       this.items = [];
       this.speaking = false;
+      this.paused = false;
+    }
+
+    notifyState() {
+      this.onState({ paused: this.paused, speaking: this.speaking, pending: this.items.length });
     }
 
     enqueue(text, settings) {
@@ -14,11 +20,12 @@
         return;
       }
       this.items.push({ text: value, settings });
+      this.notifyState();
       this.playNext();
     }
 
     playNext() {
-      if (this.speaking || this.items.length === 0) return;
+      if (this.paused || this.speaking || this.items.length === 0) return;
       const next = this.items.shift();
       const utterance = new SpeechSynthesisUtterance(next.text);
       utterance.lang = next.settings.language;
@@ -26,8 +33,10 @@
       utterance.rate = Math.max(0.1, Math.min(10, (Number(next.settings.speed) || 60) / 50));
       utterance.pitch = Math.max(0, Math.min(2, (Number(next.settings.pitch) || 70) / 50));
       this.speaking = true;
+      this.notifyState();
       const finish = () => {
         this.speaking = false;
+        this.notifyState();
         this.playNext();
       };
       utterance.onend = finish;
@@ -36,6 +45,21 @@
         finish();
       };
       window.speechSynthesis.speak(utterance);
+    }
+
+    pause() {
+      if (this.paused) return;
+      this.paused = true;
+      if ("speechSynthesis" in window) window.speechSynthesis.pause();
+      this.notifyState();
+    }
+
+    resume() {
+      if (!this.paused) return;
+      this.paused = false;
+      if ("speechSynthesis" in window && window.speechSynthesis.paused) window.speechSynthesis.resume();
+      this.notifyState();
+      this.playNext();
     }
   }
 
