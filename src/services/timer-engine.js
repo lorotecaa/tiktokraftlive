@@ -1,5 +1,5 @@
 const maxTimerMilliseconds = 1_000_000 * 60_000;
-const tickIntervalMilliseconds = 250;
+const synchronizationIntervalMilliseconds = 30_000;
 
 function clampMilliseconds(value) {
   const milliseconds = Number(value);
@@ -23,7 +23,7 @@ export class TimerEngine {
     };
     if (!this.runtime.remainingMs && this.runtime.status === "idle") this.runtime.remainingMs = this.initialMilliseconds();
     this.expiryTimer = null;
-    this.tickTimer = null;
+    this.synchronizationTimer = null;
   }
 
   initialMilliseconds() {
@@ -67,9 +67,9 @@ export class TimerEngine {
 
   clearSchedule() {
     if (this.expiryTimer) clearTimeout(this.expiryTimer);
-    if (this.tickTimer) clearInterval(this.tickTimer);
+    if (this.synchronizationTimer) clearInterval(this.synchronizationTimer);
     this.expiryTimer = null;
-    this.tickTimer = null;
+    this.synchronizationTimer = null;
   }
 
   schedule() {
@@ -84,15 +84,13 @@ export class TimerEngine {
       void this.finish(true).catch((error) => this.onError(error.message));
     }, delay);
     this.expiryTimer.unref?.();
-    this.tickTimer = setInterval(() => {
-      if (this.runtime.status !== "running") return;
-      if (this.currentRemainingMs() <= 0) {
-        void this.finish(true).catch((error) => this.onError(error.message));
-        return;
-      }
-      this.publish();
-    }, tickIntervalMilliseconds);
-    this.tickTimer.unref?.();
+    // El panel y los widgets descuentan el tiempo localmente. Esta emisión
+    // ocasional solo corrige posibles desfases sin transmitir cuatro veces
+    // por segundo durante todo el LIVE.
+    this.synchronizationTimer = setInterval(() => {
+      if (this.runtime.status === "running") this.publish();
+    }, synchronizationIntervalMilliseconds);
+    this.synchronizationTimer.unref?.();
   }
 
   async store({ immediate = false } = {}) {
