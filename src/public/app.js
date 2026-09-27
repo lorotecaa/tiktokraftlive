@@ -854,6 +854,7 @@ function renderMappings(mappings) {
       <div class="mapping-main">
         <strong>${escapeHtml(mapping.giftName || `Regalo #${mapping.giftId}`)}</strong>
         <p>${escapeHtml(mapping.command)}</p>
+        <p class="mapping-audio"><span>Audio:</span> ${escapeHtml(mapping.audio || "Sin audio")}</p>
       </div>
       <div class="mapping-tools">
         <button class="icon-button" data-action="test" data-id="${escapeHtml(mapping.id)}" title="Probar en Minecraft">▷</button>
