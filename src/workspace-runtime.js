@@ -5,6 +5,7 @@ import { GoalEngine } from "./services/goal-engine.js";
 import { GiftOverlayEngine } from "./services/gift-overlay-engine.js";
 import { RankingOverlayEngine } from "./services/ranking-overlay-engine.js";
 import { HistoricalPointsEngine } from "./services/historical-points-engine.js";
+import { TimerEngine } from "./services/timer-engine.js";
 import { ServerTapClient } from "./services/servertap.js";
 import { TikTokClient, isAllowedTtsUser } from "./services/tiktok.js";
 import { addWorkspaceManualPoints, addWorkspaceUserPoints, deleteWorkspaceUserPoints, listWorkspaceUserPoints } from "./services/user-points-store.js";
@@ -35,6 +36,13 @@ export class WorkspaceRuntime {
     });
     this.serverTap = new ServerTapClient({ commandsPerSecond, onState: (next) => { this.state.minecraft = next; this.broadcast(); }, onConsole: (entry) => this.activity({ type: "console", entry, message: entry.message }), onError: (message) => this.error(message) });
     this.rules = new RuleEngine({ sendCommand: (command, context) => this.serverTap.enqueue(command, context), onActivity: (entry) => { this.activity(entry); if (entry.type === "action" && entry.mapping?.audio) this.emit("mapping:sound", { audio: entry.mapping.audio, mappingId: entry.mapping.id }); } });
+    this.timerEngine = new TimerEngine({
+      getTimer: () => this.config.timer,
+      onUpdate: (timer) => this.emitTimer(timer),
+      onPersist: (runtime, options) => this.persistTimerRuntime(runtime, options),
+      onExpire: () => this.executeTimerExpiryAction(),
+      onError: (message) => this.error(`Temporizador: ${message}`)
+    });
     this.tiktok = new TikTokClient({
       onState: (next) => { if (next.status === "disconnected") this.rankingEngine.reset(); this.state.tiktok = next; this.broadcast(); },
       onGift: (event) => { this.recordGift(event); if (this.giftEngine.process(event).length) this.queueSave(); this.rankingEngine.process(event); this.pointsEngine.process(event); this.activity({ type: "gift", event, message: `${event.nickname} envió ${event.giftName}` }); try { this.rules.process(event, this.config.mappings); } catch (error) { this.error(error.message); } },
@@ -42,7 +50,10 @@ export class WorkspaceRuntime {
       // El récord se guarda al recibir el evento final en onGift, que contiene
       // el repeatCount completo y ya se usa para acciones y actividad.
       onGiftProgress: (event) => { this.giftEngine.processStreak(event); },
-      onMetric: (metric, amount) => { if (this.goalEngine.process(metric, amount).length) this.queueSave(); },
+      onMetric: (metric, amount) => {
+        if (this.goalEngine.process(metric, amount).length) this.queueSave();
+        void this.timerEngine.processInteraction(metric, amount).catch((error) => this.error(`Temporizador: ${error.message}`));
+      },
       onComment: (event) => { if (this.config.tts.enabled) this.emit("tiktok:comment", event); }, shouldReadComment: (event) => this.config.tts.enabled && isAllowedTtsUser(event, this.config.tts.allowedUsers), readCommentIds: this.liveReadCommentIds, onError: (message) => this.error(message)
     });
   }
@@ -62,14 +73,20 @@ export class WorkspaceRuntime {
       // las acciones existentes arranquen si falta aplicar su migración.
       console.warn(`[${this.ownerId}] No se pudo cargar el catálogo de regalos: ${error.message}`);
     }
+    this.timerEngine.initialize();
     return this;
   }
   room() { return `workspace:${this.ownerId}`; }
+  publicRoom() { return `public-workspace:${this.ownerId}`; }
   reloadConfig({ config, overlayToken }) {
     this.config = config;
     this.overlayToken = overlayToken;
   }
   emit(event, payload) { this.io.to(this.room()).emit(event, payload); }
+  emitTimer(timer = this.timerEngine.snapshot()) {
+    this.emit("timer:update", timer);
+    this.io.of("/public").to(this.publicRoom()).emit("timer:update", this.publicTimer(timer));
+  }
   recordGift(event) {
     const gift = {
       id: ++this.giftSequence,
@@ -124,7 +141,8 @@ export class WorkspaceRuntime {
   publicGift(kind) { const definition = { "best-gift": ["bestGift", "Mejor Regalo"], "best-streak": ["bestStreak", "Mejor Racha"] }[kind]; return definition ? { kind, title: definition[1], record: this.config.giftOverlays[definition[0]], customization: this.custom(`gift:${kind}`) } : null; }
   publicRanking() { return { kind: "top-donors", title: "Top Donadores", entries: this.rankingEngine.entries(), customization: this.custom("ranking:top-donors") }; }
   publicPoints() { const customization = this.custom("user-points:historical"); return { kind: "historical", title: "Usuario y Puntos", entries: this.pointsEngine.entries(customization?.itemLimit || 10), customization }; }
-  publicState() { return { ...this.state, giftHistory: this.giftHistory, giftCatalog: this.giftCatalogEntries(), config: publicConfig(this.config), rankings: { topDonors: this.rankingEngine.entries() }, userPoints: { entries: this.pointsEngine.entries(100), configured: true }, workspace: { overlayToken: this.overlayToken } }; }
+  publicTimer(timer = this.timerEngine.snapshot()) { return { ...timer, customization: this.custom("timer:main") }; }
+  publicState() { return { ...this.state, giftHistory: this.giftHistory, giftCatalog: this.giftCatalogEntries(), config: publicConfig(this.config), timer: this.timerEngine.snapshot(), rankings: { topDonors: this.rankingEngine.entries() }, userPoints: { entries: this.pointsEngine.entries(100), configured: true }, workspace: { overlayToken: this.overlayToken } }; }
   broadcast() { this.emit("state", this.publicState()); }
   async save(next = this.config) {
     // Conserva los cambios hechos mientras una escritura anterior espera a
@@ -137,7 +155,17 @@ export class WorkspaceRuntime {
   }
   queueSave() { if (this.saveTimer) return; this.saveTimer = setTimeout(() => { this.saveTimer = null; this.saveQueue = this.saveQueue.then(() => this.save()).catch((error) => this.error(error.message)); }, 500); }
   async saveNow() { if (this.saveTimer) { clearTimeout(this.saveTimer); this.saveTimer = null; } this.saveQueue = this.saveQueue.then(() => this.save()); await this.saveQueue; }
-  async dispose() { this.tiktok.disconnect("Sesión finalizada"); this.serverTap.disconnect("Sesión finalizada"); await Promise.all([this.saveNow(), this.pointsEngine.flush(), this.giftCatalogWriteQueue]); }
+  async persistTimerRuntime(runtime, { immediate = false } = {}) { this.config = sanitizeConfig({ ...this.config, timer: { ...this.config.timer, runtime } }); if (immediate) await this.saveNow(); else this.queueSave(); }
+  async saveTimerSettings(input) { this.config = sanitizeConfig({ ...this.config, timer: { ...this.config.timer, ...input, runtime: this.timerEngine.persistence() } }); await this.saveNow(); this.emitTimer(); return this.config.timer; }
+  async executeTimerExpiryAction() {
+    const mappingId = this.config.timer?.actionMappingId;
+    this.activity({ type: "timer", message: "El temporizador llegó a 00:00" });
+    if (!mappingId) return { executed: 0 };
+    const mapping = this.config.mappings.find((entry) => entry.id === mappingId);
+    if (!mapping) throw new Error("La acción configurada al finalizar ya no existe.");
+    return this.rules.executeSelected(mapping, { giftId: mapping.giftId || "timer", giftName: mapping.giftName || "Temporizador", username: "temporizador", nickname: "Temporizador", repeatCount: 1 });
+  }
+  async dispose() { this.timerEngine.dispose(); this.tiktok.disconnect("Sesión finalizada"); this.serverTap.disconnect("Sesión finalizada"); await Promise.all([this.saveNow(), this.pointsEngine.flush(), this.giftCatalogWriteQueue]); }
   async saveMapping(input) { const mapping = sanitizeConfig({ mappings: [input] }).mappings[0]; if (!mapping) throw new Error("Añade un comando a la acción."); if (mapping.audio && !(await this.listSounds()).includes(mapping.audio)) throw new Error("El audio seleccionado ya no está disponible."); await this.saveNow(); const mappings = [...this.config.mappings]; const index = mappings.findIndex((entry) => entry.id === mapping.id); if (index >= 0) mappings[index] = mapping; else mappings.push(mapping); await this.save({ ...this.config, mappings }); return mapping; }
   async saveGoal(input) { const type = String(input?.type || "").toLowerCase(); const existing = this.config.goals.find((goal) => goal.id === input?.id || goal.type === type); const candidate = { ...input, id: existing?.id || randomUUID(), type }; const next = sanitizeConfig({ ...this.config, goals: [...this.config.goals.filter((goal) => goal.id !== existing?.id && goal.type !== type), candidate] }); const goal = next.goals.find((goal) => goal.id === candidate.id); if (!goal) throw new Error("Completa un objetivo válido."); await this.save(next); this.emit("goal:update", this.publicGoal(goal)); return this.publicGoal(goal); }
   async connectTikTok() { const connection = await this.tiktok.connect(this.config.tiktokUsername, this.config.eulerStreamApiKey); this.giftHistory = []; this.emit("gift-history:update", this.giftHistory); if (this.config.giftOverlays.resetOnNewLive) { this.giftEngine.reset(); await this.saveNow(); } this.activity({ type: "system", message: `TikTok LIVE conectado: @${this.config.tiktokUsername}` }); return connection; }

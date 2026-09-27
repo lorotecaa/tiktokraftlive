@@ -63,6 +63,21 @@ const defaultConfig = {
     bestGift: null,
     bestStreak: null
   },
+  timer: {
+    initialMinutes: 10,
+    actionMappingId: "",
+    adjustments: {
+      coins: 0,
+      subscriptions: 0,
+      follows: 0,
+      shares: 0,
+      likes: 0,
+      comments: 0
+    },
+    multiplier: { enabled: false, value: 1.5 },
+    shortcuts: { toggle: "", increase: "", decrease: "", stepMinutes: 1 },
+    runtime: { status: "idle", remainingMs: 600_000, endsAt: 0, updatedAt: 0 }
+  },
   overlayCustomizations: {},
   goals: [],
   mappings: [
@@ -180,6 +195,50 @@ function normalizeGiftOverlays(raw) {
   };
 }
 
+function finiteNumber(value, fallback, minimum, maximum) {
+  const number = Number(value);
+  return Number.isFinite(number) ? Math.max(minimum, Math.min(number, maximum)) : fallback;
+}
+
+function normalizeTimer(raw) {
+  const initialMinutes = finiteNumber(raw?.initialMinutes, defaultConfig.timer.initialMinutes, 0.001, 1_000_000);
+  const adjustments = raw?.adjustments || {};
+  const multiplier = raw?.multiplier || {};
+  const shortcuts = raw?.shortcuts || {};
+  const runtime = raw?.runtime || {};
+  const shortcutCodes = new Set(["", "Space", "KeyS", "KeyP", "ArrowUp", "ArrowDown", "Equal", "Minus", "NumpadAdd", "NumpadSubtract"]);
+  const status = ["idle", "running", "paused", "finished"].includes(runtime.status) ? runtime.status : "idle";
+  const remainingFallback = initialMinutes * 60_000;
+  return {
+    initialMinutes,
+    actionMappingId: stringOrEmpty(raw?.actionMappingId).slice(0, 120),
+    adjustments: {
+      coins: finiteNumber(adjustments.coins, 0, -1_000_000, 1_000_000),
+      subscriptions: finiteNumber(adjustments.subscriptions, 0, -1_000_000, 1_000_000),
+      follows: finiteNumber(adjustments.follows, 0, -1_000_000, 1_000_000),
+      shares: finiteNumber(adjustments.shares, 0, -1_000_000, 1_000_000),
+      likes: finiteNumber(adjustments.likes, 0, -1_000_000, 1_000_000),
+      comments: finiteNumber(adjustments.comments, 0, -1_000_000, 1_000_000)
+    },
+    multiplier: {
+      enabled: multiplier.enabled === true,
+      value: finiteNumber(multiplier.value, defaultConfig.timer.multiplier.value, 0.01, 100)
+    },
+    shortcuts: {
+      toggle: shortcutCodes.has(shortcuts.toggle) ? shortcuts.toggle : "",
+      increase: shortcutCodes.has(shortcuts.increase) ? shortcuts.increase : "",
+      decrease: shortcutCodes.has(shortcuts.decrease) ? shortcuts.decrease : "",
+      stepMinutes: finiteNumber(shortcuts.stepMinutes, defaultConfig.timer.shortcuts.stepMinutes, 0.001, 1_000_000)
+    },
+    runtime: {
+      status,
+      remainingMs: finiteNumber(runtime.remainingMs, remainingFallback, 0, 1_000_000 * 60_000),
+      endsAt: Math.max(0, Math.floor(Number(runtime.endsAt) || 0)),
+      updatedAt: Math.max(0, Math.floor(Number(runtime.updatedAt) || 0))
+    }
+  };
+}
+
 function normalizeColor(value, fallback) {
   const color = stringOrEmpty(value);
   return /^#[0-9a-f]{6}$/i.test(color) ? color : fallback;
@@ -231,7 +290,7 @@ function normalizeOverlayCustomization(raw = {}) {
 function normalizeOverlayCustomizations(raw) {
   if (!raw || typeof raw !== "object" || Array.isArray(raw)) return {};
   return Object.fromEntries(Object.entries(raw)
-    .filter(([key]) => /^(gift:(best-gift|best-streak)|ranking:top-donors|user-points:historical|goal:[a-zA-Z0-9-]{1,80})$/.test(key))
+    .filter(([key]) => /^(gift:(best-gift|best-streak)|ranking:top-donors|user-points:historical|timer:main|goal:[a-zA-Z0-9-]{1,80})$/.test(key))
     .slice(0, 100)
     .map(([key, value]) => [key, normalizeOverlayCustomization(value)]));
 }
@@ -259,6 +318,9 @@ export function sanitizeConfig(raw = {}) {
   const mappings = Array.isArray(raw.mappings) ? raw.mappings : defaultConfig.mappings;
   const goals = Array.isArray(raw.goals) ? raw.goals : defaultConfig.goals;
   const normalizedGoals = goals.map(normalizeGoal).filter(Boolean);
+  const normalizedMappings = mappings.map(normalizeMapping).filter((mapping) => mapping.command);
+  const timer = normalizeTimer(raw.timer);
+  if (timer.actionMappingId && !normalizedMappings.some((mapping) => mapping.id === timer.actionMappingId)) timer.actionMappingId = "";
   return {
     tiktokUsername: stringOrEmpty(raw.tiktokUsername).replace(/^@/, "").slice(0, 80),
     eulerStreamApiKey: stringOrEmpty(raw.eulerStreamApiKey),
@@ -268,10 +330,11 @@ export function sanitizeConfig(raw = {}) {
     },
     tts: normalizeTts(raw.tts),
     giftOverlays: normalizeGiftOverlays(raw.giftOverlays),
+    timer,
     profile: normalizeProfile(raw.profile),
     overlayCustomizations: normalizeOverlayCustomizations(raw.overlayCustomizations),
     goals: normalizedGoals.filter((goal, index) => normalizedGoals.findIndex((item) => item.type === goal.type) === index),
-    mappings: mappings.map(normalizeMapping).filter((mapping) => mapping.command)
+    mappings: normalizedMappings
   };
 }
 

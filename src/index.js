@@ -103,9 +103,11 @@ app.get("/widget/:token/goal/:id", (_request, response) => response.sendFile(pat
 app.get("/widget/:token/gift/:kind", (_request, response) => response.sendFile(path.join(directory, "public", "gift-widget.html")));
 app.get("/widget/:token/ranking/top-donors", (_request, response) => response.sendFile(path.join(directory, "public", "ranking-widget.html")));
 app.get("/widget/:token/user-points", (_request, response) => response.sendFile(path.join(directory, "public", "user-points-widget.html")));
+app.get("/widget/:token/timer", (_request, response) => response.sendFile(path.join(directory, "public", "timer-widget.html")));
 app.get("/api/public/:token/goal/:id", async (request, response) => { const w = await publicSpace(request.params.token); const goal = w?.config.goals.find((item) => item.id === request.params.id); if (!goal) return response.sendStatus(404); response.json({ goal: w.publicGoal(goal) }); });
 app.get("/api/public/:token/gift/:kind", async (request, response) => { const w = await publicSpace(request.params.token); const overlay = w?.publicGift(request.params.kind); if (!overlay) return response.sendStatus(404); response.json({ overlay }); });
 app.get("/api/public/:token/ranking", async (request, response) => { const w = await publicSpace(request.params.token); if (!w) return response.sendStatus(404); response.json({ overlay: w.publicRanking() }); });
+app.get("/api/public/:token/timer", async (request, response) => { const w = await publicSpace(request.params.token); if (!w) return response.sendStatus(404); response.json({ timer: w.publicTimer() }); });
 app.get("/api/public/:token/user-points", async (request, response, next) => {
   try {
     const workspace = await workspaceByOverlayToken(request.params.token);
@@ -118,6 +120,21 @@ app.get("/api/public/:token/user-points", async (request, response, next) => {
 });
 app.use(express.static(path.join(directory, "public")));
 
+const publicIo = io.of("/public");
+publicIo.use(async (socket, next) => {
+  try {
+    const workspace = await publicSpace(String(socket.handshake.auth?.overlayToken || ""));
+    if (!workspace) throw new Error("Overlay no encontrado.");
+    socket.data.workspace = workspace;
+    next();
+  } catch (error) { next(new Error(error.message)); }
+});
+publicIo.on("connection", (socket) => {
+  const workspace = socket.data.workspace;
+  socket.join(workspace.publicRoom());
+  socket.emit("timer:update", workspace.publicTimer());
+});
+
 io.use(async (socket, next) => { try { const session = await identity(socket.handshake.auth?.token); socket.data.session = session; next(); } catch (error) { next(new Error(error.message)); } });
 io.on("connection", (socket) => {
   const session = socket.data.session;
@@ -129,8 +146,14 @@ io.on("connection", (socket) => {
   socket.on("user-points:delete", (username, done) => acknowledge(done, async () => { const deleted = await w.pointsEngine.delete(username); w.activity({ type: "user-points", message: `Usuario eliminado: ${deleted.username}` }); return deleted; }, w));
   socket.on("gift-overlays:save", (input, done) => acknowledge(done, async () => { await w.save({ ...w.config, giftOverlays: { ...w.config.giftOverlays, resetOnNewLive: input?.resetOnNewLive === true } }); return w.config.giftOverlays; }, w));
   socket.on("gift-overlays:reset", (_input, done) => acknowledge(done, async () => { w.giftEngine.reset(); await w.saveNow(); return w.config.giftOverlays; }, w));
-  socket.on("overlay-customization:save", (input, done) => acknowledge(done, async () => { const key = String(input?.key || ""); const customization = sanitizeConfig({ overlayCustomizations: { [key]: input?.customization } }).overlayCustomizations[key]; if (!customization) throw new Error("Overlay inválido."); await w.save({ ...w.config, overlayCustomizations: { ...w.config.overlayCustomizations, [key]: customization } }); w.emit("overlay-customization:update", { key, customization }); return { key, customization }; }, w));
+  socket.on("overlay-customization:save", (input, done) => acknowledge(done, async () => { const key = String(input?.key || ""); const customization = sanitizeConfig({ overlayCustomizations: { [key]: input?.customization } }).overlayCustomizations[key]; if (!customization) throw new Error("Overlay inválido."); await w.save({ ...w.config, overlayCustomizations: { ...w.config.overlayCustomizations, [key]: customization } }); w.emit("overlay-customization:update", { key, customization }); if (key === "timer:main") w.emitTimer(); return { key, customization }; }, w));
   socket.on("goal:save", (input, done) => acknowledge(done, () => w.saveGoal(input), w));
+  socket.on("timer:settings:save", (input, done) => acknowledge(done, () => w.saveTimerSettings(input), w));
+  socket.on("timer:start", (_input, done) => acknowledge(done, () => w.timerEngine.start(), w));
+  socket.on("timer:pause", (_input, done) => acknowledge(done, () => w.timerEngine.pause(), w));
+  socket.on("timer:reset", (_input, done) => acknowledge(done, () => w.timerEngine.reset(), w));
+  socket.on("timer:set", (input, done) => acknowledge(done, () => w.timerEngine.setMinutes(input?.minutes), w));
+  socket.on("timer:adjust", (input, done) => acknowledge(done, () => w.timerEngine.adjustMinutes(input?.minutes, { immediate: true }), w));
   socket.on("minecraft:connect", (_input, done) => acknowledge(done, () => w.serverTap.connect(w.config.serverTap), w));
   socket.on("minecraft:disconnect", (_input, done) => acknowledge(done, () => w.serverTap.disconnect(), w));
   socket.on("tiktok:connect", (_input, done) => acknowledge(done, async () => {
@@ -150,7 +173,7 @@ io.on("connection", (socket) => {
   socket.on("admin:statistics:connected", (_input, done) => acknowledge(done, async () => { await requireAdministrator(session); return administrationAccounts({ activeOnly: true }); }, w));
   socket.on("admin:statistics:profile", (input, done) => acknowledge(done, async () => { await requireAdministrator(session); const userId = String(input?.userId || ""); const account = (await administrationAccounts()).find((entry) => entry.userId === userId); if (!account) throw new Error("No existe esa cuenta registrada."); return account; }, w));
   socket.on("mapping:save", (input, done) => acknowledge(done, () => w.saveMapping(input), w));
-  socket.on("mapping:delete", (id, done) => acknowledge(done, async () => { await w.save({ ...w.config, mappings: w.config.mappings.filter((item) => item.id !== id) }); return { id }; }, w));
+  socket.on("mapping:delete", (id, done) => acknowledge(done, async () => { const timer = w.config.timer?.actionMappingId === id ? { ...w.config.timer, actionMappingId: "" } : w.config.timer; await w.save({ ...w.config, timer, mappings: w.config.mappings.filter((item) => item.id !== id) }); return { id }; }, w));
   socket.on("mapping:test", (id, done) => acknowledge(done, () => { const mapping = w.config.mappings.find((item) => item.id === id); if (!mapping) throw new Error("No existe esa acción."); const event = { giftId: mapping.giftId || "demo", giftName: mapping.giftName || "Regalo de prueba", repeatCount: 1, username: "prueba", nickname: "Prueba" }; const command = w.rules.render(mapping.command, event); w.serverTap.enqueue(command, { test: true, mappingId: mapping.id }); w.activity({ type: "action", event, mapping, command, message: "Prueba enviada a Minecraft" }); return { command }; }, w));
   socket.on("gift:simulate", (input, done) => acknowledge(done, () => w.rules.process({ giftId: String(input?.giftId || "demo"), giftName: String(input?.giftName || "Regalo de prueba"), repeatCount: Math.max(1, Number(input?.repeatCount) || 1), username: "prueba", nickname: "Prueba" }, w.config.mappings), w));
 });
