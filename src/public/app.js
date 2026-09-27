@@ -1506,9 +1506,12 @@ socket.on("connect_error", async () => {
   toast("Se perdió la conexión con el panel local.", "error");
 });
 socket.on("mapping:sound", (data) => playSound(data?.audio));
-loadSounds();
 void (async () => {
   await loadPanelState();
+  // La lista está protegida por autenticación. Esperar a que el estado del
+  // panel renueve una sesión vencida evita dejar el selector vacío tras un
+  // despliegue o una recarga con un token antiguo.
+  await loadSounds();
   socket.auth.token = window.TikTokraftAuth?.accessToken || "";
   socket.connect();
 })();
