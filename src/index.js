@@ -103,11 +103,14 @@ app.get("/widget/:token/goal/:id", (_request, response) => response.sendFile(pat
 app.get("/widget/:token/gift/:kind", (_request, response) => response.sendFile(path.join(directory, "public", "gift-widget.html")));
 app.get("/widget/:token/ranking/top-donors", (_request, response) => response.sendFile(path.join(directory, "public", "ranking-widget.html")));
 app.get("/widget/:token/user-points", (_request, response) => response.sendFile(path.join(directory, "public", "user-points-widget.html")));
-app.get("/widget/:token/timer", (_request, response) => response.sendFile(path.join(directory, "public", "timer-widget.html")));
+app.get("/widget/:token/timer", (_request, response) => {
+  response.set("Cache-Control", "no-store, no-cache, must-revalidate, proxy-revalidate");
+  response.sendFile(path.join(directory, "public", "timer-widget.html"));
+});
 app.get("/api/public/:token/goal/:id", async (request, response) => { const w = await publicSpace(request.params.token); const goal = w?.config.goals.find((item) => item.id === request.params.id); if (!goal) return response.sendStatus(404); response.json({ goal: w.publicGoal(goal) }); });
 app.get("/api/public/:token/gift/:kind", async (request, response) => { const w = await publicSpace(request.params.token); const overlay = w?.publicGift(request.params.kind); if (!overlay) return response.sendStatus(404); response.json({ overlay }); });
 app.get("/api/public/:token/ranking", async (request, response) => { const w = await publicSpace(request.params.token); if (!w) return response.sendStatus(404); response.json({ overlay: w.publicRanking() }); });
-app.get("/api/public/:token/timer", async (request, response) => { const w = await publicSpace(request.params.token); if (!w) return response.sendStatus(404); response.json({ timer: w.publicTimer() }); });
+app.get("/api/public/:token/timer", async (request, response) => { const w = await publicSpace(request.params.token); if (!w) return response.sendStatus(404); response.set("Cache-Control", "no-store"); response.json({ timer: w.publicTimer() }); });
 app.get("/api/public/:token/user-points", async (request, response, next) => {
   try {
     const workspace = await workspaceByOverlayToken(request.params.token);
