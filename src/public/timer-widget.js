@@ -8,6 +8,8 @@ let currentTimer = null;
 let anchorRemainingMs = 0;
 let localDeadline = 0;
 let socketConnected = false;
+let publicSocket = null;
+let authoritativeSyncAt = 0;
 
 function formatTime(value) {
   const milliseconds = Math.max(0, Math.round(Number(value) || 0));
@@ -64,20 +66,37 @@ async function loadTimer() {
   render(timer);
 }
 
+function synchronizeTimer() {
+  renderClock();
+  const now = Date.now();
+  if (now - authoritativeSyncAt < 750) return;
+  authoritativeSyncAt = now;
+  if (socketConnected && publicSocket) {
+    publicSocket.timeout(5_000).emit("timer:sync", null, (error, result) => {
+      if (!error && result?.ok && result.data) render(result.data);
+    });
+    return;
+  }
+  loadTimer().catch(() => {});
+}
+
 // La carga HTTP funciona incluso en navegadores de fuentes que no permiten
 // Socket.IO. El socket acelera la sincronización, pero ya no bloquea el widget.
 loadTimer().catch(() => { statusElement.textContent = "Esperando conexión…"; });
 if (typeof window.io === "function") {
-  const socket = window.io("/public", { auth: { overlayToken } });
-  socket.on("connect", () => { socketConnected = true; });
-  socket.on("disconnect", () => {
+  publicSocket = window.io("/public", { auth: { overlayToken } });
+  publicSocket.on("connect", () => { socketConnected = true; });
+  publicSocket.on("disconnect", () => {
     socketConnected = false;
     loadTimer().catch(() => {});
   });
-  socket.on("connect_error", () => { socketConnected = false; });
-  socket.on("timer:update", render);
+  publicSocket.on("connect_error", () => { socketConnected = false; });
+  publicSocket.on("timer:update", render);
 }
 setInterval(renderClock, 200);
+document.addEventListener("visibilitychange", () => { if (!document.hidden) synchronizeTimer(); });
+window.addEventListener("focus", synchronizeTimer);
+window.addEventListener("pageshow", synchronizeTimer);
 // HTTP queda exclusivamente como respaldo cuando Socket.IO no está activo.
 setInterval(() => {
   if (!socketConnected) loadTimer().catch(() => {});

@@ -19,6 +19,7 @@ let timerSettingsRevision = 0;
 let panelTimer = null;
 let panelTimerRemainingMs = 0;
 let panelTimerDeadline = 0;
+let panelTimerSyncAt = 0;
 const giftNamesById = window.TIKTOK_GIFT_NAMES || {};
 
 const $ = (selector) => document.querySelector(selector);
@@ -668,6 +669,18 @@ function renderPanelTimerClock() {
   if (document.activeElement !== elements.timerCurrentMinutes) {
     elements.timerCurrentMinutes.value = timerInputValue(remainingMs / 60_000);
   }
+}
+
+function synchronizePanelTimer() {
+  // Repinta inmediatamente con el plazo local y luego confirma el estado
+  // autoritativo del servidor. Ninguna transición se decide en el navegador.
+  renderPanelTimerClock();
+  const now = Date.now();
+  if (!socket.connected || now - panelTimerSyncAt < 750) return;
+  panelTimerSyncAt = now;
+  socket.timeout(5_000).emit("timer:sync", null, (error, result) => {
+    if (!error && result?.ok && result.data) renderTimer(result.data);
+  });
 }
 
 function readTimerSettings() {
@@ -1690,6 +1703,9 @@ socket.on("tiktok:comment", (comment) => {
 });
 socket.on("timer:update", (timer) => renderTimer(timer));
 setInterval(renderPanelTimerClock, 200);
+document.addEventListener("visibilitychange", () => { if (!document.hidden) synchronizePanelTimer(); });
+window.addEventListener("focus", synchronizePanelTimer);
+window.addEventListener("pageshow", synchronizePanelTimer);
 socket.on("goal:update", (goal) => {
   if (!appState || !goal?.id) return;
   const existing = appState.config.goals.findIndex((item) => item.id === goal.id);
