@@ -14,6 +14,8 @@ let statisticsAccounts = [];
 let connectedStatisticsAccounts = [];
 let statisticsSearch = "";
 let statisticsProfileOrigin = "registered";
+let timerSettingsSaveTimer = null;
+let timerSettingsRevision = 0;
 const giftNamesById = window.TIKTOK_GIFT_NAMES || {};
 
 const $ = (selector) => document.querySelector(selector);
@@ -28,6 +30,9 @@ const elements = {
   voiceTester: $("#voice-tester-form"), voiceTesterText: $("#voice-tester-text"), ttsSpeed: $("#tts-speed"), ttsPitch: $("#tts-pitch"),
   allowedUsers: $("#allowed-users-form"), allowAllUsers: $("#tts-allow-all-users"), allowFollowers: $("#tts-allow-followers"), allowSubscribers: $("#tts-allow-subscribers"), allowModerators: $("#tts-allow-moderators"), allowTeamMembers: $("#tts-allow-team-members"), teamMembersMinLevel: $("#tts-team-members-min-level"), allowTopGifters: $("#tts-allow-top-gifters"), topGiftersTop: $("#tts-top-gifters-top"), allowList: $("#tts-allow-list"), manageAllowedUsers: $("#manage-allowed-users"), allowedUsersListEditor: $("#allowed-users-list-editor"), allowedUsernames: $("#tts-allowed-usernames"),
   goalsToggle: $("#goals-toggle"), goalsPanel: $("#goals-panel"), goalCards: [...document.querySelectorAll(".goal-card")],
+  timerToggle: $("#timer-toggle"), timerPanel: $("#timer-panel"), timerUrl: $("#timer-overlay-url"), timerCopy: $("#timer-overlay-copy"), timerPreviewButton: $("#timer-overlay-preview-button"), timerPreview: $("#timer-preview"), timerPreviewValue: $("#timer-preview-value"), timerPreviewStatus: $("#timer-preview-status"),
+  timerStart: $("#timer-start"), timerPause: $("#timer-pause"), timerReset: $("#timer-reset"), timerCurrentMinutes: $("#timer-current-minutes"), timerAddTen: $("#timer-add-ten"), timerRemoveTen: $("#timer-remove-ten"),
+  timerInitialMinutes: $("#timer-initial-minutes"), timerExpiryAction: $("#timer-expiry-action"), timerPerCoin: $("#timer-per-coin"), timerPerSubscription: $("#timer-per-subscription"), timerPerFollow: $("#timer-per-follow"), timerPerShare: $("#timer-per-share"), timerPerLike: $("#timer-per-like"), timerPerComment: $("#timer-per-comment"), timerMultiplierEnabled: $("#timer-multiplier-enabled"), timerMultiplierValue: $("#timer-multiplier-value"), timerShortcutToggle: $("#timer-shortcut-toggle"), timerShortcutIncrease: $("#timer-shortcut-increase"), timerShortcutDecrease: $("#timer-shortcut-decrease"), timerShortcutStep: $("#timer-shortcut-step"), timerAutosaveState: $("#timer-autosave-state"),
   rankingsToggle: $("#rankings-toggle"), rankingsPanel: $("#rankings-panel"), rankingOverlayCards: [...document.querySelectorAll(".ranking-overlay-option")],
   userPointsToggle: $("#user-points-toggle"), userPointsPanel: $("#user-points-panel"), userPointsSearch: $("#user-points-search"), userPointsList: $("#user-points-list"), userPointsEmpty: $("#user-points-empty"), userPointsStatus: $("#user-points-status"), userPointsAdd: $("#user-points-add"), userPointsUrl: $("#user-points-overlay-url"), userPointsCopy: $("#user-points-overlay-copy"), userPointsPreview: $("#user-points-overlay-preview"), userPointsLimit: $("#user-points-overlay-limit"), userPointsLimitForm: $("#user-points-overlay-form"), transactionModal: $("#user-points-transaction-modal"), transactionForm: $("#user-points-transaction-form"), transactionUser: $("#user-points-transaction-user"), transactionUsers: $("#user-points-known-users"), transactionCoins: $("#user-points-transaction-coins"), transactionDescription: $("#user-points-transaction-description"),
   giftOverlaysToggle: $("#gift-overlays-toggle"), giftOverlaysPanel: $("#gift-overlays-panel"), giftOverlaysForm: $("#gift-overlays-form"), giftOverlaysResetOnLive: $("#gift-overlays-reset-on-live"), giftOverlaysResetNow: $("#gift-overlays-reset-now"), giftOverlayCards: [...document.querySelectorAll(".gift-overlay-option")],
@@ -552,6 +557,8 @@ function renderState(next) {
   setStatus(elements.tiktokDetail, elements.tiktokDot, tiktok);
   elements.globalStatus.textContent = minecraft.status === "connected" && tiktok.status === "connected" ? "INTERACTIVO EN VIVO" : "PANEL LOCAL";
   renderMappings(config.mappings || []);
+  renderTimerSettings(config.timer || {}, config.mappings || []);
+  renderTimer(next.timer || appState.timer);
   giftCatalog = Array.isArray(next.giftCatalog) ? next.giftCatalog : giftCatalog;
   if (!elements.giftSelectorModal.hidden) renderGiftSelector();
   renderGiftOverlays(config.giftOverlays || {});
@@ -564,6 +571,129 @@ function renderState(next) {
 
 function numberFormat(value) {
   return new Intl.NumberFormat("es-CO").format(Math.max(0, Number(value) || 0));
+}
+
+function formatTimerTime(value) {
+  const milliseconds = Math.max(0, Math.round(Number(value) || 0));
+  const minutes = Math.floor(milliseconds / 60_000);
+  const seconds = Math.floor((milliseconds % 60_000) / 1_000);
+  const fraction = milliseconds % 1_000;
+  const decimal = fraction ? `.${String(fraction).padStart(3, "0").replace(/0+$/, "")}` : "";
+  return `${String(minutes).padStart(2, "0")}:${String(seconds).padStart(2, "0")}${decimal}`;
+}
+
+function timerOverlayUrl() {
+  return `${window.location.origin}/widget/${encodeURIComponent(appState?.workspace?.overlayToken || "")}/timer`;
+}
+
+function timerInputValue(value) {
+  const number = Number(value);
+  return Number.isFinite(number) ? String(Number(number.toFixed(3))) : "0";
+}
+
+function setTimerFieldValue(field, value) {
+  if (document.activeElement !== field) field.value = String(value);
+}
+
+function renderTimerActionOptions(mappings, selectedId) {
+  if (document.activeElement === elements.timerExpiryAction) return;
+  const selected = String(selectedId || "");
+  const fragment = document.createDocumentFragment();
+  const empty = document.createElement("option");
+  empty.value = "";
+  empty.textContent = "Sin acción";
+  fragment.append(empty);
+  for (const mapping of mappings) {
+    const option = document.createElement("option");
+    option.value = mapping.id;
+    const name = mapping.giftName || (mapping.giftId ? `Regalo #${mapping.giftId}` : "Acción");
+    option.textContent = `${name} → ${mapping.command}`;
+    fragment.append(option);
+  }
+  elements.timerExpiryAction.replaceChildren(fragment);
+  elements.timerExpiryAction.value = selected;
+}
+
+function renderTimerSettings(timer, mappings) {
+  const adjustments = timer.adjustments || {};
+  const multiplier = timer.multiplier || {};
+  const shortcuts = timer.shortcuts || {};
+  elements.timerUrl.value = timerOverlayUrl();
+  renderTimerActionOptions(mappings, timer.actionMappingId);
+  setTimerFieldValue(elements.timerInitialMinutes, timerInputValue(timer.initialMinutes ?? 10));
+  setTimerFieldValue(elements.timerPerCoin, timerInputValue(adjustments.coins));
+  setTimerFieldValue(elements.timerPerSubscription, timerInputValue(adjustments.subscriptions));
+  setTimerFieldValue(elements.timerPerFollow, timerInputValue(adjustments.follows));
+  setTimerFieldValue(elements.timerPerShare, timerInputValue(adjustments.shares));
+  setTimerFieldValue(elements.timerPerLike, timerInputValue(adjustments.likes));
+  setTimerFieldValue(elements.timerPerComment, timerInputValue(adjustments.comments));
+  if (document.activeElement !== elements.timerMultiplierEnabled) elements.timerMultiplierEnabled.checked = Boolean(multiplier.enabled);
+  setTimerFieldValue(elements.timerMultiplierValue, timerInputValue(multiplier.value ?? 1.5));
+  elements.timerMultiplierValue.disabled = !elements.timerMultiplierEnabled.checked;
+  if (document.activeElement !== elements.timerShortcutToggle) elements.timerShortcutToggle.value = shortcuts.toggle || "";
+  if (document.activeElement !== elements.timerShortcutIncrease) elements.timerShortcutIncrease.value = shortcuts.increase || "";
+  if (document.activeElement !== elements.timerShortcutDecrease) elements.timerShortcutDecrease.value = shortcuts.decrease || "";
+  setTimerFieldValue(elements.timerShortcutStep, timerInputValue(shortcuts.stepMinutes ?? 1));
+}
+
+function renderTimer(timer) {
+  if (!timer) return;
+  if (appState) appState.timer = timer;
+  const statusLabels = { idle: "Listo para comenzar", running: "En marcha", paused: "Pausado", finished: "Finalizado" };
+  elements.timerPreview.dataset.status = timer.status || "idle";
+  elements.timerPreviewValue.textContent = formatTimerTime(timer.remainingMs);
+  elements.timerPreviewStatus.textContent = statusLabels[timer.status] || "Listo";
+  elements.timerStart.textContent = timer.status === "paused" ? "▶ Reanudar" : "▶ Comenzar";
+  elements.timerStart.disabled = timer.status === "running";
+  elements.timerPause.disabled = timer.status !== "running";
+  if (document.activeElement !== elements.timerCurrentMinutes) {
+    elements.timerCurrentMinutes.value = timerInputValue((Number(timer.remainingMs) || 0) / 60_000);
+  }
+}
+
+function readTimerSettings() {
+  const numericFields = [elements.timerInitialMinutes, elements.timerPerCoin, elements.timerPerSubscription, elements.timerPerFollow, elements.timerPerShare, elements.timerPerLike, elements.timerPerComment, elements.timerMultiplierValue, elements.timerShortcutStep];
+  if (numericFields.some((field) => !field.checkValidity() || field.value === "" || !Number.isFinite(Number(field.value)))) throw new Error("Revisa los valores numéricos del temporizador.");
+  const assignedShortcuts = [elements.timerShortcutToggle.value, elements.timerShortcutIncrease.value, elements.timerShortcutDecrease.value].filter(Boolean);
+  if (new Set(assignedShortcuts).size !== assignedShortcuts.length) throw new Error("Cada control debe utilizar un atajo de teclado diferente.");
+  return {
+    initialMinutes: Number(elements.timerInitialMinutes.value),
+    actionMappingId: elements.timerExpiryAction.value,
+    adjustments: {
+      coins: Number(elements.timerPerCoin.value),
+      subscriptions: Number(elements.timerPerSubscription.value),
+      follows: Number(elements.timerPerFollow.value),
+      shares: Number(elements.timerPerShare.value),
+      likes: Number(elements.timerPerLike.value),
+      comments: Number(elements.timerPerComment.value)
+    },
+    multiplier: { enabled: elements.timerMultiplierEnabled.checked, value: Number(elements.timerMultiplierValue.value) },
+    shortcuts: {
+      toggle: elements.timerShortcutToggle.value,
+      increase: elements.timerShortcutIncrease.value,
+      decrease: elements.timerShortcutDecrease.value,
+      stepMinutes: Number(elements.timerShortcutStep.value)
+    }
+  };
+}
+
+function scheduleTimerSettingsSave() {
+  clearTimeout(timerSettingsSaveTimer);
+  const revision = ++timerSettingsRevision;
+  elements.timerAutosaveState.classList.remove("is-error");
+  elements.timerAutosaveState.textContent = "Guardando cambios…";
+  timerSettingsSaveTimer = setTimeout(async () => {
+    try {
+      const saved = await request("timer:settings:save", readTimerSettings());
+      if (appState?.config) appState.config.timer = saved;
+      if (revision === timerSettingsRevision) elements.timerAutosaveState.textContent = "Cambios guardados automáticamente.";
+    } catch (error) {
+      if (revision === timerSettingsRevision) {
+        elements.timerAutosaveState.classList.add("is-error");
+        elements.timerAutosaveState.textContent = error.message;
+      }
+    }
+  }, 350);
 }
 
 function goalUrl(id) {
@@ -750,8 +880,9 @@ function openCustomization(button) {
   const customization = customizationFor(key);
   const isGiftOverlay = key.startsWith("gift:");
   const isUserPointsOverlay = key === "user-points:historical";
+  const isTimerOverlay = key === "timer:main";
   const isBestStreak = key === "gift:best-streak";
-  elements.customizationModal.dataset.variant = isGiftOverlay ? "gift" : (isUserPointsOverlay ? "user-points" : "default");
+  elements.customizationModal.dataset.variant = isGiftOverlay ? "gift" : (isUserPointsOverlay ? "user-points" : (isTimerOverlay ? "timer" : "default"));
   elements.customizationTitle.textContent = isGiftOverlay ? `Personalizar · ${button.dataset.overlayTitle}` : (button.dataset.overlayTitle || "Overlay");
   if (isGiftOverlay) {
     $("#gift-customization-overlay-heading").textContent = `Opciones de ${button.dataset.overlayTitle}`;
@@ -1235,6 +1366,28 @@ document.addEventListener("keydown", (event) => {
   else if (!elements.transactionModal.hidden) closeTransactionModal();
   else if (!elements.customizationModal.hidden) closeCustomization();
 });
+document.addEventListener("keydown", (event) => {
+  if (event.defaultPrevented || event.ctrlKey || event.altKey || event.metaKey) return;
+  const target = event.target;
+  if (target?.matches?.("input, textarea, select, button, [contenteditable=true]")) return;
+  const shortcuts = appState?.config?.timer?.shortcuts;
+  if (!shortcuts) return;
+  let socketEvent = "";
+  let payload = null;
+  if (shortcuts.toggle && event.code === shortcuts.toggle) {
+    if (event.repeat) return;
+    socketEvent = appState?.timer?.status === "running" ? "timer:pause" : "timer:start";
+  } else if (shortcuts.increase && event.code === shortcuts.increase) {
+    socketEvent = "timer:adjust";
+    payload = { minutes: Number(shortcuts.stepMinutes) || 1 };
+  } else if (shortcuts.decrease && event.code === shortcuts.decrease) {
+    socketEvent = "timer:adjust";
+    payload = { minutes: -(Number(shortcuts.stepMinutes) || 1) };
+  }
+  if (!socketEvent) return;
+  event.preventDefault();
+  request(socketEvent, payload).catch((error) => toast(error.message, "error"));
+});
 
 function toggleAccordion(button, panel) {
   const isOpen = button.getAttribute("aria-expanded") === "true";
@@ -1250,6 +1403,37 @@ function toggleAccordion(button, panel) {
 
 elements.goalsToggle.addEventListener("click", () => {
   toggleAccordion(elements.goalsToggle, elements.goalsPanel);
+});
+elements.timerToggle.addEventListener("click", () => {
+  toggleAccordion(elements.timerToggle, elements.timerPanel);
+});
+elements.timerCopy.addEventListener("click", async () => {
+  try {
+    await navigator.clipboard.writeText(elements.timerUrl.value);
+  } catch {
+    elements.timerUrl.select();
+    document.execCommand("copy");
+  }
+  toast("URL copiada", "success");
+});
+elements.timerPreviewButton.addEventListener("click", () => window.open(timerOverlayUrl(), "_blank", "noopener"));
+elements.timerStart.addEventListener("click", (event) => control(event.currentTarget, "timer:start", null, appState?.timer?.status === "paused" ? "Temporizador reanudado" : "Temporizador iniciado"));
+elements.timerPause.addEventListener("click", (event) => control(event.currentTarget, "timer:pause", null, "Temporizador pausado"));
+elements.timerReset.addEventListener("click", (event) => control(event.currentTarget, "timer:reset", null, "Temporizador reiniciado"));
+elements.timerCurrentMinutes.addEventListener("change", async () => {
+  try { await request("timer:set", { minutes: Number(elements.timerCurrentMinutes.value) }); }
+  catch (error) { toast(error.message, "error"); }
+});
+elements.timerAddTen.addEventListener("click", (event) => control(event.currentTarget, "timer:adjust", { minutes: 10 }, "Se agregaron 10 minutos"));
+elements.timerRemoveTen.addEventListener("click", (event) => control(event.currentTarget, "timer:adjust", { minutes: -10 }, "Se redujeron 10 minutos"));
+
+const timerAutoSaveFields = [elements.timerInitialMinutes, elements.timerExpiryAction, elements.timerPerCoin, elements.timerPerSubscription, elements.timerPerFollow, elements.timerPerShare, elements.timerPerLike, elements.timerPerComment, elements.timerMultiplierValue, elements.timerShortcutToggle, elements.timerShortcutIncrease, elements.timerShortcutDecrease, elements.timerShortcutStep];
+timerAutoSaveFields.forEach((field) => {
+  field.addEventListener(field.matches("input[type=number]") ? "input" : "change", scheduleTimerSettingsSave);
+});
+elements.timerMultiplierEnabled.addEventListener("change", () => {
+  elements.timerMultiplierValue.disabled = !elements.timerMultiplierEnabled.checked;
+  scheduleTimerSettingsSave();
 });
 elements.rankingsToggle.addEventListener("click", () => {
   toggleAccordion(elements.rankingsToggle, elements.rankingsPanel);
@@ -1485,6 +1669,7 @@ socket.on("tiktok:comment", (comment) => {
     : `${comment.nickname}: ${comment.text}`;
   ttsQueue.enqueue(spokenComment, currentTtsSettings());
 });
+socket.on("timer:update", (timer) => renderTimer(timer));
 socket.on("goal:update", (goal) => {
   if (!appState || !goal?.id) return;
   const existing = appState.config.goals.findIndex((item) => item.id === goal.id);

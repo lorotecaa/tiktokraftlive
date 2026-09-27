@@ -135,6 +135,70 @@
         </div>
       </section>
 
+      <section class="workspace timer-section" id="temporizador">
+        <button class="goals-toggle timer-toggle" id="timer-toggle" type="button" aria-expanded="false" aria-controls="timer-panel"><span>Temporizador</span><b aria-hidden="true">›</b></button>
+        <div class="goals-panel timer-panel" id="timer-panel" hidden>
+          <div class="timer-heading"><h2>Temporizador</h2><p>Controla una única cuenta regresiva en tiempo real con las interacciones del LIVE.</p></div>
+
+          <article class="timer-card timer-overlay-card">
+            <h3>Overlay</h3>
+            <div class="timer-overlay-url">
+              <input id="timer-overlay-url" aria-label="URL pública del temporizador" readonly />
+              <button class="button text" id="timer-overlay-copy" type="button">⛓ Copiar URL</button>
+              <button class="button text" id="timer-overlay-preview-button" type="button">▷ Vista previa</button>
+              <button class="button text overlay-customize" type="button" data-overlay-key="timer:main" data-overlay-title="Temporizador">⚙ Personalizar</button>
+            </div>
+            <div class="timer-preview" id="timer-preview"><strong id="timer-preview-value">10:00</strong><span id="timer-preview-status">Listo para comenzar</span></div>
+          </article>
+
+          <article class="timer-card timer-control-card">
+            <h3>Control</h3>
+            <div class="timer-control-layout">
+              <div class="timer-control-buttons">
+                <button class="button primary" id="timer-start" type="button">▶ Comenzar</button>
+                <button class="button text" id="timer-pause" type="button">⏸ Pausar</button>
+                <button class="button text" id="timer-reset" type="button">↻ Reiniciar</button>
+              </div>
+              <div class="timer-time-control">
+                <label for="timer-current-minutes">Tiempo actual (minutos)</label>
+                <input id="timer-current-minutes" type="number" min="0" max="1000000" step="0.001" value="10" />
+                <button class="button text" id="timer-add-ten" type="button" aria-label="Agregar 10 minutos">＋</button>
+                <button class="button text" id="timer-remove-ten" type="button" aria-label="Reducir 10 minutos">−</button>
+              </div>
+            </div>
+          </article>
+
+          <div class="timer-settings-grid">
+            <article class="timer-card timer-settings-card">
+              <h3>Configuración</h3>
+              <div class="timer-settings-fields">
+                <label>Tiempo inicial (minutos)<input id="timer-initial-minutes" type="number" min="0.001" max="1000000" step="0.001" value="10" /></label>
+                <label>Acción al finalizar<select id="timer-expiry-action"><option value="">Sin acción</option></select></label>
+                <p class="timer-settings-help">Define cuántos segundos se agregan o reducen por cada interacción. Puedes usar decimales y valores negativos.</p>
+                <label>Por moneda<input id="timer-per-coin" type="number" min="-1000000" max="1000000" step="0.001" value="0" /></label>
+                <label>Por suscripción / Super Fan<input id="timer-per-subscription" type="number" min="-1000000" max="1000000" step="0.001" value="0" /></label>
+                <label>Por seguimiento<input id="timer-per-follow" type="number" min="-1000000" max="1000000" step="0.001" value="0" /></label>
+                <label>Por compartida<input id="timer-per-share" type="number" min="-1000000" max="1000000" step="0.001" value="0" /></label>
+                <label>Por like<input id="timer-per-like" type="number" min="-1000000" max="1000000" step="0.001" value="0" /></label>
+                <label>Por mensaje de chat<input id="timer-per-comment" type="number" min="-1000000" max="1000000" step="0.001" value="0" /></label>
+                <label class="timer-multiplier-toggle"><span><input id="timer-multiplier-enabled" type="checkbox" /> Activar multiplicador</span><input id="timer-multiplier-value" type="number" min="0.01" max="100" step="0.01" value="1.5" /></label>
+              </div>
+              <small class="timer-autosave-state" id="timer-autosave-state">Los cambios se guardan automáticamente.</small>
+            </article>
+
+            <article class="timer-card timer-shortcuts-card">
+              <h3>Atajos de teclado</h3>
+              <div class="timer-shortcut-fields">
+                <label>Comenzar / Pausar<select id="timer-shortcut-toggle"><option value="">Sin asignar</option><option value="Space">Espacio</option><option value="KeyS">S</option><option value="KeyP">P</option></select></label>
+                <label>Aumentar<select id="timer-shortcut-increase"><option value="">Sin asignar</option><option value="ArrowUp">Flecha arriba</option><option value="Equal">Tecla +</option><option value="NumpadAdd">+ numérico</option></select></label>
+                <label>Reducir<select id="timer-shortcut-decrease"><option value="">Sin asignar</option><option value="ArrowDown">Flecha abajo</option><option value="Minus">Tecla −</option><option value="NumpadSubtract">− numérico</option></select></label>
+                <label>Paso de aumento / reducción (minutos)<input id="timer-shortcut-step" type="number" min="0.001" max="1000000" step="0.001" value="1" /></label>
+              </div>
+            </article>
+          </div>
+        </div>
+      </section>
+
       <section class="workspace user-points-section" id="usuario-y-puntos">
         <button class="goals-toggle user-points-toggle" id="user-points-toggle" type="button" aria-expanded="false" aria-controls="user-points-panel"><span>Usuario y Puntos</span><b aria-hidden="true">›</b></button>
         <div class="goals-panel user-points-panel" id="user-points-panel" hidden>
@@ -426,17 +490,17 @@
           <label>Espaciado de línea<input id="customization-line-spacing" type="number" min="30" max="100" /></label>
           <label>Espaciado de letras<input id="customization-letter-spacing" type="number" min="0" max="100" /></label>
           <label data-gift-hide>Color de fuente<input id="customization-text-color" type="color" /></label>
-          <label data-gift-hide>Color de rango<input id="customization-rank-color" type="color" /></label>
+          <label data-gift-hide data-timer-hide>Color de rango<input id="customization-rank-color" type="color" /></label>
           <label data-user-points-only>Usuarios a mostrar<input id="user-points-customization-limit" type="number" min="1" max="50" /></label>
           <label data-gift-hide>Efecto de texto<select id="customization-text-effect"><option value="none">Ninguno</option><option value="shadow">Sombra</option><option value="glow">Brillo</option></select></label>
           <label class="modal-check" data-gift-hide><input id="customization-wave" type="checkbox" /> Animación de onda</label>
           <div class="gift-customization-heading" data-gift-only>Fondo y alineación</div>
           <label class="modal-check"><input id="customization-background" type="checkbox" /> Mostrar fondo</label>
           <label>Color de fondo<input id="customization-background-color" type="text" maxlength="80" placeholder="rgba(33, 33, 33, 0.4)" /></label>
-          <label class="modal-check" data-gift-hide><input id="customization-show-rank" type="checkbox" /> Mostrar rango</label>
+          <label class="modal-check" data-gift-hide data-timer-hide><input id="customization-show-rank" type="checkbox" /> Mostrar rango</label>
           <label class="modal-check" data-gift-hide><input id="customization-show-value" type="checkbox" /> Mostrar valor</label>
           <label class="modal-check"><input id="customization-align-right" type="checkbox" /> Alinear contenido a la derecha</label>
-          <label class="modal-check" data-gift-hide><input id="customization-crown" type="checkbox" /> Mostrar corona al Top 1</label>
+          <label class="modal-check" data-gift-hide data-timer-hide><input id="customization-crown" type="checkbox" /> Mostrar corona al Top 1</label>
           <div class="gift-customization-heading" data-gift-only>Título del overlay</div>
           <label data-gift-only>Texto del título<input id="gift-customization-title" type="text" maxlength="80" /></label>
           <label data-gift-only>Tamaño del título<input id="gift-customization-title-size" type="number" min="12" max="100" /></label>
