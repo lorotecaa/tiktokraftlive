@@ -38,7 +38,7 @@ const elements = {
   adminModal: $("#admin-modal"), adminMenuView: $("#admin-menu-view"), adminAuthorizationView: $("#admin-authorization-view"), adminRolesView: $("#admin-roles-view"), adminStatisticsView: $("#admin-statistics-view"), adminRegisteredUsersView: $("#admin-registered-users-view"), adminConnectedUsersView: $("#admin-connected-users-view"), adminUserProfileView: $("#admin-user-profile-view"), adminOpenAuthorization: $("#admin-open-authorization"), adminOpenRoles: $("#admin-open-roles"), adminOpenStatistics: $("#admin-open-statistics"), adminBackMenu: $("#admin-back-menu"), adminRolesBackMenu: $("#admin-roles-back-menu"), adminStatisticsBackMenu: $("#admin-statistics-back-menu"), adminOpenRegisteredUsers: $("#admin-open-registered-users"), adminOpenConnectedUsers: $("#admin-open-connected-users"), adminRegisteredUsersBack: $("#admin-registered-users-back"), adminConnectedUsersBack: $("#admin-connected-users-back"), adminRegisteredUsersSearch: $("#admin-registered-users-search"), adminRegisteredUsersList: $("#admin-registered-users-list"), adminRegisteredUsersEmpty: $("#admin-registered-users-empty"), adminConnectedUsersList: $("#admin-connected-users-list"), adminConnectedUsersEmpty: $("#admin-connected-users-empty"), adminRegisteredUsersCount: $("#admin-registered-users-count"), adminConnectedUsersCount: $("#admin-connected-users-count"), adminUserProfileBack: $("#admin-user-profile-back"), adminUserProfileTitle: $("#admin-user-profile-title"), adminUserProfileData: $("#admin-user-profile-data"), adminAuthorizedForm: $("#admin-authorized-form"), adminAuthorizedUsername: $("#admin-authorized-username"), adminAuthorizedSearch: $("#admin-authorized-search"), adminAuthorizedList: $("#admin-authorized-list"), adminAuthorizedEmpty: $("#admin-authorized-empty"), adminRolesForm: $("#admin-roles-form"), adminRoleEmail: $("#admin-role-email"), adminRoleSelect: $("#admin-role-select"), adminRolesSearch: $("#admin-roles-search"), adminRolesList: $("#admin-roles-list"), adminRolesEmpty: $("#admin-roles-empty"),
   profileModal: $("#profile-modal"), profileForm: $("#profile-form"), profileAvatar: $("#profile-avatar"), profileAvatarEmpty: $("#profile-avatar-empty"), profileAvatarInput: $("#profile-avatar-input"), profileEmail: $("#profile-email"), profilePassword: $("#profile-password"), profilePasswordConfirm: $("#profile-password-confirm"), profileMessage: $("#profile-message"),
   mappingForm: $("#mapping-form"), mappingId: $("#mapping-id"), giftName: $("#gift-name"), giftId: $("#gift-id"),
-  command: $("#mapping-command"), audio: $("#mapping-audio"), audioTest: $("#audio-test"), audioState: $("#audio-state"), cooldown: $("#cooldown"), enabled: $("#mapping-enabled"), editorHeading: $("#editor-heading"),
+  command: $("#mapping-command"), audio: $("#mapping-audio"), audioTest: $("#audio-test"), audioTestStop: $("#audio-test-stop"), audioState: $("#audio-state"), cooldown: $("#cooldown"), enabled: $("#mapping-enabled"), editorHeading: $("#editor-heading"),
   cancelEdit: $("#cancel-edit"), mappingList: $("#mapping-list"), mappingEmpty: $("#mapping-empty"), selectGiftButton: $("#select-gift-button"), giftSelectorModal: $("#gift-selector-modal"), giftSelectorSearch: $("#gift-selector-search"), giftSelectorGrid: $("#gift-selector-grid"), giftSelectorEmpty: $("#gift-selector-empty"),
   simulateForm: $("#simulate-form"), simulateGift: $("#simulate-gift"), simulateCount: $("#simulate-count"),
   giftHistoryList: $("#gift-history-list"), giftHistoryEmpty: $("#gift-history-empty"),
@@ -146,6 +146,7 @@ elements.profileForm?.addEventListener("submit", async (event) => {
   }
 });
 let availableSounds = [];
+let activeAudioTest = null;
 let profileAvatarData = "";
 function updateTtsPlaybackControls({ paused = false, speaking = false } = {}) {
   if (!elements.ttsStop || !elements.ttsResume) return;
@@ -941,6 +942,34 @@ function playSound(filename) {
   audio.play().catch(() => toast("El navegador bloqueó la reproducción de audio.", "error"));
 }
 
+function stopAudioTest() {
+  const audio = activeAudioTest;
+  activeAudioTest = null;
+  elements.audioTestStop.disabled = true;
+  if (!audio) return;
+  audio.pause();
+  try { audio.currentTime = 0; } catch { /* El navegador aún no cargó los metadatos. */ }
+}
+
+function playAudioTest(filename) {
+  stopAudioTest();
+  if (!filename) return;
+  const audio = new Audio(soundUrl(filename));
+  activeAudioTest = audio;
+  elements.audioTestStop.disabled = false;
+  audio.addEventListener("ended", () => {
+    if (activeAudioTest !== audio) return;
+    activeAudioTest = null;
+    elements.audioTestStop.disabled = true;
+  }, { once: true });
+  audio.play().catch(() => {
+    if (activeAudioTest !== audio) return;
+    activeAudioTest = null;
+    elements.audioTestStop.disabled = true;
+    toast("El navegador bloqueó la reproducción de audio.", "error");
+  });
+}
+
 function currentTtsSettings() {
   return {
     enabled: Boolean(appState?.config?.tts?.enabled),
@@ -1398,7 +1427,8 @@ elements.cancelEdit.addEventListener("click", resetEditor);
 elements.audio.addEventListener("change", () => {
   elements.audioTest.disabled = !elements.audio.value || !availableSounds.includes(elements.audio.value);
 });
-elements.audioTest.addEventListener("click", () => playSound(elements.audio.value));
+elements.audioTest.addEventListener("click", () => playAudioTest(elements.audio.value));
+elements.audioTestStop.addEventListener("click", stopAudioTest);
 
 elements.mappingList.addEventListener("click", async (event) => {
   const button = event.target.closest("button[data-action]");
