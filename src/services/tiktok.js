@@ -143,6 +143,20 @@ function isFollowMessage(message) {
   return type === "follow" || type === "webcastfollowmessage" || ((type === "webcastsocialmessage" || type === "social") && action.includes("follow"));
 }
 
+function isShareMessage(message) {
+  const type = String(message?.type || message?.eventType || message?.event || "").toLowerCase();
+  const data = message?.data || message || {};
+  const action = String(data.action || data.actionType || data.displayType || "").toLowerCase();
+  return type === "share" || type === "sharemessage" || type === "webcastsharemessage" || ((type === "webcastsocialmessage" || type === "social") && action.includes("share"));
+}
+
+function isSubscribeMessage(message) {
+  const type = String(message?.type || message?.eventType || message?.event || "").toLowerCase();
+  const data = message?.data || message || {};
+  const displayType = String(data.displayType || data.display_type || data.content?.displayType || data.commonBarrageContent?.displayType || "").toLowerCase();
+  return type === "subscribe" || type === "subscription" || type === "subscribemessage" || type === "superfan" || type === "super_fan" || type === "superfanjoin" || type === "webcastsubnotifymessage" || type === "webcastsubscriptionmessage" || displayType.includes("superfanjoined") || displayType.includes("subscribe");
+}
+
 function metricAmount(message, fields, fallback = 1) {
   const data = message?.data || message || {};
   for (const field of fields) {
@@ -479,9 +493,19 @@ export class TikTokClient {
         this.onMetric("follows", 1);
         continue;
       }
+      if (isShareMessage(message)) {
+        this.onMetric("shares", 1);
+        continue;
+      }
+      if (isSubscribeMessage(message)) {
+        this.onMetric("subscriptions", 1);
+        continue;
+      }
       if (isCommentMessage(message)) {
         const comment = normalizeComment(message);
-        if (comment.text && !comment.text.startsWith("!") && !this.shouldDiscardReplayedComment(comment, sourceSocket) && this.shouldReadComment(comment) && this.isFirstReadComment(comment)) this.onComment(comment);
+        const replayed = this.shouldDiscardReplayedComment(comment, sourceSocket);
+        if (comment.text && !replayed) this.onMetric("comments", 1);
+        if (comment.text && !comment.text.startsWith("!") && !replayed && this.shouldReadComment(comment) && this.isFirstReadComment(comment)) this.onComment(comment);
         continue;
       }
       if (!isGiftMessage(message)) continue;

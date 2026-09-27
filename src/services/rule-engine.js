@@ -41,6 +41,16 @@ export class RuleEngine {
     return Boolean(idMatches || nameMatches);
   }
 
+  executeSelected(mapping, event) {
+    if (!mapping?.enabled) throw new Error("La acción seleccionada está desactivada.");
+    if (!mapping.command) throw new Error("La acción seleccionada no tiene un comando.");
+    const actionEvent = { ...event, repeatCount: 1 };
+    const command = this.render(mapping.command, actionEvent);
+    this.sendCommand(command, { event: actionEvent, mappingId: mapping.id, timer: true });
+    this.onActivity({ type: "action", event: actionEvent, mapping, command, message: "Acción del temporizador enviada a Minecraft" });
+    return { executed: 1, command };
+  }
+
   process(event, mappings) {
     const now = Date.now();
     const matches = mappings.filter((mapping) => this.matches(mapping, event));
