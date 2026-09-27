@@ -10,11 +10,13 @@ let anchorReceivedAt = Date.now();
 
 function formatTime(value) {
   const milliseconds = Math.max(0, Math.round(Number(value) || 0));
-  const minutes = Math.floor(milliseconds / 60_000);
+  const hours = Math.floor(milliseconds / 3_600_000);
+  const minutes = hours > 0 ? Math.floor(milliseconds / 60_000) % 60 : Math.floor(milliseconds / 60_000);
   const seconds = Math.floor((milliseconds % 60_000) / 1_000);
   const fraction = milliseconds % 1_000;
   const decimal = fraction ? `.${String(fraction).padStart(3, "0").replace(/0+$/, "")}` : "";
-  return `${String(minutes).padStart(2, "0")}:${String(seconds).padStart(2, "0")}${decimal}`;
+  const minuteAndSecond = `${String(minutes).padStart(2, "0")}:${String(seconds).padStart(2, "0")}${decimal}`;
+  return hours > 0 ? `${String(hours).padStart(2, "0")}:${minuteAndSecond}` : minuteAndSecond;
 }
 
 function applyCustomization(customization = {}) {
