@@ -6,17 +6,16 @@ const statusElement = document.querySelector("#timer-status");
 const statusLabels = { idle: "Listo para comenzar", running: "En marcha", paused: "Pausado", finished: "Finalizado" };
 let currentTimer = null;
 let anchorRemainingMs = 0;
-let anchorReceivedAt = Date.now();
+let localDeadline = 0;
+let socketConnected = false;
 
 function formatTime(value) {
   const milliseconds = Math.max(0, Math.round(Number(value) || 0));
-  const hours = Math.floor(milliseconds / 3_600_000);
-  const minutes = hours > 0 ? Math.floor(milliseconds / 60_000) % 60 : Math.floor(milliseconds / 60_000);
-  const seconds = Math.floor((milliseconds % 60_000) / 1_000);
-  const fraction = milliseconds % 1_000;
-  const decimal = fraction ? `.${String(fraction).padStart(3, "0").replace(/0+$/, "")}` : "";
-  const minuteAndSecond = `${String(minutes).padStart(2, "0")}:${String(seconds).padStart(2, "0")}${decimal}`;
-  return hours > 0 ? `${String(hours).padStart(2, "0")}:${minuteAndSecond}` : minuteAndSecond;
+  const totalSeconds = Math.floor(milliseconds / 1_000);
+  const hours = Math.floor(totalSeconds / 3_600);
+  const minutes = Math.floor(totalSeconds / 60) % 60;
+  const seconds = totalSeconds % 60;
+  return `${String(hours).padStart(2, "0")}:${String(minutes).padStart(2, "0")}:${String(seconds).padStart(2, "0")}`;
 }
 
 function applyCustomization(customization = {}) {
@@ -38,19 +37,20 @@ function applyCustomization(customization = {}) {
 function remainingNow() {
   if (!currentTimer) return 0;
   if (currentTimer.status !== "running") return anchorRemainingMs;
-  return Math.max(0, anchorRemainingMs - (Date.now() - anchorReceivedAt));
+  return Math.max(0, localDeadline - Date.now());
 }
 
 function renderClock() {
   if (!currentTimer) return;
-  valueElement.textContent = formatTime(remainingNow());
+  const formatted = formatTime(remainingNow());
+  if (valueElement.textContent !== formatted) valueElement.textContent = formatted;
 }
 
 function render(timer) {
   if (!timer) return;
   currentTimer = timer;
   anchorRemainingMs = Math.max(0, Number(timer.remainingMs) || 0);
-  anchorReceivedAt = Date.now();
+  localDeadline = timer.status === "running" ? Date.now() + anchorRemainingMs : 0;
   applyCustomization(timer.customization);
   widget.dataset.status = timer.status || "idle";
   renderClock();
@@ -69,7 +69,16 @@ async function loadTimer() {
 loadTimer().catch(() => { statusElement.textContent = "Esperando conexión…"; });
 if (typeof window.io === "function") {
   const socket = window.io("/public", { auth: { overlayToken } });
+  socket.on("connect", () => { socketConnected = true; });
+  socket.on("disconnect", () => {
+    socketConnected = false;
+    loadTimer().catch(() => {});
+  });
+  socket.on("connect_error", () => { socketConnected = false; });
   socket.on("timer:update", render);
 }
-setInterval(renderClock, 50);
-setInterval(() => loadTimer().catch(() => {}), 2_000);
+setInterval(renderClock, 200);
+// HTTP queda exclusivamente como respaldo cuando Socket.IO no está activo.
+setInterval(() => {
+  if (!socketConnected) loadTimer().catch(() => {});
+}, 15_000);

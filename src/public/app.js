@@ -18,7 +18,7 @@ let timerSettingsSaveTimer = null;
 let timerSettingsRevision = 0;
 let panelTimer = null;
 let panelTimerRemainingMs = 0;
-let panelTimerReceivedAt = Date.now();
+let panelTimerDeadline = 0;
 const giftNamesById = window.TIKTOK_GIFT_NAMES || {};
 
 const $ = (selector) => document.querySelector(selector);
@@ -578,13 +578,11 @@ function numberFormat(value) {
 
 function formatTimerTime(value) {
   const milliseconds = Math.max(0, Math.round(Number(value) || 0));
-  const hours = Math.floor(milliseconds / 3_600_000);
-  const minutes = hours > 0 ? Math.floor(milliseconds / 60_000) % 60 : Math.floor(milliseconds / 60_000);
-  const seconds = Math.floor((milliseconds % 60_000) / 1_000);
-  const fraction = milliseconds % 1_000;
-  const decimal = fraction ? `.${String(fraction).padStart(3, "0").replace(/0+$/, "")}` : "";
-  const minuteAndSecond = `${String(minutes).padStart(2, "0")}:${String(seconds).padStart(2, "0")}${decimal}`;
-  return hours > 0 ? `${String(hours).padStart(2, "0")}:${minuteAndSecond}` : minuteAndSecond;
+  const totalSeconds = Math.floor(milliseconds / 1_000);
+  const hours = Math.floor(totalSeconds / 3_600);
+  const minutes = Math.floor(totalSeconds / 60) % 60;
+  const seconds = totalSeconds % 60;
+  return `${String(hours).padStart(2, "0")}:${String(minutes).padStart(2, "0")}:${String(seconds).padStart(2, "0")}`;
 }
 
 function timerOverlayUrl() {
@@ -646,7 +644,7 @@ function renderTimer(timer) {
   if (appState) appState.timer = timer;
   panelTimer = timer;
   panelTimerRemainingMs = Math.max(0, Number(timer.remainingMs) || 0);
-  panelTimerReceivedAt = Date.now();
+  panelTimerDeadline = timer.status === "running" ? Date.now() + panelTimerRemainingMs : 0;
   const statusLabels = { idle: "Listo para comenzar", running: "En marcha", paused: "Pausado", finished: "Finalizado" };
   elements.timerPreview.dataset.status = timer.status || "idle";
   elements.timerPreviewStatus.textContent = statusLabels[timer.status] || "Listo";
@@ -659,13 +657,14 @@ function renderTimer(timer) {
 function panelTimerRemainingNow() {
   if (!panelTimer) return 0;
   if (panelTimer.status !== "running") return panelTimerRemainingMs;
-  return Math.max(0, panelTimerRemainingMs - (Date.now() - panelTimerReceivedAt));
+  return Math.max(0, panelTimerDeadline - Date.now());
 }
 
 function renderPanelTimerClock() {
   if (!panelTimer) return;
   const remainingMs = panelTimerRemainingNow();
-  elements.timerPreviewValue.textContent = formatTimerTime(remainingMs);
+  const formatted = formatTimerTime(remainingMs);
+  if (elements.timerPreviewValue.textContent !== formatted) elements.timerPreviewValue.textContent = formatted;
   if (document.activeElement !== elements.timerCurrentMinutes) {
     elements.timerCurrentMinutes.value = timerInputValue(remainingMs / 60_000);
   }
@@ -1690,7 +1689,7 @@ socket.on("tiktok:comment", (comment) => {
   ttsQueue.enqueue(spokenComment, currentTtsSettings());
 });
 socket.on("timer:update", (timer) => renderTimer(timer));
-setInterval(renderPanelTimerClock, 50);
+setInterval(renderPanelTimerClock, 200);
 socket.on("goal:update", (goal) => {
   if (!appState || !goal?.id) return;
   const existing = appState.config.goals.findIndex((item) => item.id === goal.id);
