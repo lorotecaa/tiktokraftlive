@@ -666,9 +666,6 @@ function renderPanelTimerClock() {
   const remainingMs = panelTimerRemainingNow();
   const formatted = formatTimerTime(remainingMs);
   if (elements.timerPreviewValue.textContent !== formatted) elements.timerPreviewValue.textContent = formatted;
-  if (document.activeElement !== elements.timerCurrentMinutes) {
-    elements.timerCurrentMinutes.value = timerInputValue(remainingMs / 60_000);
-  }
 }
 
 function synchronizePanelTimer() {
@@ -1452,12 +1449,17 @@ elements.timerPreviewButton.addEventListener("click", () => window.open(timerOve
 elements.timerStart.addEventListener("click", (event) => control(event.currentTarget, "timer:start", null, appState?.timer?.status === "paused" ? "Temporizador reanudado" : "Temporizador iniciado"));
 elements.timerPause.addEventListener("click", (event) => control(event.currentTarget, "timer:pause", null, "Temporizador pausado"));
 elements.timerReset.addEventListener("click", (event) => control(event.currentTarget, "timer:reset", null, "Temporizador reiniciado"));
-elements.timerCurrentMinutes.addEventListener("change", async () => {
-  try { await request("timer:set", { minutes: Number(elements.timerCurrentMinutes.value) }); }
-  catch (error) { toast(error.message, "error"); }
-});
-elements.timerAddTen.addEventListener("click", (event) => control(event.currentTarget, "timer:adjust", { minutes: 10 }, "Se agregaron 10 minutos"));
-elements.timerRemoveTen.addEventListener("click", (event) => control(event.currentTarget, "timer:adjust", { minutes: -10 }, "Se redujeron 10 minutos"));
+function manualTimerAdjustment(button, direction) {
+  const minutes = Number(elements.timerCurrentMinutes.value);
+  if (!elements.timerCurrentMinutes.checkValidity() || !Number.isFinite(minutes) || minutes <= 0) {
+    toast("Introduce una cantidad de minutos mayor que cero.", "error");
+    return;
+  }
+  const amount = timerInputValue(minutes);
+  control(button, "timer:adjust", { minutes: direction * minutes }, direction > 0 ? `Se agregaron ${amount} minutos` : `Se redujeron ${amount} minutos`);
+}
+elements.timerAddTen.addEventListener("click", (event) => manualTimerAdjustment(event.currentTarget, 1));
+elements.timerRemoveTen.addEventListener("click", (event) => manualTimerAdjustment(event.currentTarget, -1));
 
 const timerAutoSaveFields = [elements.timerInitialMinutes, elements.timerExpiryAction, elements.timerPerCoin, elements.timerPerSubscription, elements.timerPerFollow, elements.timerPerShare, elements.timerPerLike, elements.timerPerComment, elements.timerMultiplierValue, elements.timerShortcutToggle, elements.timerShortcutIncrease, elements.timerShortcutDecrease, elements.timerShortcutStep];
 timerAutoSaveFields.forEach((field) => {

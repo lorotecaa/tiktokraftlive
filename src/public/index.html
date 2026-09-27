@@ -160,10 +160,10 @@
                 <button class="button text" id="timer-reset" type="button">↻ Reiniciar</button>
               </div>
               <div class="timer-time-control">
-                <label for="timer-current-minutes">Tiempo actual (minutos)</label>
-                <input id="timer-current-minutes" type="number" min="0" max="1000000" step="0.001" value="10" />
-                <button class="button text" id="timer-add-ten" type="button" aria-label="Agregar 10 minutos">＋</button>
-                <button class="button text" id="timer-remove-ten" type="button" aria-label="Reducir 10 minutos">−</button>
+                <label for="timer-current-minutes">Cantidad para sumar/restar (minutos)</label>
+                <input id="timer-current-minutes" type="number" min="0.001" max="1000000" step="0.001" value="10" />
+                <button class="button text" id="timer-add-ten" type="button" aria-label="Sumar la cantidad indicada">＋</button>
+                <button class="button text" id="timer-remove-ten" type="button" aria-label="Restar la cantidad indicada">−</button>
               </div>
             </div>
           </article>
@@ -536,6 +536,6 @@
     <script src="/socket.io/socket.io.js"></script>
     <script src="/gift-catalog.js"></script>
     <script src="/tts.js"></script>
-    <script src="/app.js?v=20260927-timer-authoritative"></script>
+    <script src="/app.js?v=20260927-timer-manual-adjustment"></script>
   </body>
 </html>
