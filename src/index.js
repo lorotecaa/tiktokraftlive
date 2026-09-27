@@ -136,6 +136,7 @@ publicIo.on("connection", (socket) => {
   const workspace = socket.data.workspace;
   socket.join(workspace.publicRoom());
   socket.emit("timer:update", workspace.publicTimer());
+  socket.on("timer:sync", (_input, done) => done?.({ ok: true, data: workspace.publicTimer() }));
 });
 
 io.use(async (socket, next) => { try { const session = await identity(socket.handshake.auth?.token); socket.data.session = session; next(); } catch (error) { next(new Error(error.message)); } });
@@ -151,6 +152,7 @@ io.on("connection", (socket) => {
   socket.on("gift-overlays:reset", (_input, done) => acknowledge(done, async () => { w.giftEngine.reset(); await w.saveNow(); return w.config.giftOverlays; }, w));
   socket.on("overlay-customization:save", (input, done) => acknowledge(done, async () => { const key = String(input?.key || ""); const customization = sanitizeConfig({ overlayCustomizations: { [key]: input?.customization } }).overlayCustomizations[key]; if (!customization) throw new Error("Overlay inválido."); await w.save({ ...w.config, overlayCustomizations: { ...w.config.overlayCustomizations, [key]: customization } }); w.emit("overlay-customization:update", { key, customization }); if (key === "timer:main") w.emitTimer(); return { key, customization }; }, w));
   socket.on("goal:save", (input, done) => acknowledge(done, () => w.saveGoal(input), w));
+  socket.on("timer:sync", (_input, done) => acknowledge(done, () => w.timerEngine.snapshot(), w));
   socket.on("timer:settings:save", (input, done) => acknowledge(done, () => w.saveTimerSettings(input), w));
   socket.on("timer:start", (_input, done) => acknowledge(done, () => w.timerEngine.start(), w));
   socket.on("timer:pause", (_input, done) => acknowledge(done, () => w.timerEngine.pause(), w));
