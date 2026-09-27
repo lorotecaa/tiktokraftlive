@@ -16,6 +16,9 @@ let statisticsSearch = "";
 let statisticsProfileOrigin = "registered";
 let timerSettingsSaveTimer = null;
 let timerSettingsRevision = 0;
+let panelTimer = null;
+let panelTimerRemainingMs = 0;
+let panelTimerReceivedAt = Date.now();
 const giftNamesById = window.TIKTOK_GIFT_NAMES || {};
 
 const $ = (selector) => document.querySelector(selector);
@@ -641,15 +644,30 @@ function renderTimerSettings(timer, mappings) {
 function renderTimer(timer) {
   if (!timer) return;
   if (appState) appState.timer = timer;
+  panelTimer = timer;
+  panelTimerRemainingMs = Math.max(0, Number(timer.remainingMs) || 0);
+  panelTimerReceivedAt = Date.now();
   const statusLabels = { idle: "Listo para comenzar", running: "En marcha", paused: "Pausado", finished: "Finalizado" };
   elements.timerPreview.dataset.status = timer.status || "idle";
-  elements.timerPreviewValue.textContent = formatTimerTime(timer.remainingMs);
   elements.timerPreviewStatus.textContent = statusLabels[timer.status] || "Listo";
   elements.timerStart.textContent = timer.status === "paused" ? "▶ Reanudar" : "▶ Comenzar";
   elements.timerStart.disabled = timer.status === "running";
   elements.timerPause.disabled = timer.status !== "running";
+  renderPanelTimerClock();
+}
+
+function panelTimerRemainingNow() {
+  if (!panelTimer) return 0;
+  if (panelTimer.status !== "running") return panelTimerRemainingMs;
+  return Math.max(0, panelTimerRemainingMs - (Date.now() - panelTimerReceivedAt));
+}
+
+function renderPanelTimerClock() {
+  if (!panelTimer) return;
+  const remainingMs = panelTimerRemainingNow();
+  elements.timerPreviewValue.textContent = formatTimerTime(remainingMs);
   if (document.activeElement !== elements.timerCurrentMinutes) {
-    elements.timerCurrentMinutes.value = timerInputValue((Number(timer.remainingMs) || 0) / 60_000);
+    elements.timerCurrentMinutes.value = timerInputValue(remainingMs / 60_000);
   }
 }
 
@@ -1672,6 +1690,7 @@ socket.on("tiktok:comment", (comment) => {
   ttsQueue.enqueue(spokenComment, currentTtsSettings());
 });
 socket.on("timer:update", (timer) => renderTimer(timer));
+setInterval(renderPanelTimerClock, 50);
 socket.on("goal:update", (goal) => {
   if (!appState || !goal?.id) return;
   const existing = appState.config.goals.findIndex((item) => item.id === goal.id);
