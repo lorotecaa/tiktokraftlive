@@ -32,7 +32,11 @@
       const next = this.items.shift();
       const utterance = new SpeechSynthesisUtterance(next.text);
       this.activeUtterance = utterance;
-      utterance.lang = next.settings.language;
+      const voices = window.speechSynthesis.getVoices?.() || [];
+      const selectedVoice = voices.find((voice) => voice.voiceURI === next.settings.voiceURI)
+        || voices.find((voice) => voice.name === next.settings.voiceName && (!next.settings.language || voice.lang === next.settings.language));
+      if (selectedVoice) utterance.voice = selectedVoice;
+      utterance.lang = selectedVoice?.lang || next.settings.language;
       utterance.volume = next.settings.volume;
       utterance.rate = Math.max(0.1, Math.min(10, (Number(next.settings.speed) || 60) / 50));
       utterance.pitch = Math.max(0, Math.min(2, (Number(next.settings.pitch) || 70) / 50));
