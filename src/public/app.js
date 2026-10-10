@@ -155,6 +155,7 @@ elements.profileForm?.addEventListener("submit", async (event) => {
   }
 });
 let availableSounds = [];
+let soundDurations = new Map();
 let activeAudioTest = null;
 let profileAvatarData = "";
 let availableTtsVoices = [];
@@ -1016,12 +1017,29 @@ function readCustomization() {
   };
 }
 
+function formatSoundDuration(filename) {
+  const duration = soundDurations.get(filename);
+  if (!Number.isFinite(duration)) return "";
+  const totalSeconds = Math.max(duration > 0 ? 1 : 0, Math.round(duration));
+  const hours = Math.floor(totalSeconds / 3600);
+  const minutes = Math.floor((totalSeconds % 3600) / 60);
+  const seconds = totalSeconds % 60;
+  return hours
+    ? `${String(hours).padStart(2, "0")}:${String(minutes).padStart(2, "0")}:${String(seconds).padStart(2, "0")}`
+    : `${String(minutes).padStart(2, "0")}:${String(seconds).padStart(2, "0")}`;
+}
+
+function soundOptionLabel(filename) {
+  const duration = formatSoundDuration(filename);
+  return `${filename}${duration ? ` · ${duration}` : ""}`;
+}
+
 function mappingAudioOptions(selectedAudio = "") {
   const sounds = [...availableSounds];
   if (selectedAudio && !sounds.includes(selectedAudio)) sounds.push(selectedAudio);
   return ["", ...sounds].map((filename) => {
     const label = filename
-      ? `${filename}${availableSounds.includes(filename) ? "" : " (no disponible)"}`
+      ? `${soundOptionLabel(filename)}${availableSounds.includes(filename) ? "" : " (no disponible)"}`
       : "Sin audio";
     return `<option value="${escapeHtml(filename)}"${filename === selectedAudio ? " selected" : ""}>${escapeHtml(label)}</option>`;
   }).join("");
@@ -1293,7 +1311,7 @@ function playTts(text, { allowWhenDisabled = false, useDraft = false } = {}) {
 function renderSoundOptions(selectedAudio = elements.audio.value) {
   const selected = selectedAudio || "";
   elements.audio.replaceChildren(new Option("Sin audio", ""));
-  for (const filename of availableSounds) elements.audio.add(new Option(filename, filename));
+  for (const filename of availableSounds) elements.audio.add(new Option(soundOptionLabel(filename), filename));
   if (selected && !availableSounds.includes(selected)) {
     elements.audio.add(new Option(`${selected} (no disponible)`, selected));
   }
@@ -1310,6 +1328,9 @@ async function loadSounds() {
     if (!response.ok) throw new Error();
     const payload = await response.json();
     availableSounds = Array.isArray(payload.sounds) ? payload.sounds : [];
+    soundDurations = new Map((Array.isArray(payload.details) ? payload.details : [])
+      .filter((sound) => sound && typeof sound.filename === "string" && Number.isFinite(sound.durationSeconds))
+      .map((sound) => [sound.filename, sound.durationSeconds]));
     renderSoundOptions();
     if (appState?.config?.mappings) renderMappings(appState.config.mappings);
   } catch {

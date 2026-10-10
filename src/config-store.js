@@ -1,6 +1,7 @@
 import fs from "node:fs/promises";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
+import { parseFile } from "music-metadata";
 
 const directory = path.dirname(fileURLToPath(import.meta.url));
 // En producción se puede dirigir la configuración a un disco persistente sin
@@ -30,6 +31,7 @@ const goalTypes = new Set(["likes", "follows", "coins"]);
 const overlayFonts = new Set(["Space Grotesk", "DM Mono", "Press Start 2P"]);
 const overlayEffects = new Set(["none", "shadow", "glow"]);
 let configWriteQueue = Promise.resolve();
+const soundMetadataCache = new Map();
 
 const defaultConfig = {
   tiktokUsername: "",
@@ -312,6 +314,40 @@ export async function listAvailableSounds() {
       .filter((entry) => entry.isFile() && audioExtensions.has(path.extname(entry.name).toLowerCase()))
       .map((entry) => entry.name)
       .sort((left, right) => left.localeCompare(right, "es"));
+  } catch (error) {
+    if (error.code === "ENOENT") return [];
+    throw error;
+  }
+}
+
+export async function listAvailableSoundDetails() {
+  try {
+    const entries = (await fs.readdir(soundsDirectory, { withFileTypes: true }))
+      .filter((entry) => entry.isFile() && audioExtensions.has(path.extname(entry.name).toLowerCase()))
+      .sort((left, right) => left.name.localeCompare(right.name, "es"));
+    const availableNames = new Set(entries.map((entry) => entry.name));
+    for (const cachedName of soundMetadataCache.keys()) {
+      if (!availableNames.has(cachedName)) soundMetadataCache.delete(cachedName);
+    }
+    return Promise.all(entries.map(async (entry) => {
+      const filePath = path.join(soundsDirectory, entry.name);
+      const stats = await fs.stat(filePath);
+      const cached = soundMetadataCache.get(entry.name);
+      if (cached?.size === stats.size && cached?.modifiedAt === stats.mtimeMs) return cached.detail;
+      let durationSeconds = null;
+      try {
+        const metadata = await parseFile(filePath, { duration: true, skipCovers: true });
+        if (Number.isFinite(metadata.format.duration)) {
+          durationSeconds = Math.max(0, Math.round(metadata.format.duration * 1000) / 1000);
+        }
+      } catch {
+        // Un archivo que el navegador puede reproducir no debe desaparecer de
+        // la lista únicamente porque sus metadatos no pudieron analizarse.
+      }
+      const detail = { filename: entry.name, durationSeconds };
+      soundMetadataCache.set(entry.name, { size: stats.size, modifiedAt: stats.mtimeMs, detail });
+      return detail;
+    }));
   } catch (error) {
     if (error.code === "ENOENT") return [];
     throw error;

@@ -4,7 +4,7 @@ import path from "node:path";
 import { fileURLToPath } from "node:url";
 import express from "express";
 import { Server } from "socket.io";
-import { listAvailableSounds, sanitizeConfig } from "./config-store.js";
+import { listAvailableSoundDetails, listAvailableSounds, sanitizeConfig } from "./config-store.js";
 import { authConfigured, changePassword, refreshSession, signIn, signUp, userFromAccessToken } from "./auth-store.js";
 import { claimWorkspace, saveWorkspaceConfig, workspaceByOverlayToken } from "./workspace-store.js";
 import { WorkspaceRuntime } from "./workspace-runtime.js";
@@ -94,7 +94,12 @@ app.post("/api/auth/refresh", async (request, response, next) => { try { respons
 app.get("/api/health", (_request, response) => response.json({ ok: true, authConfigured }));
 app.get("/api/state", protectedRoute, (request, response) => response.json({ ...request.session.workspace.publicState(), account: { email: request.session.user.email, isAdmin: request.session.isAdmin } }));
 app.post("/api/auth/password", protectedRoute, async (request, response, next) => { try { await changePassword(tokenFrom(request), String(request.body?.password || "")); response.json({ ok: true }); } catch (error) { next(error); } });
-app.get("/api/sounds", protectedRoute, async (_request, response, next) => { try { response.json({ sounds: await listAvailableSounds() }); } catch (error) { next(error); } });
+app.get("/api/sounds", protectedRoute, async (_request, response, next) => {
+  try {
+    const details = await listAvailableSoundDetails();
+    response.json({ sounds: details.map((sound) => sound.filename), details });
+  } catch (error) { next(error); }
+});
 app.get("/api/user-points", protectedRoute, async (request, response, next) => { try { response.json({ entries: await listWorkspaceUserPoints(request.session.user.id, { query: request.query.q, limit: request.query.limit }), configured: true, overlayToken: request.session.workspace.overlayToken }); } catch (error) { next(error); } });
 app.get("/api/gift-catalog", protectedRoute, async (request, response, next) => { try { response.json({ entries: await listGiftCatalog(request.query.limit) }); } catch (error) { next(error); } });
 
