@@ -158,6 +158,8 @@ let availableSounds = [];
 let activeAudioTest = null;
 let profileAvatarData = "";
 let availableTtsVoices = [];
+let ttsAutoSaveTimer = null;
+let ttsAutoSaveRevision = 0;
 function updateTtsPlaybackControls({ paused = false, speaking = false } = {}) {
   if (!elements.ttsStop || !elements.ttsResume) return;
   elements.ttsStop.disabled = !speaking || paused;
@@ -1151,6 +1153,33 @@ function currentTtsSettings({ fromControls = false } = {}) {
   };
 }
 
+function ttsSettingsFromControls() {
+  return {
+    enabled: elements.ttsEnabled.checked,
+    language: elements.ttsLanguage.value,
+    voiceURI: elements.ttsVoice.value,
+    voiceName: elements.ttsVoice.selectedOptions[0]?.dataset.voiceName || "",
+    volume: Number(elements.ttsVolume.value),
+    speed: Number(elements.ttsSpeed.value),
+    pitch: Number(elements.ttsPitch.value),
+    readUsername: elements.ttsReadUsername.checked
+  };
+}
+
+function scheduleTtsAutoSave() {
+  clearTimeout(ttsAutoSaveTimer);
+  const revision = ++ttsAutoSaveRevision;
+  ttsAutoSaveTimer = setTimeout(async () => {
+    try {
+      const saved = await request("tts:save", ttsSettingsFromControls());
+      if (revision !== ttsAutoSaveRevision || !appState?.config) return;
+      appState.config.tts = { ...appState.config.tts, ...saved };
+    } catch (error) {
+      toast(error.message, "error");
+    }
+  }, 150);
+}
+
 function ttsVoiceIdentity(voice) {
   return String(voice?.voiceURI || voice?.name || "");
 }
@@ -1411,20 +1440,19 @@ $("#tiktok-disconnect").addEventListener("click", (event) => control(event.curre
 elements.ttsVolume.addEventListener("input", () => {
   elements.ttsVolumeValue.textContent = `${Math.round(Number(elements.ttsVolume.value) * 100)}%`;
 });
-elements.ttsLanguage.addEventListener("change", () => renderTtsVoiceOptions());
-elements.ttsSettings.addEventListener("submit", async (event) => {
+elements.ttsVolume.addEventListener("change", scheduleTtsAutoSave);
+elements.ttsEnabled.addEventListener("change", scheduleTtsAutoSave);
+elements.ttsReadUsername.addEventListener("change", scheduleTtsAutoSave);
+elements.ttsLanguage.addEventListener("change", () => {
+  renderTtsVoiceOptions();
+  scheduleTtsAutoSave();
+});
+elements.ttsVoice.addEventListener("change", scheduleTtsAutoSave);
+elements.ttsSpeed.addEventListener("change", scheduleTtsAutoSave);
+elements.ttsPitch.addEventListener("change", scheduleTtsAutoSave);
+elements.ttsSettings.addEventListener("submit", (event) => {
   event.preventDefault();
-  const submit = event.submitter;
-  await control(submit, "tts:save", {
-    enabled: elements.ttsEnabled.checked,
-    language: elements.ttsLanguage.value,
-    voiceURI: elements.ttsVoice.value,
-    voiceName: elements.ttsVoice.selectedOptions[0]?.dataset.voiceName || "",
-    volume: Number(elements.ttsVolume.value),
-    speed: Number(elements.ttsSpeed.value),
-    pitch: Number(elements.ttsPitch.value),
-    readUsername: elements.ttsReadUsername.checked
-  }, "Configuración TTS guardada");
+  scheduleTtsAutoSave();
 });
 elements.ttsStop.addEventListener("click", () => ttsQueue.pause());
 elements.ttsResume.addEventListener("click", () => ttsQueue.resume());
