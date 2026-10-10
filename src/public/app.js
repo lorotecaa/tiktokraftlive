@@ -1016,6 +1016,27 @@ function readCustomization() {
   };
 }
 
+function mappingAudioOptions(selectedAudio = "") {
+  const sounds = [...availableSounds];
+  if (selectedAudio && !sounds.includes(selectedAudio)) sounds.push(selectedAudio);
+  return ["", ...sounds].map((filename) => {
+    const label = filename
+      ? `${filename}${availableSounds.includes(filename) ? "" : " (no disponible)"}`
+      : "Sin audio";
+    return `<option value="${escapeHtml(filename)}"${filename === selectedAudio ? " selected" : ""}>${escapeHtml(label)}</option>`;
+  }).join("");
+}
+
+function setMappingAudioPickerOpen(picker, open) {
+  if (!picker) return;
+  const trigger = picker.querySelector(".mapping-audio-trigger");
+  const select = picker.querySelector(".mapping-audio-select");
+  trigger.hidden = open;
+  trigger.setAttribute("aria-expanded", String(open));
+  select.hidden = !open;
+  if (open) select.focus();
+}
+
 function renderMappings(mappings) {
   elements.mappingList.innerHTML = mappings.map((mapping) => `
     <article class="mapping-row ${mapping.enabled ? "" : "disabled"}">
@@ -1023,7 +1044,10 @@ function renderMappings(mappings) {
       <div class="mapping-main">
         <strong>${escapeHtml(mapping.giftName || `Regalo #${mapping.giftId}`)}</strong>
         <p>${escapeHtml(mapping.command)}</p>
-        <p class="mapping-audio"><span>Audio:</span> ${escapeHtml(mapping.audio || "Sin audio")}</p>
+        <div class="mapping-audio" data-mapping-id="${escapeHtml(mapping.id)}">
+          <button type="button" class="mapping-audio-trigger" data-action="audio" data-id="${escapeHtml(mapping.id)}" aria-expanded="false" title="Cambiar audio rápidamente"><span>Audio:</span> <b>${escapeHtml(mapping.audio || "Sin audio")}</b></button>
+          <select class="mapping-audio-select" data-action="audio" data-id="${escapeHtml(mapping.id)}" aria-label="Cambiar audio de ${escapeHtml(mapping.giftName || mapping.giftId || "esta acción")}" hidden>${mappingAudioOptions(mapping.audio || "")}</select>
+        </div>
       </div>
       <div class="mapping-tools">
         <button class="icon-button" data-action="test" data-id="${escapeHtml(mapping.id)}" title="Probar en Minecraft">▷</button>
@@ -1287,6 +1311,7 @@ async function loadSounds() {
     const payload = await response.json();
     availableSounds = Array.isArray(payload.sounds) ? payload.sounds : [];
     renderSoundOptions();
+    if (appState?.config?.mappings) renderMappings(appState.config.mappings);
   } catch {
     elements.audioState.textContent = "No se pudo cargar la lista de audios.";
   }
@@ -1756,6 +1781,11 @@ elements.audioTest.addEventListener("click", () => playAudioTest(elements.audio.
 elements.audioTestStop.addEventListener("click", stopAudioTest);
 
 elements.mappingList.addEventListener("click", async (event) => {
+  const audioTrigger = event.target.closest(".mapping-audio-trigger");
+  if (audioTrigger) {
+    setMappingAudioPickerOpen(audioTrigger.closest(".mapping-audio"), true);
+    return;
+  }
   const button = event.target.closest("button[data-action]");
   if (!button || !appState) return;
   const mapping = appState.config.mappings.find((item) => item.id === button.dataset.id);
@@ -1766,6 +1796,43 @@ elements.mappingList.addEventListener("click", async (event) => {
     return control(button, "mapping:delete", mapping.id, "Acción eliminada");
   }
   if (button.dataset.action === "test") return control(button, "mapping:test", mapping.id, "Comando de prueba enviado");
+});
+
+elements.mappingList.addEventListener("change", async (event) => {
+  const select = event.target.closest(".mapping-audio-select");
+  if (!select || !appState) return;
+  const mapping = appState.config.mappings.find((item) => item.id === select.dataset.id);
+  if (!mapping) return;
+  select.dataset.saving = "true";
+  select.disabled = true;
+  try {
+    const saved = await request("mapping:save", { ...mapping, audio: select.value });
+    const index = appState.config.mappings.findIndex((item) => item.id === saved.id);
+    if (index >= 0) appState.config.mappings[index] = saved;
+    renderMappings(appState.config.mappings);
+    toast("Audio de la acción actualizado", "success");
+  } catch (error) {
+    renderMappings(appState.config.mappings);
+    toast(error.message, "error");
+  }
+});
+
+elements.mappingList.addEventListener("keydown", (event) => {
+  const select = event.target.closest(".mapping-audio-select");
+  if (select && event.key === "Escape") {
+    event.preventDefault();
+    setMappingAudioPickerOpen(select.closest(".mapping-audio"), false);
+  }
+});
+
+elements.mappingList.addEventListener("focusout", (event) => {
+  const select = event.target.closest(".mapping-audio-select");
+  if (!select || select.dataset.saving === "true") return;
+  setTimeout(() => {
+    if (!select.closest(".mapping-audio")?.contains(document.activeElement)) {
+      setMappingAudioPickerOpen(select.closest(".mapping-audio"), false);
+    }
+  }, 0);
 });
 
 elements.simulateForm.addEventListener("submit", async (event) => {
