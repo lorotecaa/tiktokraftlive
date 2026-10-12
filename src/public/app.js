@@ -6,6 +6,7 @@ let userPointsSearchTimer = null;
 let userPointsOverlayToken = "";
 let giftCatalog = [];
 let giftCatalogSearch = "";
+let videoCatalogSearch = "";
 let authorizedTikTokUsers = [];
 let authorizedTikTokSearch = "";
 let accountRoles = [];
@@ -49,8 +50,9 @@ const elements = {
   adminMediaView: $("#admin-media-view"), adminOpenMedia: $("#admin-open-media"), adminMediaBackMenu: $("#admin-media-back-menu"), adminVideoUploadForm: $("#admin-video-upload-form"), adminVideoFile: $("#admin-video-file"), adminVideoUploadStatus: $("#admin-video-upload-status"), adminVideoList: $("#admin-video-list"), adminVideoEmpty: $("#admin-video-empty"), adminSoundUploadForm: $("#admin-sound-upload-form"), adminSoundFile: $("#admin-sound-file"), adminSoundUploadStatus: $("#admin-sound-upload-status"), adminSoundList: $("#admin-sound-list"), adminSoundEmpty: $("#admin-sound-empty"),
   profileModal: $("#profile-modal"), profileForm: $("#profile-form"), profileAvatar: $("#profile-avatar"), profileAvatarEmpty: $("#profile-avatar-empty"), profileAvatarInput: $("#profile-avatar-input"), profileEmail: $("#profile-email"), profilePassword: $("#profile-password"), profilePasswordConfirm: $("#profile-password-confirm"), profileMessage: $("#profile-message"),
   mappingForm: $("#mapping-form"), mappingId: $("#mapping-id"), mappingTriggerType: $("#mapping-trigger-type"), mappingGiftFields: $("#mapping-gift-fields"), giftName: $("#gift-name"), giftId: $("#gift-id"),
-  command: $("#mapping-command"), audio: $("#mapping-audio"), audioTest: $("#audio-test"), audioTestStop: $("#audio-test-stop"), audioState: $("#audio-state"), mappingVideo: $("#mapping-video"), videoState: $("#video-state"), actionVideoWidgetUrl: $("#action-video-widget-url"), actionVideoWidgetCopy: $("#action-video-widget-copy"), actionVideoWidgetPreview: $("#action-video-widget-preview"), cooldown: $("#cooldown"), enabled: $("#mapping-enabled"), editorHeading: $("#editor-heading"),
+  command: $("#mapping-command"), audio: $("#mapping-audio"), audioTest: $("#audio-test"), audioTestStop: $("#audio-test-stop"), audioState: $("#audio-state"), mappingVideo: $("#mapping-video"), mappingVideoSelected: $("#mapping-video-selected"), selectVideoButton: $("#select-video-button"), clearVideoButton: $("#clear-video-button"), videoState: $("#video-state"), actionVideoWidgetUrl: $("#action-video-widget-url"), actionVideoWidgetCopy: $("#action-video-widget-copy"), actionVideoWidgetPreview: $("#action-video-widget-preview"), cooldown: $("#cooldown"), enabled: $("#mapping-enabled"), editorHeading: $("#editor-heading"),
   cancelEdit: $("#cancel-edit"), mappingList: $("#mapping-list"), mappingEmpty: $("#mapping-empty"), selectGiftButton: $("#select-gift-button"), giftSelectorModal: $("#gift-selector-modal"), giftSelectorSearch: $("#gift-selector-search"), giftSelectorGrid: $("#gift-selector-grid"), giftSelectorEmpty: $("#gift-selector-empty"),
+  videoSelectorModal: $("#video-selector-modal"), videoSelectorSearch: $("#video-selector-search"), videoSelectorGrid: $("#video-selector-grid"), videoSelectorEmpty: $("#video-selector-empty"),
   simulateForm: $("#simulate-form"), simulateGift: $("#simulate-gift"), simulateCount: $("#simulate-count"),
   giftHistoryList: $("#gift-history-list"), giftHistoryEmpty: $("#gift-history-empty"),
   activityLog: $("#activity-log"), activityEmpty: $("#activity-empty"), toasts: $("#toasts")
@@ -118,6 +120,10 @@ elements.adminSoundUploadForm?.addEventListener("submit", (event) => uploadAdmin
 elements.selectGiftButton?.addEventListener("click", openGiftSelector);
 elements.giftSelectorModal?.querySelectorAll("[data-gift-selector-close]").forEach((button) => button.addEventListener("click", closeGiftSelector));
 elements.giftSelectorSearch?.addEventListener("input", () => { giftCatalogSearch = elements.giftSelectorSearch.value.trim(); renderGiftSelector(); });
+elements.selectVideoButton?.addEventListener("click", openVideoSelector);
+elements.clearVideoButton?.addEventListener("click", () => renderVideoOptions(""));
+elements.videoSelectorModal?.querySelectorAll("[data-video-selector-close]").forEach((button) => button.addEventListener("click", closeVideoSelector));
+elements.videoSelectorSearch?.addEventListener("input", () => { videoCatalogSearch = elements.videoSelectorSearch.value.trim(); renderVideoSelector(); });
 elements.profileAvatarInput?.addEventListener("change", async () => {
   const file = elements.profileAvatarInput.files?.[0];
   if (!file) return;
@@ -1317,6 +1323,103 @@ function renderGiftSelector() {
   elements.giftSelectorEmpty.hidden = entries.length > 0;
 }
 
+function videoUrl(filename) {
+  return `/media/videos/${encodeURIComponent(filename)}`;
+}
+
+function stopVideoSelectorPreviews(except = null) {
+  for (const video of elements.videoSelectorGrid.querySelectorAll("video")) {
+    if (video === except) continue;
+    video.pause();
+    video.closest(".video-selector-card")?.classList.remove("is-playing");
+    try { video.currentTime = 0; } catch { /* Los metadatos todavía pueden estar cargando. */ }
+  }
+}
+
+function closeVideoSelector() {
+  stopVideoSelectorPreviews();
+  elements.videoSelectorModal.hidden = true;
+  document.body.classList.remove("modal-open");
+}
+
+async function openVideoSelector() {
+  videoCatalogSearch = "";
+  elements.videoSelectorSearch.value = "";
+  elements.videoSelectorModal.hidden = false;
+  document.body.classList.add("modal-open");
+  renderVideoSelector();
+  elements.videoSelectorSearch.focus();
+  await loadVideos();
+  renderVideoSelector();
+}
+
+function renderVideoSelector() {
+  const search = videoCatalogSearch.toLocaleLowerCase();
+  const entries = availableVideos.filter((filename) => !search || filename.toLocaleLowerCase().includes(search));
+  const selected = elements.mappingVideo.value;
+  stopVideoSelectorPreviews();
+  elements.videoSelectorGrid.replaceChildren();
+  for (const filename of entries) {
+    const card = document.createElement("button");
+    card.className = `video-selector-card${filename === selected ? " is-selected" : ""}`;
+    card.type = "button";
+    card.title = `Seleccionar ${filename}`;
+    card.setAttribute("aria-label", `Vista previa y selección de ${filename}`);
+    const preview = document.createElement("span");
+    preview.className = "video-selector-preview";
+    const video = document.createElement("video");
+    video.src = videoUrl(filename);
+    video.muted = true;
+    video.loop = true;
+    video.playsInline = true;
+    video.preload = "metadata";
+    const hint = document.createElement("span");
+    hint.className = "video-selector-play-hint";
+    hint.textContent = "▶ Vista previa";
+    preview.append(video, hint);
+    const name = document.createElement("strong");
+    name.textContent = filename;
+    const duration = document.createElement("small");
+    const updateDuration = () => {
+      const value = Number(video.duration);
+      if (Number.isFinite(value)) videoDurations.set(filename, value);
+      const label = formatMediaDuration(videoDurations.get(filename));
+      duration.textContent = label ? `Duración ${label}` : "Pasa el mouse para reproducir";
+      if (elements.mappingVideo.value === filename) elements.mappingVideoSelected.textContent = videoOptionLabel(filename);
+    };
+    updateDuration();
+    video.addEventListener("loadedmetadata", updateDuration, { once: true });
+    const startPreview = () => {
+      stopVideoSelectorPreviews(video);
+      card.classList.add("is-playing");
+      video.play().catch(() => card.classList.remove("is-playing"));
+    };
+    const stopPreview = () => {
+      video.pause();
+      card.classList.remove("is-playing");
+      try { video.currentTime = 0; } catch { /* Sin metadatos todavía. */ }
+    };
+    card.addEventListener("pointerenter", startPreview);
+    card.addEventListener("pointerleave", stopPreview);
+    card.addEventListener("focus", startPreview);
+    card.addEventListener("blur", stopPreview);
+    card.addEventListener("click", () => {
+      renderVideoOptions(filename);
+      closeVideoSelector();
+      elements.cooldown.focus();
+    });
+    card.append(preview, name, duration);
+    if (filename === selected) {
+      const badge = document.createElement("b");
+      badge.className = "video-selector-selected-badge";
+      badge.textContent = "SELECCIONADO";
+      card.append(badge);
+    }
+    elements.videoSelectorGrid.append(card);
+  }
+  elements.videoSelectorEmpty.hidden = entries.length > 0;
+}
+
 function soundUrl(filename) {
   return `/media/sounds/${encodeURIComponent(filename)}`;
 }
@@ -1513,12 +1616,12 @@ async function loadSounds() {
 
 function renderVideoOptions(selectedVideo = elements.mappingVideo.value) {
   const selected = selectedVideo || "";
-  elements.mappingVideo.replaceChildren(new Option("Sin video", ""));
-  for (const filename of availableVideos) elements.mappingVideo.add(new Option(videoOptionLabel(filename), filename));
-  if (selected && !availableVideos.includes(selected)) {
-    elements.mappingVideo.add(new Option(`${selected} (no disponible)`, selected));
-  }
   elements.mappingVideo.value = selected;
+  elements.mappingVideoSelected.textContent = selected
+    ? `${videoOptionLabel(selected)}${availableVideos.includes(selected) ? "" : " (no disponible)"}`
+    : "Seleccionar video";
+  elements.selectVideoButton.classList.toggle("has-selection", Boolean(selected));
+  elements.clearVideoButton.hidden = !selected;
   elements.videoState.textContent = availableVideos.length
     ? `${availableVideos.length} video(s) aprobado(s) disponible(s).`
     : "Todavía no hay videos aprobados disponibles.";
@@ -1535,6 +1638,7 @@ async function loadVideos() {
       .filter((video) => video && typeof video.filename === "string" && Number.isFinite(video.durationSeconds))
       .map((video) => [video.filename, video.durationSeconds]));
     renderVideoOptions();
+    if (!elements.videoSelectorModal.hidden) renderVideoSelector();
     if (appState?.config?.mappings) renderMappings(appState.config.mappings);
   } catch {
     elements.videoState.textContent = "No se pudo cargar el catálogo de videos.";

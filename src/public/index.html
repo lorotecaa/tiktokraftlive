@@ -366,7 +366,11 @@
               <small id="audio-state">Coloca archivos MP3, WAV, OGG, M4A, AAC o WebM en <code>src/public/sounds/</code>.</small>
             </label>
             <label>Video MP4 en el widget
-              <select class="mapping-video-select" id="mapping-video"><option value="">Sin video</option></select>
+              <input id="mapping-video" type="hidden" value="" />
+              <span class="mapping-video-picker">
+                <button class="button text select-video-button" id="select-video-button" type="button"><span aria-hidden="true">🎬</span><b id="mapping-video-selected">Seleccionar video</b><small>Ver galería y vista previa</small></button>
+                <button class="button text clear-video-button" id="clear-video-button" type="button" hidden>× Quitar</button>
+              </span>
               <small id="video-state">Los videos disponibles son administrados por TikTokraft Live.</small>
             </label>
             <p class="variables">Configura al menos un comando, audio o video.<br />Variables: <code>{usuario}</code> <code>{apodo}</code> <code>{regalo}</code> <code>{regalo_id}</code> <code>{cantidad}</code> <code>{evento}</code></p>
@@ -496,6 +500,15 @@
         <p class="empty-state" id="gift-selector-empty">Todavía no hay regalos detectados. Puedes escribir un ID manualmente o recibir regalos durante un LIVE para agregarlos.</p>
       </section>
     </div>
+    <div class="video-selector-modal" id="video-selector-modal" hidden>
+      <div class="video-selector-backdrop" data-video-selector-close></div>
+      <section class="video-selector-dialog" role="dialog" aria-modal="true" aria-labelledby="video-selector-title">
+        <header><div><h2 id="video-selector-title">Seleccionar video</h2><p>Pasa el mouse sobre un video para reproducir su vista previa. Haz clic para usarlo en la acción.</p></div><button class="modal-close" type="button" data-video-selector-close aria-label="Cerrar">×</button></header>
+        <label class="video-selector-search"><span>⌕</span><input id="video-selector-search" type="search" placeholder="Buscar video por nombre" autocomplete="off" /></label>
+        <div class="video-selector-grid" id="video-selector-grid"></div>
+        <p class="empty-state" id="video-selector-empty">Todavía no hay videos disponibles.</p>
+      </section>
+    </div>
     <div class="profile-modal" id="profile-modal" hidden>
       <div class="profile-modal-backdrop" data-profile-modal-close></div>
       <form class="profile-modal-dialog" id="profile-form">
@@ -584,6 +597,6 @@
     <script src="/socket.io/socket.io.js"></script>
     <script src="/gift-catalog.js"></script>
     <script src="/tts.js?v=20261010-voices"></script>
-    <script src="/app.js?v=20261012-admin-media-filenames"></script>
+    <script src="/app.js?v=20261012-video-gallery"></script>
   </body>
 </html>
