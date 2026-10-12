@@ -716,10 +716,10 @@ function renderState(next) {
   setStatus(elements.minecraftDetail, elements.minecraftDot, minecraft);
   setStatus(elements.tiktokDetail, elements.tiktokDot, tiktok);
   elements.globalStatus.textContent = minecraft.status === "connected" && tiktok.status === "connected" ? "INTERACTIVO EN VIVO" : "PANEL LOCAL";
+  giftCatalog = Array.isArray(next.giftCatalog) ? next.giftCatalog : giftCatalog;
   renderMappings(config.mappings || []);
   renderTimerSettings(config.timer || {}, config.mappings || []);
   renderTimer(next.timer || appState.timer);
-  giftCatalog = Array.isArray(next.giftCatalog) ? next.giftCatalog : giftCatalog;
   if (!elements.giftSelectorModal.hidden) renderGiftSelector();
   renderGiftOverlays(config.giftOverlays || {});
   renderRankingOverlay({ kind: "top-donors", title: "Top Donadores", entries: next.rankings?.topDonors || [] });
@@ -1228,13 +1228,30 @@ function mappingOutputSummary(mapping) {
   return outputs.join(" + ") || "Sin salida";
 }
 
+function giftForMapping(mapping) {
+  if ((mapping?.triggerType || "gift") !== "gift") return null;
+  const giftId = String(mapping.giftId || "").trim();
+  const giftName = String(mapping.giftName || "").trim().toLocaleLowerCase();
+  return giftCatalog.find((gift) => giftId && String(gift.giftId || "") === giftId)
+    || giftCatalog.find((gift) => giftName && String(gift.giftName || "").trim().toLocaleLowerCase() === giftName)
+    || null;
+}
+
+function mappingGiftVisual(mapping, trigger) {
+  const isGift = (mapping.triggerType || "gift") === "gift";
+  const fallback = isGift ? (mapping.giftName || mapping.giftId || "?").slice(0, 1).toUpperCase() : trigger.icon;
+  const gift = isGift ? giftForMapping(mapping) : null;
+  const imageUrl = String(gift?.giftImageUrl || "").trim();
+  return `<div class="mapping-gift${imageUrl ? " has-image" : ""}"><span>${escapeHtml(fallback)}</span>${imageUrl ? `<img src="${escapeHtml(imageUrl)}" alt="" loading="lazy" referrerpolicy="no-referrer" />` : ""}</div>`;
+}
+
 function renderMappings(mappings) {
   elements.mappingList.innerHTML = mappings.map((mapping) => {
     const trigger = mappingTriggerDefinition(mapping);
     const title = trigger.title(mapping);
     return `
     <article class="mapping-row ${mapping.enabled ? "" : "disabled"}">
-      <div class="mapping-gift">${escapeHtml((mapping.triggerType || "gift") === "gift" ? (mapping.giftName || mapping.giftId || "?").slice(0, 1).toUpperCase() : trigger.icon)}</div>
+      ${mappingGiftVisual(mapping, trigger)}
       <div class="mapping-main">
         <span class="mapping-trigger-badge">${escapeHtml(trigger.label)}</span>
         <strong>${escapeHtml(title)}</strong>
@@ -1252,6 +1269,12 @@ function renderMappings(mappings) {
       </div>
     </article>`;
   }).join("");
+  elements.mappingList.querySelectorAll(".mapping-gift img").forEach((image) => {
+    image.addEventListener("error", () => {
+      image.closest(".mapping-gift")?.classList.remove("has-image");
+      image.remove();
+    }, { once: true });
+  });
   elements.mappingEmpty.hidden = mappings.length > 0;
 }
 
@@ -2226,6 +2249,7 @@ socket.on("gift-history:update", (gifts) => {
 socket.on("gift-catalog:update", (gifts) => {
   giftCatalog = Array.isArray(gifts) ? gifts : [];
   if (appState) appState.giftCatalog = giftCatalog;
+  if (appState?.config?.mappings) renderMappings(appState.config.mappings);
   if (!elements.giftSelectorModal.hidden) renderGiftSelector();
 });
 socket.on("gift-catalog:upsert", (gift) => {
@@ -2234,6 +2258,7 @@ socket.on("gift-catalog:upsert", (gift) => {
   if (index >= 0) giftCatalog[index] = { ...giftCatalog[index], ...gift };
   else giftCatalog.unshift(gift);
   if (appState) appState.giftCatalog = giftCatalog;
+  if (appState?.config?.mappings) renderMappings(appState.config.mappings);
   if (!elements.giftSelectorModal.hidden) renderGiftSelector();
 });
 socket.on("tiktok:comment", (comment) => {
