@@ -8,7 +8,7 @@
     <link rel="preconnect" href="https://fonts.googleapis.com" />
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
     <link href="https://fonts.googleapis.com/css2?family=DM+Mono:wght@400;500&family=Press+Start+2P&family=Space+Grotesk:wght@400;500;600;700&display=swap" rel="stylesheet" />
-    <link rel="stylesheet" href="/style.css?v=20261012-video-catalog" />
+    <link rel="stylesheet" href="/style.css?v=20261012-admin-media" />
   </head>
   <body>
     <div class="noise"></div>
@@ -411,7 +411,7 @@
             <button class="admin-menu-card is-active" id="admin-open-authorization" type="button"><span class="admin-menu-icon" aria-hidden="true">🔒</span><strong>Autorización</strong><small>Gestiona el acceso al LIVE</small></button>
             <button class="admin-menu-card is-active" id="admin-open-roles" type="button"><span class="admin-menu-icon" aria-hidden="true">♙</span><strong>Roles</strong><small>Gestiona permisos de cuentas</small></button>
             <button class="admin-menu-card is-active" id="admin-open-statistics" type="button"><span class="admin-menu-icon" aria-hidden="true">▥</span><strong>Estadísticas</strong><small>Consulta cuentas y actividad</small></button>
-            <button class="admin-menu-card is-placeholder" type="button" aria-disabled="true"><span class="admin-menu-icon" aria-hidden="true">◉</span><strong>Próximamente</strong><small>Nueva herramienta</small></button>
+            <button class="admin-menu-card is-active" id="admin-open-media" type="button"><span class="admin-menu-icon" aria-hidden="true">▶</span><strong>Multimedia</strong><small>Administra videos y sonidos</small></button>
             <button class="admin-menu-card is-placeholder" type="button" aria-disabled="true"><span class="admin-menu-icon" aria-hidden="true">✦</span><strong>Próximamente</strong><small>Nueva herramienta</small></button>
             <button class="admin-menu-card is-placeholder" type="button" aria-disabled="true"><span class="admin-menu-icon" aria-hidden="true">⚙</span><strong>Próximamente</strong><small>Nueva herramienta</small></button>
           </div>
@@ -428,7 +428,7 @@
         </div>
         <div class="admin-roles-view" id="admin-roles-view" hidden>
           <div class="admin-view-heading"><button class="button text admin-back-button" id="admin-roles-back-menu" type="button">← Menú principal</button><div><p class="eyebrow">PERMISOS DE CUENTA</p><h3>Roles</h3><span>Asigna y administra los permisos de las cuentas registradas.</span></div></div>
-          <div class="admin-role-permissions"><strong>ADMINISTRADOR</strong><span>Acceso completo al Panel de Administración: roles y autorización de TikTok LIVE.</span></div>
+          <div class="admin-role-permissions"><strong>ADMINISTRADOR</strong><span>Acceso completo al Panel de Administración: autorización, roles, estadísticas y multimedia.</span></div>
           <form class="admin-roles-form" id="admin-roles-form">
             <label>Correo de la cuenta<input id="admin-role-email" type="email" maxlength="320" autocomplete="email" placeholder="correo@ejemplo.com" /></label>
             <label>Rol<select id="admin-role-select"><option value="administrator">ADMINISTRADOR</option></select></label>
@@ -459,6 +459,31 @@
         <div class="admin-user-profile-view" id="admin-user-profile-view" hidden>
           <div class="admin-view-heading"><button class="button text admin-back-button" id="admin-user-profile-back" type="button">← Volver a usuarios</button><div><p class="eyebrow">PERFIL ADMINISTRATIVO</p><h3 id="admin-user-profile-title">Cuenta</h3><span>Información disponible de la cuenta seleccionada.</span></div></div>
           <dl class="admin-user-profile-data" id="admin-user-profile-data"></dl>
+        </div>
+        <div class="admin-media-view" id="admin-media-view" hidden>
+          <div class="admin-view-heading"><button class="button text admin-back-button" id="admin-media-back-menu" type="button">← Menú principal</button><div><p class="eyebrow">CATÁLOGO GLOBAL</p><h3>Multimedia</h3><span>Agrega los videos y sonidos que estarán disponibles al crear o editar acciones.</span></div></div>
+          <div class="admin-media-grid">
+            <section class="admin-media-card">
+              <div class="admin-media-card-heading"><span aria-hidden="true">🎬</span><div><h4>Videos MP4</h4><p>Disponibles para el widget de videos.</p></div></div>
+              <form class="admin-media-upload" id="admin-video-upload-form">
+                <label class="admin-media-file"><span>Seleccionar video</span><input id="admin-video-file" type="file" accept="video/mp4,.mp4" required /></label>
+                <button class="button primary" type="submit">Subir video</button>
+              </form>
+              <small class="admin-media-status" id="admin-video-upload-status">Máximo 200 MB por archivo.</small>
+              <div class="admin-media-list" id="admin-video-list"></div>
+              <p class="empty-state" id="admin-video-empty">No hay videos disponibles todavía.</p>
+            </section>
+            <section class="admin-media-card">
+              <div class="admin-media-card-heading"><span aria-hidden="true">🔊</span><div><h4>Sonidos de acciones</h4><p>Disponibles en “Audio al ejecutar la acción”.</p></div></div>
+              <form class="admin-media-upload" id="admin-sound-upload-form">
+                <label class="admin-media-file"><span>Seleccionar sonido</span><input id="admin-sound-file" type="file" accept="audio/*,.aac,.m4a,.mp3,.ogg,.wav,.webm" required /></label>
+                <button class="button primary" type="submit">Subir sonido</button>
+              </form>
+              <small class="admin-media-status" id="admin-sound-upload-status">Máximo 25 MB por archivo.</small>
+              <div class="admin-media-list" id="admin-sound-list"></div>
+              <p class="empty-state" id="admin-sound-empty">No hay sonidos disponibles todavía.</p>
+            </section>
+          </div>
         </div>
       </section>
     </div>
@@ -559,6 +584,6 @@
     <script src="/socket.io/socket.io.js"></script>
     <script src="/gift-catalog.js"></script>
     <script src="/tts.js?v=20261010-voices"></script>
-    <script src="/app.js?v=20261012-video-catalog"></script>
+    <script src="/app.js?v=20261012-admin-media"></script>
   </body>
 </html>

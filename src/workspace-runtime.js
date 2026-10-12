@@ -97,7 +97,7 @@ export class WorkspaceRuntime {
         id: randomUUID(),
         at: Date.now(),
         mappingId: entry.mapping.id,
-        videoUrl: `/videos/${encodeURIComponent(entry.mapping.video)}`,
+        videoUrl: `/media/videos/${encodeURIComponent(entry.mapping.video)}`,
         video: entry.mapping.video,
         triggerType: entry.mapping.triggerType || "gift",
         username: entry.event?.username || "",

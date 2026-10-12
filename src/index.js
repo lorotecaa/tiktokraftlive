@@ -4,7 +4,7 @@ import path from "node:path";
 import { fileURLToPath } from "node:url";
 import express from "express";
 import { Server } from "socket.io";
-import { listAvailableSoundDetails, listAvailableSounds, listAvailableVideos, sanitizeConfig } from "./config-store.js";
+import { listAvailableSoundDetails, listAvailableVideos, sanitizeConfig } from "./config-store.js";
 import { authConfigured, changePassword, refreshSession, signIn, signUp, userFromAccessToken } from "./auth-store.js";
 import { claimWorkspace, saveWorkspaceConfig, workspaceByOverlayToken } from "./workspace-store.js";
 import { WorkspaceRuntime } from "./workspace-runtime.js";
@@ -12,6 +12,7 @@ import { listWorkspaceUserPoints } from "./services/user-points-store.js";
 import { listGiftCatalog } from "./services/gift-catalog-store.js";
 import { assignAccountRole, authorizeTikTokUsername, getAccountRole, isTikTokUsernameAuthorized, listAccountRoles, listAuthorizedTikTokUsers, normalizeAccountEmail, removeAccountRole, revokeTikTokUsername } from "./services/access-store.js";
 import { listRegisteredAccounts } from "./services/admin-statistics-store.js";
+import { deleteGlobalMedia, listGlobalMedia, uploadGlobalMedia } from "./services/media-catalog-store.js";
 
 const directory = path.dirname(fileURLToPath(import.meta.url));
 const app = express();
@@ -23,6 +24,39 @@ const host = process.env.HOST || "0.0.0.0";
 const commandRate = Number(process.env.COMMANDS_PER_SECOND || 5);
 const administratorEmail = "loroteca98@gmail.com";
 app.use(express.json({ limit: "32kb" }));
+const mediaUploadBody = express.raw({ type: "*/*", limit: "200mb" });
+
+async function mediaCatalog(kind, { fresh = false, strict = false } = {}) {
+  const local = kind === "sounds" ? await listAvailableSoundDetails() : await listAvailableVideos();
+  let uploaded = [];
+  try {
+    uploaded = await listGlobalMedia(kind, { fresh });
+  } catch (error) {
+    if (strict) throw error;
+    console.warn(`No se pudo consultar el catálogo global de ${kind}: ${error.message}`);
+  }
+  const seen = new Set();
+  return [...local.map((entry) => ({
+    ...entry,
+    url: `/media/${kind}/${encodeURIComponent(entry.filename)}`,
+    source: "system"
+  })), ...uploaded.map((entry) => ({
+    ...entry,
+    durationSeconds: null,
+    storageUrl: entry.url,
+    url: `/media/${kind}/${encodeURIComponent(entry.filename)}`,
+    source: "uploaded"
+  }))].filter((entry) => {
+    const key = entry.filename.toLocaleLowerCase();
+    if (seen.has(key)) return false;
+    seen.add(key);
+    return true;
+  }).sort((left, right) => left.filename.localeCompare(right.filename, "es"));
+}
+
+async function listCatalogFilenames(kind) {
+  return (await mediaCatalog(kind)).map((entry) => entry.filename);
+}
 
 async function publishGlobalGiftCatalog(gift) {
   // Solo el catálogo es común. Cada workspace conserva sus propios mappings,
@@ -36,7 +70,7 @@ async function publishGlobalGiftCatalog(gift) {
 async function workspaceFor(id) {
   if (!workspaces.has(id)) workspaces.set(id, (async () => {
     const record = await claimWorkspace(id);
-    return new WorkspaceRuntime({ ...record, saveConfig: saveWorkspaceConfig, io, commandsPerSecond: commandRate, listSounds: listAvailableSounds, listVideos: async () => (await listAvailableVideos()).map((video) => video.filename), onGiftCatalogUpsert: publishGlobalGiftCatalog }).initialize();
+    return new WorkspaceRuntime({ ...record, saveConfig: saveWorkspaceConfig, io, commandsPerSecond: commandRate, listSounds: () => listCatalogFilenames("sounds"), listVideos: () => listCatalogFilenames("videos"), onGiftCatalogUpsert: publishGlobalGiftCatalog }).initialize();
   })());
   try {
     // El workspace activo contiene los récords del LIVE que todavía pueden
@@ -86,6 +120,7 @@ async function administrationAccounts({ activeOnly = false } = {}) {
 function tokenFrom(request) { return String(request.headers.authorization || "").replace(/^Bearer\s+/i, ""); }
 function serverTapUrl(input, current) { if (input.serverTapHost === undefined) return input.serverTapUrl || current; const host = String(input.serverTapHost || "").trim(); const port = String(input.serverTapPort || "").trim(); if (!host || !/^\d{1,5}$/.test(port) || Number(port) < 1 || Number(port) > 65535) throw new Error("Indica una IP y puerto ServerTap válidos."); const url = new URL(host.includes("://") ? host : `${input.serverTapProtocol === "https:" ? "https" : "http"}://${host}`); url.port = port; url.pathname = ""; url.search = ""; url.hash = ""; return url.toString().replace(/\/$/, ""); }
 async function protectedRoute(request, response, next) { try { request.session = await identity(tokenFrom(request)); next(); } catch (error) { response.status(401).json({ error: error.message }); } }
+async function administratorRoute(request, response, next) { try { await requireAdministrator(request.session); next(); } catch (error) { response.status(403).json({ error: error.message }); } }
 function acknowledge(done, action, workspace) { Promise.resolve().then(action).then((data) => done?.({ ok: true, data })).catch((error) => { workspace.error(error.message); done?.({ ok: false, error: error.message }); }); }
 
 app.post("/api/auth/signup", async (request, response, next) => { try { response.json(await signUp(String(request.body?.email || "").trim(), String(request.body?.password || ""))); } catch (error) { next(error); } });
@@ -96,13 +131,47 @@ app.get("/api/state", protectedRoute, (request, response) => response.json({ ...
 app.post("/api/auth/password", protectedRoute, async (request, response, next) => { try { await changePassword(tokenFrom(request), String(request.body?.password || "")); response.json({ ok: true }); } catch (error) { next(error); } });
 app.get("/api/sounds", protectedRoute, async (_request, response, next) => {
   try {
-    const details = await listAvailableSoundDetails();
+    const details = await mediaCatalog("sounds");
     response.json({ sounds: details.map((sound) => sound.filename), details });
   } catch (error) { next(error); }
 });
 app.get("/api/videos", protectedRoute, async (_request, response, next) => {
-  try { response.json({ videos: await listAvailableVideos() }); }
+  try { response.json({ videos: await mediaCatalog("videos") }); }
   catch (error) { next(error); }
+});
+app.get("/api/admin/media", protectedRoute, administratorRoute, async (_request, response, next) => {
+  try {
+    const [sounds, videos] = await Promise.all([
+      mediaCatalog("sounds", { fresh: true, strict: true }),
+      mediaCatalog("videos", { fresh: true, strict: true })
+    ]);
+    response.json({ sounds, videos });
+  } catch (error) { next(error); }
+});
+app.post("/api/admin/media/:kind", protectedRoute, administratorRoute, mediaUploadBody, async (request, response, next) => {
+  try {
+    const kind = String(request.params.kind || "");
+    if (!(["sounds", "videos"].includes(kind))) return response.status(400).json({ error: "Tipo de archivo multimedia no válido." });
+    let filename = "";
+    try { filename = decodeURIComponent(String(request.headers["x-media-filename"] || "")); }
+    catch { return response.status(400).json({ error: "El nombre del archivo no es válido." }); }
+    const bundled = kind === "sounds" ? await listAvailableSoundDetails() : await listAvailableVideos();
+    if (bundled.some((entry) => entry.filename.toLocaleLowerCase() === filename.toLocaleLowerCase())) {
+      return response.status(409).json({ error: `Ya existe un archivo del sistema llamado ${filename}.` });
+    }
+    const entry = await uploadGlobalMedia(kind, { filename, contentType: request.headers["content-type"], buffer: request.body });
+    io.emit("media-catalog:update", { kind, filename: entry.filename, operation: "added" });
+    response.status(201).json({ entry });
+  } catch (error) { next(error); }
+});
+app.delete("/api/admin/media/:kind", protectedRoute, administratorRoute, async (request, response, next) => {
+  try {
+    const kind = String(request.params.kind || "");
+    if (!(["sounds", "videos"].includes(kind))) return response.status(400).json({ error: "Tipo de archivo multimedia no válido." });
+    const removed = await deleteGlobalMedia(kind, request.body?.filename);
+    io.emit("media-catalog:update", { kind, filename: removed.filename, operation: "removed" });
+    response.json({ removed });
+  } catch (error) { next(error); }
 });
 app.get("/api/user-points", protectedRoute, async (request, response, next) => { try { response.json({ entries: await listWorkspaceUserPoints(request.session.user.id, { query: request.query.q, limit: request.query.limit }), configured: true, overlayToken: request.session.workspace.overlayToken }); } catch (error) { next(error); } });
 app.get("/api/gift-catalog", protectedRoute, async (request, response, next) => { try { response.json({ entries: await listGiftCatalog(request.query.limit) }); } catch (error) { next(error); } });
@@ -129,6 +198,18 @@ app.get("/api/public/:token/user-points", async (request, response, next) => {
     const limit = Math.max(1, Math.min(Number(customization?.itemLimit) || 10, 50));
     const entries = await listWorkspaceUserPoints(workspace.ownerId, { limit });
     response.json({ overlay: { kind: "historical", title: "Usuario y Puntos", entries, customization } });
+  } catch (error) { next(error); }
+});
+app.get("/media/:kind/:filename", async (request, response, next) => {
+  try {
+    const kind = String(request.params.kind || "");
+    if (!(["sounds", "videos"].includes(kind))) return response.sendStatus(404);
+    const catalog = await mediaCatalog(kind);
+    const entry = catalog.find((item) => item.filename === request.params.filename);
+    if (!entry) return response.sendStatus(404);
+    response.set("Cache-Control", "public, max-age=3600");
+    if (entry.source === "uploaded") return response.redirect(302, entry.storageUrl);
+    response.sendFile(path.join(directory, "public", kind, entry.filename));
   } catch (error) { next(error); }
 });
 app.use(express.static(path.join(directory, "public")));

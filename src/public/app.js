@@ -14,6 +14,7 @@ let statisticsAccounts = [];
 let connectedStatisticsAccounts = [];
 let statisticsSearch = "";
 let statisticsProfileOrigin = "registered";
+let adminMediaCatalog = { sounds: [], videos: [] };
 let timerSettingsSaveTimer = null;
 let timerSettingsRevision = 0;
 let panelTimer = null;
@@ -45,6 +46,7 @@ const elements = {
   tiktokDetail: $("#tiktok-detail"), tiktokDot: $("#tiktok-dot"),
   globalStatus: $("#global-status"), adminPanelButton: $("#admin-panel-button"), profileButton: $("#profile-button"), logout: $("#logout-button"),
   adminModal: $("#admin-modal"), adminMenuView: $("#admin-menu-view"), adminAuthorizationView: $("#admin-authorization-view"), adminRolesView: $("#admin-roles-view"), adminStatisticsView: $("#admin-statistics-view"), adminRegisteredUsersView: $("#admin-registered-users-view"), adminConnectedUsersView: $("#admin-connected-users-view"), adminUserProfileView: $("#admin-user-profile-view"), adminOpenAuthorization: $("#admin-open-authorization"), adminOpenRoles: $("#admin-open-roles"), adminOpenStatistics: $("#admin-open-statistics"), adminBackMenu: $("#admin-back-menu"), adminRolesBackMenu: $("#admin-roles-back-menu"), adminStatisticsBackMenu: $("#admin-statistics-back-menu"), adminOpenRegisteredUsers: $("#admin-open-registered-users"), adminOpenConnectedUsers: $("#admin-open-connected-users"), adminRegisteredUsersBack: $("#admin-registered-users-back"), adminConnectedUsersBack: $("#admin-connected-users-back"), adminRegisteredUsersSearch: $("#admin-registered-users-search"), adminRegisteredUsersList: $("#admin-registered-users-list"), adminRegisteredUsersEmpty: $("#admin-registered-users-empty"), adminConnectedUsersList: $("#admin-connected-users-list"), adminConnectedUsersEmpty: $("#admin-connected-users-empty"), adminRegisteredUsersCount: $("#admin-registered-users-count"), adminConnectedUsersCount: $("#admin-connected-users-count"), adminUserProfileBack: $("#admin-user-profile-back"), adminUserProfileTitle: $("#admin-user-profile-title"), adminUserProfileData: $("#admin-user-profile-data"), adminAuthorizedForm: $("#admin-authorized-form"), adminAuthorizedUsername: $("#admin-authorized-username"), adminAuthorizedSearch: $("#admin-authorized-search"), adminAuthorizedList: $("#admin-authorized-list"), adminAuthorizedEmpty: $("#admin-authorized-empty"), adminRolesForm: $("#admin-roles-form"), adminRoleEmail: $("#admin-role-email"), adminRoleSelect: $("#admin-role-select"), adminRolesSearch: $("#admin-roles-search"), adminRolesList: $("#admin-roles-list"), adminRolesEmpty: $("#admin-roles-empty"),
+  adminMediaView: $("#admin-media-view"), adminOpenMedia: $("#admin-open-media"), adminMediaBackMenu: $("#admin-media-back-menu"), adminVideoUploadForm: $("#admin-video-upload-form"), adminVideoFile: $("#admin-video-file"), adminVideoUploadStatus: $("#admin-video-upload-status"), adminVideoList: $("#admin-video-list"), adminVideoEmpty: $("#admin-video-empty"), adminSoundUploadForm: $("#admin-sound-upload-form"), adminSoundFile: $("#admin-sound-file"), adminSoundUploadStatus: $("#admin-sound-upload-status"), adminSoundList: $("#admin-sound-list"), adminSoundEmpty: $("#admin-sound-empty"),
   profileModal: $("#profile-modal"), profileForm: $("#profile-form"), profileAvatar: $("#profile-avatar"), profileAvatarEmpty: $("#profile-avatar-empty"), profileAvatarInput: $("#profile-avatar-input"), profileEmail: $("#profile-email"), profilePassword: $("#profile-password"), profilePasswordConfirm: $("#profile-password-confirm"), profileMessage: $("#profile-message"),
   mappingForm: $("#mapping-form"), mappingId: $("#mapping-id"), mappingTriggerType: $("#mapping-trigger-type"), mappingGiftFields: $("#mapping-gift-fields"), giftName: $("#gift-name"), giftId: $("#gift-id"),
   command: $("#mapping-command"), audio: $("#mapping-audio"), audioTest: $("#audio-test"), audioTestStop: $("#audio-test-stop"), audioState: $("#audio-state"), mappingVideo: $("#mapping-video"), videoState: $("#video-state"), actionVideoWidgetUrl: $("#action-video-widget-url"), actionVideoWidgetCopy: $("#action-video-widget-copy"), actionVideoWidgetPreview: $("#action-video-widget-preview"), cooldown: $("#cooldown"), enabled: $("#mapping-enabled"), editorHeading: $("#editor-heading"),
@@ -65,9 +67,11 @@ elements.adminModal?.querySelectorAll("[data-admin-modal-close]").forEach((butto
 elements.adminOpenAuthorization?.addEventListener("click", openAuthorizationPanel);
 elements.adminOpenRoles?.addEventListener("click", openRolesPanel);
 elements.adminOpenStatistics?.addEventListener("click", openStatisticsPanel);
+elements.adminOpenMedia?.addEventListener("click", openMediaPanel);
 elements.adminBackMenu?.addEventListener("click", showAdminMenu);
 elements.adminRolesBackMenu?.addEventListener("click", showAdminMenu);
 elements.adminStatisticsBackMenu?.addEventListener("click", showAdminMenu);
+elements.adminMediaBackMenu?.addEventListener("click", showAdminMenu);
 elements.adminOpenRegisteredUsers?.addEventListener("click", openRegisteredUsers);
 elements.adminOpenConnectedUsers?.addEventListener("click", openConnectedUsers);
 elements.adminRegisteredUsersBack?.addEventListener("click", openStatisticsPanel);
@@ -109,6 +113,8 @@ elements.adminRolesForm?.addEventListener("submit", async (event) => {
     toast(`${saved.email} ahora tiene el rol ADMINISTRADOR.`, "success");
   } catch (error) { toast(error.message, "error"); } finally { submit.disabled = false; }
 });
+elements.adminVideoUploadForm?.addEventListener("submit", (event) => uploadAdminMedia(event, "videos"));
+elements.adminSoundUploadForm?.addEventListener("submit", (event) => uploadAdminMedia(event, "sounds"));
 elements.selectGiftButton?.addEventListener("click", openGiftSelector);
 elements.giftSelectorModal?.querySelectorAll("[data-gift-selector-close]").forEach((button) => button.addEventListener("click", closeGiftSelector));
 elements.giftSelectorSearch?.addEventListener("input", () => { giftCatalogSearch = elements.giftSelectorSearch.value.trim(); renderGiftSelector(); });
@@ -222,6 +228,7 @@ function showAdminMenu() {
   elements.adminRegisteredUsersView.hidden = true;
   elements.adminConnectedUsersView.hidden = true;
   elements.adminUserProfileView.hidden = true;
+  elements.adminMediaView.hidden = true;
 }
 
 function openAuthorizationPanel() {
@@ -232,6 +239,7 @@ function openAuthorizationPanel() {
   elements.adminRegisteredUsersView.hidden = true;
   elements.adminConnectedUsersView.hidden = true;
   elements.adminUserProfileView.hidden = true;
+  elements.adminMediaView.hidden = true;
   elements.adminAuthorizedUsername.focus();
 }
 
@@ -243,6 +251,7 @@ async function openRolesPanel() {
   elements.adminRegisteredUsersView.hidden = true;
   elements.adminConnectedUsersView.hidden = true;
   elements.adminUserProfileView.hidden = true;
+  elements.adminMediaView.hidden = true;
   accountRolesSearch = "";
   elements.adminRolesSearch.value = "";
   try {
@@ -302,6 +311,130 @@ function renderAuthorizedTikTokUsers() {
   elements.adminAuthorizedEmpty.hidden = entries.length > 0;
 }
 
+function formatMediaSize(value) {
+  const bytes = Number(value);
+  if (!Number.isFinite(bytes) || bytes <= 0) return "";
+  if (bytes < 1024) return `${bytes} B`;
+  if (bytes < 1024 ** 2) return `${(bytes / 1024).toFixed(1)} KB`;
+  return `${(bytes / 1024 ** 2).toFixed(1)} MB`;
+}
+
+async function adminMediaFetch(url, options = {}) {
+  const response = await fetch(url, {
+    ...options,
+    headers: { Authorization: `Bearer ${window.TikTokraftAuth?.accessToken || ""}`, ...(options.headers || {}) }
+  });
+  const payload = await response.json().catch(() => ({}));
+  if (!response.ok) throw new Error(payload.error || "No se pudo gestionar el catálogo multimedia.");
+  return payload;
+}
+
+function renderAdminMediaList(kind) {
+  const entries = Array.isArray(adminMediaCatalog[kind]) ? adminMediaCatalog[kind] : [];
+  const list = kind === "videos" ? elements.adminVideoList : elements.adminSoundList;
+  const empty = kind === "videos" ? elements.adminVideoEmpty : elements.adminSoundEmpty;
+  list.replaceChildren();
+  for (const entry of entries) {
+    const row = document.createElement("div");
+    row.className = "admin-media-row";
+    const info = document.createElement("span");
+    const name = document.createElement("strong");
+    name.textContent = entry.filename;
+    const meta = document.createElement("small");
+    const source = entry.source === "system" ? "Incluido con la aplicación" : "Subido por administrador";
+    meta.textContent = [source, formatMediaSize(entry.size)].filter(Boolean).join(" · ");
+    info.append(name, meta);
+    const actions = document.createElement("span");
+    actions.className = "admin-media-row-actions";
+    const preview = document.createElement("button");
+    preview.className = "button text";
+    preview.type = "button";
+    preview.textContent = kind === "videos" ? "Vista previa" : "Probar";
+    preview.addEventListener("click", () => {
+      if (kind === "videos") window.open(entry.url, "_blank", "noopener,noreferrer");
+      else playAudioTest(entry.filename);
+    });
+    actions.append(preview);
+    if (entry.source === "uploaded") {
+      const remove = document.createElement("button");
+      remove.className = "button text danger";
+      remove.type = "button";
+      remove.textContent = "Eliminar";
+      remove.addEventListener("click", () => deleteAdminMedia(kind, entry.filename, remove));
+      actions.append(remove);
+    } else {
+      const badge = document.createElement("b");
+      badge.className = "admin-media-system-badge";
+      badge.textContent = "SISTEMA";
+      actions.append(badge);
+    }
+    row.append(info, actions);
+    list.append(row);
+  }
+  empty.hidden = entries.length > 0;
+}
+
+async function loadAdminMedia() {
+  const payload = await adminMediaFetch("/api/admin/media");
+  adminMediaCatalog = {
+    sounds: Array.isArray(payload.sounds) ? payload.sounds : [],
+    videos: Array.isArray(payload.videos) ? payload.videos : []
+  };
+  renderAdminMediaList("videos");
+  renderAdminMediaList("sounds");
+}
+
+async function openMediaPanel() {
+  hideAdministrativeViews();
+  elements.adminMediaView.hidden = false;
+  try { await loadAdminMedia(); }
+  catch (error) { toast(error.message, "error"); }
+}
+
+async function uploadAdminMedia(event, kind) {
+  event.preventDefault();
+  const input = kind === "videos" ? elements.adminVideoFile : elements.adminSoundFile;
+  const status = kind === "videos" ? elements.adminVideoUploadStatus : elements.adminSoundUploadStatus;
+  const file = input.files?.[0];
+  if (!file) return toast("Selecciona un archivo para subir.", "error");
+  const maximum = kind === "videos" ? 200 * 1024 * 1024 : 25 * 1024 * 1024;
+  if (file.size > maximum) return toast(kind === "videos" ? "El video supera el límite de 200 MB." : "El audio supera el límite de 25 MB.", "error");
+  const submit = event.submitter || event.currentTarget.querySelector('button[type="submit"]');
+  submit.disabled = true;
+  status.textContent = `Subiendo ${file.name}…`;
+  try {
+    await adminMediaFetch(`/api/admin/media/${kind}`, {
+      method: "POST",
+      headers: { "Content-Type": file.type || "application/octet-stream", "X-Media-Filename": encodeURIComponent(file.name) },
+      body: file
+    });
+    input.value = "";
+    status.textContent = `${file.name} se agregó correctamente.`;
+    await Promise.all([loadAdminMedia(), kind === "videos" ? loadVideos() : loadSounds()]);
+    toast(`${file.name} agregado al catálogo global.`, "success");
+  } catch (error) {
+    status.textContent = error.message;
+    toast(error.message, "error");
+  } finally { submit.disabled = false; }
+}
+
+async function deleteAdminMedia(kind, filename, button) {
+  if (!window.confirm(`¿Eliminar ${filename} del catálogo global? Dejará de estar disponible para nuevas acciones.`)) return;
+  button.disabled = true;
+  try {
+    await adminMediaFetch(`/api/admin/media/${kind}`, {
+      method: "DELETE",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ filename })
+    });
+    await Promise.all([loadAdminMedia(), kind === "videos" ? loadVideos() : loadSounds()]);
+    toast(`${filename} eliminado del catálogo.`, "success");
+  } catch (error) {
+    toast(error.message, "error");
+    button.disabled = false;
+  }
+}
+
 function renderAccountRoles() {
   const search = accountRolesSearch.toLocaleLowerCase();
   const entries = accountRoles
@@ -318,7 +451,7 @@ function renderAccountRoles() {
     role.className = "admin-role-badge";
     role.textContent = entry.role === "administrator" ? "ADMINISTRADOR" : String(entry.role || "USUARIO").toUpperCase();
     const permissions = document.createElement("small");
-    permissions.textContent = entry.role === "administrator" ? "Gestiona roles y autorizaciones de TikTok LIVE." : "Usuario normal.";
+    permissions.textContent = entry.role === "administrator" ? "Gestiona autorización, roles, estadísticas y multimedia." : "Usuario normal.";
     details.append(email, role, permissions);
     row.append(details);
     if (entry.email === "loroteca98@gmail.com") {
@@ -356,6 +489,7 @@ function hideAdministrativeViews() {
   elements.adminRegisteredUsersView.hidden = true;
   elements.adminConnectedUsersView.hidden = true;
   elements.adminUserProfileView.hidden = true;
+  elements.adminMediaView.hidden = true;
 }
 
 function formatAdministrativeDate(value) {
@@ -1181,7 +1315,7 @@ function renderGiftSelector() {
 }
 
 function soundUrl(filename) {
-  return `/sounds/${encodeURIComponent(filename)}`;
+  return `/media/sounds/${encodeURIComponent(filename)}`;
 }
 
 function playSound(filename) {
@@ -1354,8 +1488,8 @@ function renderSoundOptions(selectedAudio = elements.audio.value) {
   elements.audio.value = selected;
   elements.audioTest.disabled = !selected || !availableSounds.includes(selected);
   elements.audioState.textContent = availableSounds.length
-    ? `${availableSounds.length} audio(s) disponible(s) en src/public/sounds/.`
-    : "No hay audios disponibles. Colócalos en src/public/sounds/.";
+    ? `${availableSounds.length} audio(s) disponible(s) en el catálogo global.`
+    : "No hay audios disponibles en el catálogo global.";
 }
 
 async function loadSounds() {
@@ -2056,6 +2190,12 @@ socket.on("connect_error", async () => {
   toast("Se perdió la conexión con el panel local.", "error");
 });
 socket.on("mapping:sound", (data) => playSound(data?.audio));
+socket.on("media-catalog:update", async () => {
+  await Promise.all([loadSounds(), loadVideos()]);
+  if (elements.adminMediaView && !elements.adminMediaView.hidden) {
+    try { await loadAdminMedia(); } catch (error) { toast(error.message, "error"); }
+  }
+});
 void (async () => {
   await loadPanelState();
   // La lista está protegida por autenticación. Esperar a que el estado del
