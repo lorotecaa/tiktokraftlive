@@ -12,7 +12,7 @@ import { listWorkspaceUserPoints } from "./services/user-points-store.js";
 import { listGiftCatalog } from "./services/gift-catalog-store.js";
 import { assignAccountRole, authorizeTikTokUsername, getAccountRole, isTikTokUsernameAuthorized, listAccountRoles, listAuthorizedTikTokUsers, normalizeAccountEmail, removeAccountRole, revokeTikTokUsername } from "./services/access-store.js";
 import { listRegisteredAccounts } from "./services/admin-statistics-store.js";
-import { deleteGlobalMedia, listGlobalMedia, uploadGlobalMedia } from "./services/media-catalog-store.js";
+import { deleteGlobalMedia, listGlobalMedia, normalizeMediaFilename, uploadGlobalMedia } from "./services/media-catalog-store.js";
 
 const directory = path.dirname(fileURLToPath(import.meta.url));
 const app = express();
@@ -153,7 +153,7 @@ app.post("/api/admin/media/:kind", protectedRoute, administratorRoute, mediaUplo
     const kind = String(request.params.kind || "");
     if (!(["sounds", "videos"].includes(kind))) return response.status(400).json({ error: "Tipo de archivo multimedia no válido." });
     let filename = "";
-    try { filename = decodeURIComponent(String(request.headers["x-media-filename"] || "")); }
+    try { filename = normalizeMediaFilename(decodeURIComponent(String(request.headers["x-media-filename"] || "")), kind); }
     catch { return response.status(400).json({ error: "El nombre del archivo no es válido." }); }
     const bundled = kind === "sounds" ? await listAvailableSoundDetails() : await listAvailableVideos();
     if (bundled.some((entry) => entry.filename.toLocaleLowerCase() === filename.toLocaleLowerCase())) {

@@ -403,15 +403,18 @@ async function uploadAdminMedia(event, kind) {
   submit.disabled = true;
   status.textContent = `Subiendo ${file.name}…`;
   try {
-    await adminMediaFetch(`/api/admin/media/${kind}`, {
+    const payload = await adminMediaFetch(`/api/admin/media/${kind}`, {
       method: "POST",
       headers: { "Content-Type": file.type || "application/octet-stream", "X-Media-Filename": encodeURIComponent(file.name) },
       body: file
     });
+    const savedFilename = payload.entry?.filename || file.name;
     input.value = "";
-    status.textContent = `${file.name} se agregó correctamente.`;
+    status.textContent = savedFilename === file.name
+      ? `${file.name} se agregó correctamente.`
+      : `${file.name} se agregó como ${savedFilename}.`;
     await Promise.all([loadAdminMedia(), kind === "videos" ? loadVideos() : loadSounds()]);
-    toast(`${file.name} agregado al catálogo global.`, "success");
+    toast(`${savedFilename} agregado al catálogo global.`, "success");
   } catch (error) {
     status.textContent = error.message;
     toast(error.message, "error");

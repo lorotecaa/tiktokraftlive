@@ -29,16 +29,30 @@ function mediaKind(value) {
   return kind;
 }
 
-export function normalizeMediaFilename(value, kindValue) {
+function validateMediaFilename(value, kindValue) {
   const kind = mediaKind(kindValue);
   const filename = String(value || "").normalize("NFC").trim();
   if (!filename || filename.length > 180 || filename !== path.basename(filename) || /[\u0000-\u001f\u007f]/.test(filename)) {
     throw new Error("El nombre del archivo no es válido.");
   }
-  if (!allowedExtensions[kind].has(path.extname(filename).toLowerCase())) {
+  const extension = path.extname(filename).toLowerCase();
+  if (!allowedExtensions[kind].has(extension)) {
     throw new Error(kind === "videos" ? "Solo se permiten videos MP4." : "Formato de audio no permitido.");
   }
-  return filename;
+  return { filename, extension };
+}
+
+export function normalizeMediaFilename(value, kindValue) {
+  const { filename, extension } = validateMediaFilename(value, kindValue);
+  const base = filename.slice(0, -extension.length)
+    .normalize("NFKD")
+    .replace(/\p{M}/gu, "")
+    .replace(/[^A-Za-z0-9_-]+/g, "_")
+    .replace(/_+/g, "_")
+    .replace(/^[_-]+|[_-]+$/g, "")
+    .slice(0, 160);
+  if (!base) throw new Error("El nombre del archivo no contiene caracteres válidos.");
+  return `${base}${extension}`;
 }
 
 function publicUrl(kind, filename) {
@@ -92,7 +106,7 @@ async function ensureBucket() {
 
 function normalizeObject(kind, object) {
   const filename = String(object?.name || "");
-  try { normalizeMediaFilename(filename, kind); } catch { return null; }
+  try { validateMediaFilename(filename, kind); } catch { return null; }
   return {
     filename,
     url: publicUrl(kind, filename),
@@ -146,7 +160,7 @@ export async function uploadGlobalMedia(kindValue, { filename: rawFilename, cont
 
 export async function deleteGlobalMedia(kindValue, rawFilename) {
   const kind = mediaKind(kindValue);
-  const filename = normalizeMediaFilename(rawFilename, kind);
+  const { filename } = validateMediaFilename(rawFilename, kind);
   await ensureBucket();
   const current = await listGlobalMedia(kind, { fresh: true });
   const existing = current.find((entry) => entry.filename === filename);
