@@ -8,7 +8,7 @@
     <link rel="preconnect" href="https://fonts.googleapis.com" />
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
     <link href="https://fonts.googleapis.com/css2?family=DM+Mono:wght@400;500&family=Press+Start+2P&family=Space+Grotesk:wght@400;500;600;700&display=swap" rel="stylesheet" />
-    <link rel="stylesheet" href="/style.css?v=20261010-quick-audio" />
+    <link rel="stylesheet" href="/style.css?v=20261012-event-actions" />
   </head>
   <body>
     <div class="noise"></div>
@@ -334,22 +334,39 @@
       </section>
 
       <section class="workspace mappings-section" id="acciones">
-        <div class="section-heading"><div><p class="eyebrow">AUTOMATIZACIÓN</p><h2>Regalos → acciones</h2></div><span class="hint">Coincide por ID o por nombre</span></div>
+        <div class="section-heading"><div><p class="eyebrow">AUTOMATIZACIÓN</p><h2>Eventos → acciones</h2></div><span class="hint">Regalos, Me gusta, seguidores y compartidos</span></div>
+        <div class="action-video-widget-card">
+          <div><strong>Widget de videos</strong><small>Copia esta URL en una fuente web de TikTok Studio. Abre Vista previa y usa ▷ en una acción para probar su video.</small></div>
+          <div class="action-video-widget-url">
+            <input id="action-video-widget-url" aria-label="URL del widget de videos" readonly />
+            <button class="button text" id="action-video-widget-copy" type="button">⛓ Copiar URL</button>
+            <button class="button text" id="action-video-widget-preview" type="button">▷ Vista previa</button>
+          </div>
+        </div>
         <div class="mapping-layout">
           <form id="mapping-form" class="mapping-editor">
             <input type="hidden" id="mapping-id" />
             <div class="editor-title"><span class="pixel-icon wand">✦</span><h3 id="editor-heading">Nueva acción</h3><button class="button text select-gift-button" id="select-gift-button" type="button">🎁 Seleccionar regalo</button></div>
-            <div class="two-columns">
+            <label class="mapping-trigger-label">Activar cuando
+              <select id="mapping-trigger-type">
+                <option value="gift">Envíen un regalo</option>
+                <option value="likes">Den Me gusta</option>
+                <option value="follows">Sigan la cuenta</option>
+                <option value="shares">Compartan el LIVE</option>
+              </select>
+            </label>
+            <div class="two-columns" id="mapping-gift-fields">
               <label>Nombre del regalo <input id="gift-name" placeholder="Se completa al seleccionar" maxlength="80" /></label>
               <label>ID del regalo <input id="gift-id" placeholder="ID manual si aún no fue detectado" maxlength="80" /></label>
             </div>
-            <label>Comando de Minecraft <textarea id="mapping-command" rows="3" placeholder="effect give @a minecraft:speed 10 1 true" maxlength="256" required></textarea></label>
+            <label>Comando de Minecraft <textarea id="mapping-command" rows="3" placeholder="Opcional: effect give @a minecraft:speed 10 1 true" maxlength="256"></textarea></label>
             <label>Audio al ejecutar la acción
               <span class="audio-picker"><select id="mapping-audio" aria-label="Audio asociado"><option value="">Sin audio</option></select><button class="button text audio-test" id="audio-test" type="button" disabled>▷ Probar audio</button></span>
               <button class="button text audio-test-stop" id="audio-test-stop" type="button" disabled>■ Detener prueba</button>
               <small id="audio-state">Coloca archivos MP3, WAV, OGG, M4A, AAC o WebM en <code>src/public/sounds/</code>.</small>
             </label>
-            <p class="variables">Variables: <code>{usuario}</code> <code>{apodo}</code> <code>{regalo}</code> <code>{regalo_id}</code> <code>{cantidad}</code></p>
+            <label>Video MP4 en el widget <input id="mapping-video-url" placeholder="https://ejemplo.com/video.mp4" maxlength="1200" /><small>Opcional. Usa una URL pública HTTPS del archivo MP4.</small></label>
+            <p class="variables">Configura al menos un comando, audio o video.<br />Variables: <code>{usuario}</code> <code>{apodo}</code> <code>{regalo}</code> <code>{regalo_id}</code> <code>{cantidad}</code> <code>{evento}</code></p>
             <div class="editor-bottom"><label class="cooldown">Enfriamiento (ms)<input id="cooldown" type="number" min="0" max="3600000" value="0" /></label><label class="toggle"><input id="mapping-enabled" type="checkbox" checked /><span></span> Activa</label></div>
             <div class="editor-actions"><button class="button primary" type="submit">Guardar acción</button><button class="button text" type="button" id="cancel-edit" hidden>Cancelar</button></div>
           </form>
@@ -539,6 +556,6 @@
     <script src="/socket.io/socket.io.js"></script>
     <script src="/gift-catalog.js"></script>
     <script src="/tts.js?v=20261010-voices"></script>
-    <script src="/app.js?v=20261010-sound-duration"></script>
+    <script src="/app.js?v=20261012-event-actions"></script>
   </body>
 </html>

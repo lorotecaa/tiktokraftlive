@@ -26,6 +26,7 @@ const supabaseConfigId = "tiktokraft-live";
 const supabaseConfigTable = "tiktokraft_config";
 const soundsDirectory = path.join(directory, "public", "sounds");
 const audioExtensions = new Set([".aac", ".m4a", ".mp3", ".ogg", ".wav", ".webm"]);
+const mappingTriggerTypes = new Set(["gift", "likes", "follows", "shares"]);
 const ttsLanguages = new Set(["es-CO", "es-ES", "en-US", "pt-BR"]);
 const goalTypes = new Set(["likes", "follows", "coins"]);
 const overlayFonts = new Set(["Space Grotesk", "DM Mono", "Press Start 2P"]);
@@ -88,19 +89,23 @@ const defaultConfig = {
     {
       id: "rose",
       enabled: true,
+      triggerType: "gift",
       giftId: "5655",
       giftName: "Rosa",
       command: "say Gracias {usuario} por {cantidad} {regalo}!",
       audio: "",
+      videoUrl: "",
       cooldownMs: 0
     },
     {
       id: "heart-me",
       enabled: false,
+      triggerType: "gift",
       giftId: "",
       giftName: "Corazón",
       command: "effect give @a minecraft:regeneration 5 1 true",
       audio: "",
+      videoUrl: "",
       cooldownMs: 3000
     }
   ]
@@ -114,16 +119,31 @@ function stringOrEmpty(value) {
   return typeof value === "string" ? value.trim() : "";
 }
 
+function normalizeVideoUrl(value) {
+  const raw = stringOrEmpty(value).slice(0, 1200);
+  if (!raw) return "";
+  if (raw.startsWith("/") && !raw.startsWith("//") && !raw.includes("\\")) return raw;
+  try {
+    const url = new URL(raw);
+    return url.protocol === "https:" || url.protocol === "http:" ? url.toString() : "";
+  } catch {
+    return "";
+  }
+}
+
 function normalizeMapping(mapping, index) {
   const command = stringOrEmpty(mapping?.command).replace(/[\r\n\0]/g, "");
   const audio = stringOrEmpty(mapping?.audio).replace(/[\\/\0]/g, "").slice(0, 160);
+  const triggerType = mappingTriggerTypes.has(mapping?.triggerType) ? mapping.triggerType : "gift";
   return {
     id: stringOrEmpty(mapping?.id) || `rule-${Date.now()}-${index}`,
     enabled: mapping?.enabled !== false,
-    giftId: stringOrEmpty(mapping?.giftId),
-    giftName: stringOrEmpty(mapping?.giftName),
+    triggerType,
+    giftId: triggerType === "gift" ? stringOrEmpty(mapping?.giftId) : "",
+    giftName: triggerType === "gift" ? stringOrEmpty(mapping?.giftName) : "",
     command: command.slice(0, 256),
     audio,
+    videoUrl: normalizeVideoUrl(mapping?.videoUrl),
     cooldownMs: Math.max(0, Math.min(Number(mapping?.cooldownMs) || 0, 3_600_000))
   };
 }
@@ -358,7 +378,7 @@ export function sanitizeConfig(raw = {}) {
   const mappings = Array.isArray(raw.mappings) ? raw.mappings : defaultConfig.mappings;
   const goals = Array.isArray(raw.goals) ? raw.goals : defaultConfig.goals;
   const normalizedGoals = goals.map(normalizeGoal).filter(Boolean);
-  const normalizedMappings = mappings.map(normalizeMapping).filter((mapping) => mapping.command);
+  const normalizedMappings = mappings.map(normalizeMapping).filter((mapping) => mapping.command || mapping.audio || mapping.videoUrl);
   const timer = normalizeTimer(raw.timer);
   if (timer.actionMappingId && !normalizedMappings.some((mapping) => mapping.id === timer.actionMappingId)) timer.actionMappingId = "";
   return {

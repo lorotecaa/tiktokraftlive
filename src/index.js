@@ -112,6 +112,7 @@ app.get("/widget/:token/timer", (_request, response) => {
   response.set("Cache-Control", "no-store, no-cache, must-revalidate, proxy-revalidate");
   response.sendFile(path.join(directory, "public", "timer-widget.html"));
 });
+app.get("/widget/:token/action-video", (_request, response) => response.sendFile(path.join(directory, "public", "action-video-widget.html")));
 app.get("/api/public/:token/goal/:id", async (request, response) => { const w = await publicSpace(request.params.token); const goal = w?.config.goals.find((item) => item.id === request.params.id); if (!goal) return response.sendStatus(404); response.json({ goal: w.publicGoal(goal) }); });
 app.get("/api/public/:token/gift/:kind", async (request, response) => { const w = await publicSpace(request.params.token); const overlay = w?.publicGift(request.params.kind); if (!overlay) return response.sendStatus(404); response.json({ overlay }); });
 app.get("/api/public/:token/ranking", async (request, response) => { const w = await publicSpace(request.params.token); if (!w) return response.sendStatus(404); response.json({ overlay: w.publicRanking() }); });
@@ -184,7 +185,12 @@ io.on("connection", (socket) => {
   socket.on("admin:statistics:profile", (input, done) => acknowledge(done, async () => { await requireAdministrator(session); const userId = String(input?.userId || ""); const account = (await administrationAccounts()).find((entry) => entry.userId === userId); if (!account) throw new Error("No existe esa cuenta registrada."); return account; }, w));
   socket.on("mapping:save", (input, done) => acknowledge(done, () => w.saveMapping(input), w));
   socket.on("mapping:delete", (id, done) => acknowledge(done, async () => { const timer = w.config.timer?.actionMappingId === id ? { ...w.config.timer, actionMappingId: "" } : w.config.timer; await w.save({ ...w.config, timer, mappings: w.config.mappings.filter((item) => item.id !== id) }); return { id }; }, w));
-  socket.on("mapping:test", (id, done) => acknowledge(done, () => { const mapping = w.config.mappings.find((item) => item.id === id); if (!mapping) throw new Error("No existe esa acción."); const event = { giftId: mapping.giftId || "demo", giftName: mapping.giftName || "Regalo de prueba", repeatCount: 1, username: "prueba", nickname: "Prueba" }; const command = w.rules.render(mapping.command, event); w.serverTap.enqueue(command, { test: true, mappingId: mapping.id }); w.activity({ type: "action", event, mapping, command, message: "Prueba enviada a Minecraft" }); return { command }; }, w));
+  socket.on("mapping:test", (id, done) => acknowledge(done, () => {
+    const mapping = w.config.mappings.find((item) => item.id === id);
+    if (!mapping) throw new Error("No existe esa acción.");
+    const event = { triggerType: mapping.triggerType || "gift", eventName: "Prueba", giftId: mapping.giftId || "demo", giftName: mapping.giftName || "Evento de prueba", repeatCount: 1, username: "prueba", nickname: "Prueba" };
+    return w.rules.executeSelected(mapping, event, { context: { test: true }, message: "Prueba de acción ejecutada" });
+  }, w));
   socket.on("gift:simulate", (input, done) => acknowledge(done, () => w.rules.process({ giftId: String(input?.giftId || "demo"), giftName: String(input?.giftName || "Regalo de prueba"), repeatCount: Math.max(1, Number(input?.repeatCount) || 1), username: "prueba", nickname: "Prueba" }, w.config.mappings), w));
 });
 app.use((error, _request, response, _next) => { console.error(error); response.status(500).json({ error: error.message || "Error interno." }); });

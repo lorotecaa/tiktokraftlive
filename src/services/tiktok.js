@@ -166,6 +166,22 @@ function metricAmount(message, fields, fallback = 1) {
   return fallback;
 }
 
+function normalizeInteraction(message, triggerType, amount) {
+  const data = message?.data || message || {};
+  const user = data.user || data.sender || data.fromUser || data;
+  const eventNames = { likes: "Me gusta", follows: "Seguir", shares: "Compartir", subscriptions: "Suscripción", comments: "Comentario" };
+  return {
+    triggerType,
+    eventName: eventNames[triggerType] || triggerType,
+    repeatCount: Math.max(1, Number(amount) || 1),
+    username: normalizeText(user.uniqueId || user.unique_id || user.username || user.displayId, "espectador"),
+    nickname: normalizeText(user.nickname || user.displayName || user.display_name || user.uniqueId || data.nickname, "espectador"),
+    messageId: messageIdentifier(data.msgId, data.msg_id, data.messageId, data.message_id, message?.msgId, message?.msg_id),
+    giftId: "",
+    giftName: eventNames[triggerType] || triggerType
+  };
+}
+
 function normalizeComment(message) {
   const data = message?.data || message || {};
   const user = data.user || data.sender || data.fromUser || data;
@@ -454,7 +470,7 @@ export class TikTokClient {
 
   deliverGift(gift) {
     if (!this.isFirstGiftOccurrence(gift)) return;
-    if (gift.coins) this.onMetric("coins", gift.coins);
+    if (gift.coins) this.onMetric("coins", gift.coins, gift);
     this.onGift(gift);
   }
 
@@ -486,25 +502,26 @@ export class TikTokClient {
     const messages = Array.isArray(frame.messages) ? frame.messages : [frame];
     for (const message of messages) {
       if (isLikeMessage(message)) {
-        this.onMetric("likes", metricAmount(message, ["likeCount", "like_count", "count", "total"]));
+        const amount = metricAmount(message, ["likeCount", "like_count", "count", "total"]);
+        this.onMetric("likes", amount, normalizeInteraction(message, "likes", amount));
         continue;
       }
       if (isFollowMessage(message)) {
-        this.onMetric("follows", 1);
+        this.onMetric("follows", 1, normalizeInteraction(message, "follows", 1));
         continue;
       }
       if (isShareMessage(message)) {
-        this.onMetric("shares", 1);
+        this.onMetric("shares", 1, normalizeInteraction(message, "shares", 1));
         continue;
       }
       if (isSubscribeMessage(message)) {
-        this.onMetric("subscriptions", 1);
+        this.onMetric("subscriptions", 1, normalizeInteraction(message, "subscriptions", 1));
         continue;
       }
       if (isCommentMessage(message)) {
         const comment = normalizeComment(message);
         const replayed = this.shouldDiscardReplayedComment(comment, sourceSocket);
-        if (comment.text && !replayed) this.onMetric("comments", 1);
+        if (comment.text && !replayed) this.onMetric("comments", 1, { ...comment, triggerType: "comments", eventName: "Comentario", repeatCount: 1, giftId: "", giftName: "Comentario" });
         if (comment.text && !comment.text.startsWith("!") && !replayed && this.shouldReadComment(comment) && this.isFirstReadComment(comment)) this.onComment(comment);
         continue;
       }

@@ -46,8 +46,8 @@ const elements = {
   globalStatus: $("#global-status"), adminPanelButton: $("#admin-panel-button"), profileButton: $("#profile-button"), logout: $("#logout-button"),
   adminModal: $("#admin-modal"), adminMenuView: $("#admin-menu-view"), adminAuthorizationView: $("#admin-authorization-view"), adminRolesView: $("#admin-roles-view"), adminStatisticsView: $("#admin-statistics-view"), adminRegisteredUsersView: $("#admin-registered-users-view"), adminConnectedUsersView: $("#admin-connected-users-view"), adminUserProfileView: $("#admin-user-profile-view"), adminOpenAuthorization: $("#admin-open-authorization"), adminOpenRoles: $("#admin-open-roles"), adminOpenStatistics: $("#admin-open-statistics"), adminBackMenu: $("#admin-back-menu"), adminRolesBackMenu: $("#admin-roles-back-menu"), adminStatisticsBackMenu: $("#admin-statistics-back-menu"), adminOpenRegisteredUsers: $("#admin-open-registered-users"), adminOpenConnectedUsers: $("#admin-open-connected-users"), adminRegisteredUsersBack: $("#admin-registered-users-back"), adminConnectedUsersBack: $("#admin-connected-users-back"), adminRegisteredUsersSearch: $("#admin-registered-users-search"), adminRegisteredUsersList: $("#admin-registered-users-list"), adminRegisteredUsersEmpty: $("#admin-registered-users-empty"), adminConnectedUsersList: $("#admin-connected-users-list"), adminConnectedUsersEmpty: $("#admin-connected-users-empty"), adminRegisteredUsersCount: $("#admin-registered-users-count"), adminConnectedUsersCount: $("#admin-connected-users-count"), adminUserProfileBack: $("#admin-user-profile-back"), adminUserProfileTitle: $("#admin-user-profile-title"), adminUserProfileData: $("#admin-user-profile-data"), adminAuthorizedForm: $("#admin-authorized-form"), adminAuthorizedUsername: $("#admin-authorized-username"), adminAuthorizedSearch: $("#admin-authorized-search"), adminAuthorizedList: $("#admin-authorized-list"), adminAuthorizedEmpty: $("#admin-authorized-empty"), adminRolesForm: $("#admin-roles-form"), adminRoleEmail: $("#admin-role-email"), adminRoleSelect: $("#admin-role-select"), adminRolesSearch: $("#admin-roles-search"), adminRolesList: $("#admin-roles-list"), adminRolesEmpty: $("#admin-roles-empty"),
   profileModal: $("#profile-modal"), profileForm: $("#profile-form"), profileAvatar: $("#profile-avatar"), profileAvatarEmpty: $("#profile-avatar-empty"), profileAvatarInput: $("#profile-avatar-input"), profileEmail: $("#profile-email"), profilePassword: $("#profile-password"), profilePasswordConfirm: $("#profile-password-confirm"), profileMessage: $("#profile-message"),
-  mappingForm: $("#mapping-form"), mappingId: $("#mapping-id"), giftName: $("#gift-name"), giftId: $("#gift-id"),
-  command: $("#mapping-command"), audio: $("#mapping-audio"), audioTest: $("#audio-test"), audioTestStop: $("#audio-test-stop"), audioState: $("#audio-state"), cooldown: $("#cooldown"), enabled: $("#mapping-enabled"), editorHeading: $("#editor-heading"),
+  mappingForm: $("#mapping-form"), mappingId: $("#mapping-id"), mappingTriggerType: $("#mapping-trigger-type"), mappingGiftFields: $("#mapping-gift-fields"), giftName: $("#gift-name"), giftId: $("#gift-id"),
+  command: $("#mapping-command"), audio: $("#mapping-audio"), audioTest: $("#audio-test"), audioTestStop: $("#audio-test-stop"), audioState: $("#audio-state"), mappingVideoUrl: $("#mapping-video-url"), actionVideoWidgetUrl: $("#action-video-widget-url"), actionVideoWidgetCopy: $("#action-video-widget-copy"), actionVideoWidgetPreview: $("#action-video-widget-preview"), cooldown: $("#cooldown"), enabled: $("#mapping-enabled"), editorHeading: $("#editor-heading"),
   cancelEdit: $("#cancel-edit"), mappingList: $("#mapping-list"), mappingEmpty: $("#mapping-empty"), selectGiftButton: $("#select-gift-button"), giftSelectorModal: $("#gift-selector-modal"), giftSelectorSearch: $("#gift-selector-search"), giftSelectorGrid: $("#gift-selector-grid"), giftSelectorEmpty: $("#gift-selector-empty"),
   simulateForm: $("#simulate-form"), simulateGift: $("#simulate-gift"), simulateCount: $("#simulate-count"),
   giftHistoryList: $("#gift-history-list"), giftHistoryEmpty: $("#gift-history-empty"),
@@ -534,6 +534,7 @@ function renderState(next) {
   appState = { ...next, account: next.account || appState?.account };
   const { config, minecraft, tiktok } = appState;
   userPointsOverlayToken = appState.workspace?.overlayToken || userPointsOverlayToken;
+  elements.actionVideoWidgetUrl.value = actionVideoWidgetUrl();
   elements.adminPanelButton.hidden = !Boolean(appState.account?.isAdmin);
   if (document.activeElement !== elements.tiktokUsername) elements.tiktokUsername.value = config.tiktokUsername || "";
   elements.eulerKeyState.textContent = config.eulerStreamApiKeyPresent ? "API Key guardada. Déjala vacía para conservarla." : "Necesitas una API Key de Euler Stream.";
@@ -600,6 +601,10 @@ function timerOverlayUrl() {
   return `${window.location.origin}/widget/${encodeURIComponent(appState?.workspace?.overlayToken || "")}/timer`;
 }
 
+function actionVideoWidgetUrl() {
+  return `${window.location.origin}/widget/${encodeURIComponent(appState?.workspace?.overlayToken || "")}/action-video`;
+}
+
 function timerInputValue(value) {
   const number = Number(value);
   return Number.isFinite(number) ? String(Number(number.toFixed(3))) : "0";
@@ -620,8 +625,8 @@ function renderTimerActionOptions(mappings, selectedId) {
   for (const mapping of mappings) {
     const option = document.createElement("option");
     option.value = mapping.id;
-    const name = mapping.giftName || (mapping.giftId ? `Regalo #${mapping.giftId}` : "Acción");
-    option.textContent = `${name} → ${mapping.command}`;
+    const name = mappingTriggerDefinition(mapping).title(mapping);
+    option.textContent = `${name} → ${mappingOutputSummary(mapping)}`;
     fragment.append(option);
   }
   elements.timerExpiryAction.replaceChildren(fragment);
@@ -1055,24 +1060,49 @@ function setMappingAudioPickerOpen(picker, open) {
   if (open) select.focus();
 }
 
+const mappingTriggerDefinitions = {
+  gift: { label: "Regalo", title: (mapping) => mapping.giftName || `Regalo #${mapping.giftId}`, icon: "R" },
+  likes: { label: "Me gusta", title: () => "Me gusta", icon: "♥" },
+  follows: { label: "Seguir", title: () => "Nuevo seguidor", icon: "+" },
+  shares: { label: "Compartir", title: () => "Compartir LIVE", icon: "↗" }
+};
+
+function mappingTriggerDefinition(mapping) {
+  return mappingTriggerDefinitions[mapping?.triggerType] || mappingTriggerDefinitions.gift;
+}
+
+function mappingOutputSummary(mapping) {
+  const outputs = [];
+  if (mapping.command) outputs.push(mapping.command);
+  if (mapping.audio) outputs.push(`Audio: ${mapping.audio}`);
+  if (mapping.videoUrl) outputs.push("Video MP4");
+  return outputs.join(" + ") || "Sin salida";
+}
+
 function renderMappings(mappings) {
-  elements.mappingList.innerHTML = mappings.map((mapping) => `
+  elements.mappingList.innerHTML = mappings.map((mapping) => {
+    const trigger = mappingTriggerDefinition(mapping);
+    const title = trigger.title(mapping);
+    return `
     <article class="mapping-row ${mapping.enabled ? "" : "disabled"}">
-      <div class="mapping-gift">${escapeHtml((mapping.giftName || mapping.giftId || "?").slice(0, 1).toUpperCase())}</div>
+      <div class="mapping-gift">${escapeHtml((mapping.triggerType || "gift") === "gift" ? (mapping.giftName || mapping.giftId || "?").slice(0, 1).toUpperCase() : trigger.icon)}</div>
       <div class="mapping-main">
-        <strong>${escapeHtml(mapping.giftName || `Regalo #${mapping.giftId}`)}</strong>
-        <p>${escapeHtml(mapping.command)}</p>
+        <span class="mapping-trigger-badge">${escapeHtml(trigger.label)}</span>
+        <strong>${escapeHtml(title)}</strong>
+        <p>${escapeHtml(mapping.command || "Sin comando de Minecraft")}</p>
         <div class="mapping-audio" data-mapping-id="${escapeHtml(mapping.id)}">
           <button type="button" class="mapping-audio-trigger" data-action="audio" data-id="${escapeHtml(mapping.id)}" aria-expanded="false" title="Cambiar audio rápidamente"><span>Audio:</span> <b>${escapeHtml(mapping.audio || "Sin audio")}</b></button>
-          <select class="mapping-audio-select" data-action="audio" data-id="${escapeHtml(mapping.id)}" aria-label="Cambiar audio de ${escapeHtml(mapping.giftName || mapping.giftId || "esta acción")}" hidden>${mappingAudioOptions(mapping.audio || "")}</select>
+          <select class="mapping-audio-select" data-action="audio" data-id="${escapeHtml(mapping.id)}" aria-label="Cambiar audio de ${escapeHtml(title || "esta acción")}" hidden>${mappingAudioOptions(mapping.audio || "")}</select>
         </div>
+        <p class="mapping-video"><span>Video:</span> ${escapeHtml(mapping.videoUrl || "Sin video")}</p>
       </div>
       <div class="mapping-tools">
-        <button class="icon-button" data-action="test" data-id="${escapeHtml(mapping.id)}" title="Probar en Minecraft">▷</button>
+        <button class="icon-button" data-action="test" data-id="${escapeHtml(mapping.id)}" title="Probar acción">▷</button>
         <button class="icon-button" data-action="edit" data-id="${escapeHtml(mapping.id)}" title="Editar">✎</button>
         <button class="icon-button delete" data-action="delete" data-id="${escapeHtml(mapping.id)}" title="Eliminar">×</button>
       </div>
-    </article>`).join("");
+    </article>`;
+  }).join("");
   elements.mappingEmpty.hidden = mappings.length > 0;
 }
 
@@ -1369,7 +1399,10 @@ function giftActivityName(event) {
 function entryText(entry) {
   if (entry.type === "gift") return `${entry.event.nickname} regaló ${giftActivityName(entry.event)}${entry.event.repeatCount > 1 ? ` ×${entry.event.repeatCount}` : ""}`;
   if (entry.type === "gift-unmapped") return `${entry.event.nickname} regaló ${giftActivityName(entry.event)}; no hay acción configurada`;
-  if (entry.type === "action") return `${entry.mapping?.giftName || entry.event.giftName} → ${entry.command}`;
+  if (entry.type === "action") {
+    const title = entry.mapping ? mappingTriggerDefinition(entry.mapping).title(entry.mapping) : (entry.event?.eventName || entry.event?.giftName || "Acción");
+    return `${title} → ${mappingOutputSummary(entry.mapping || { command: entry.command })}`;
+  }
   return entry.message || "Evento";
 }
 
@@ -1401,25 +1434,36 @@ function renderGiftHistory(gifts) {
 function resetEditor() {
   elements.mappingForm.reset();
   elements.mappingId.value = "";
+  elements.mappingTriggerType.value = "gift";
   elements.cooldown.value = 0;
   elements.enabled.checked = true;
   renderSoundOptions("");
   elements.editorHeading.textContent = "Nueva acción";
   elements.cancelEdit.hidden = true;
+  syncMappingTriggerEditor();
 }
 
 function openEditor(mapping) {
   elements.mappingId.value = mapping.id;
+  elements.mappingTriggerType.value = mapping.triggerType || "gift";
   elements.giftName.value = mapping.giftName;
   elements.giftId.value = mapping.giftId;
   elements.command.value = mapping.command;
+  elements.mappingVideoUrl.value = mapping.videoUrl || "";
   renderSoundOptions(mapping.audio);
   elements.cooldown.value = mapping.cooldownMs;
   elements.enabled.checked = mapping.enabled;
   elements.editorHeading.textContent = "Editar acción";
   elements.cancelEdit.hidden = false;
+  syncMappingTriggerEditor();
   elements.mappingForm.scrollIntoView({ behavior:"smooth", block:"center" });
-  elements.giftName.focus();
+  (mapping.triggerType === "gift" ? elements.giftName : elements.mappingTriggerType).focus();
+}
+
+function syncMappingTriggerEditor() {
+  const isGift = elements.mappingTriggerType.value === "gift";
+  elements.mappingGiftFields.hidden = !isGift;
+  elements.selectGiftButton.hidden = !isGift;
 }
 
 async function control(button, event, payload, success) {
@@ -1774,14 +1818,34 @@ for (const card of elements.goalCards) {
   });
 }
 
+elements.mappingTriggerType.addEventListener("change", syncMappingTriggerEditor);
+syncMappingTriggerEditor();
+elements.actionVideoWidgetCopy.addEventListener("click", async () => {
+  const url = elements.actionVideoWidgetUrl.value;
+  try {
+    await navigator.clipboard.writeText(url);
+  } catch {
+    elements.actionVideoWidgetUrl.select();
+    document.execCommand("copy");
+  }
+  toast("URL del widget de videos copiada", "success");
+});
+elements.actionVideoWidgetPreview.addEventListener("click", () => {
+  const url = elements.actionVideoWidgetUrl.value;
+  if (url) window.open(url, "_blank", "noopener");
+});
+
 elements.mappingForm.addEventListener("submit", async (event) => {
   event.preventDefault();
+  const triggerType = elements.mappingTriggerType.value;
   const data = {
     id: elements.mappingId.value || `rule-${crypto.randomUUID()}`,
-    giftName: elements.giftName.value.trim(), giftId: elements.giftId.value.trim(), command: elements.command.value.trim(), audio: elements.audio.value,
+    triggerType,
+    giftName: triggerType === "gift" ? elements.giftName.value.trim() : "", giftId: triggerType === "gift" ? elements.giftId.value.trim() : "", command: elements.command.value.trim(), audio: elements.audio.value, videoUrl: elements.mappingVideoUrl.value.trim(),
     cooldownMs: Number(elements.cooldown.value), enabled: elements.enabled.checked
   };
-  if (!data.giftName && !data.giftId) return toast("Indica al menos el nombre o ID del regalo.", "error");
+  if (triggerType === "gift" && !data.giftName && !data.giftId) return toast("Indica al menos el nombre o ID del regalo.", "error");
+  if (!data.command && !data.audio && !data.videoUrl) return toast("Configura al menos un comando, audio o video.", "error");
   try {
     const saved = await request("mapping:save", data);
     if (appState?.config?.mappings && saved?.id) {
@@ -1813,10 +1877,11 @@ elements.mappingList.addEventListener("click", async (event) => {
   if (!mapping) return;
   if (button.dataset.action === "edit") return openEditor(mapping);
   if (button.dataset.action === "delete") {
-    if (!confirm(`¿Eliminar la acción de ${mapping.giftName || mapping.giftId}?`)) return;
+    const title = mappingTriggerDefinition(mapping).title(mapping);
+    if (!confirm(`¿Eliminar la acción de ${title}?`)) return;
     return control(button, "mapping:delete", mapping.id, "Acción eliminada");
   }
-  if (button.dataset.action === "test") return control(button, "mapping:test", mapping.id, "Comando de prueba enviado");
+  if (button.dataset.action === "test") return control(button, "mapping:test", mapping.id, "Prueba de acción ejecutada");
 });
 
 elements.mappingList.addEventListener("change", async (event) => {

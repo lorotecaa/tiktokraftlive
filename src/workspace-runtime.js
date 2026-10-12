@@ -35,7 +35,7 @@ export class WorkspaceRuntime {
       onUpdate: (entries) => this.emit("user-points:update", { entries: entries.slice(0, 100), configured: true }), onError: (error) => this.error(`Usuario y Puntos: ${error.message}`)
     });
     this.serverTap = new ServerTapClient({ commandsPerSecond, onState: (next) => { this.state.minecraft = next; this.broadcast(); }, onConsole: (entry) => this.activity({ type: "console", entry, message: entry.message }), onError: (message) => this.error(message) });
-    this.rules = new RuleEngine({ sendCommand: (command, context) => this.serverTap.enqueue(command, context), onActivity: (entry) => { this.activity(entry); if (entry.type === "action" && entry.mapping?.audio) this.emit("mapping:sound", { audio: entry.mapping.audio, mappingId: entry.mapping.id }); } });
+    this.rules = new RuleEngine({ sendCommand: (command, context) => this.serverTap.enqueue(command, context), onActivity: (entry) => this.handleRuleActivity(entry) });
     this.timerEngine = new TimerEngine({
       getTimer: () => this.config.timer,
       onUpdate: (timer) => this.emitTimer(timer),
@@ -50,9 +50,13 @@ export class WorkspaceRuntime {
       // El récord se guarda al recibir el evento final en onGift, que contiene
       // el repeatCount completo y ya se usa para acciones y actividad.
       onGiftProgress: (event) => { this.giftEngine.processStreak(event); },
-      onMetric: (metric, amount) => {
+      onMetric: (metric, amount, event) => {
         if (this.goalEngine.process(metric, amount).length) this.queueSave();
         void this.timerEngine.processInteraction(metric, amount).catch((error) => this.error(`Temporizador: ${error.message}`));
+        if (["likes", "follows", "shares"].includes(metric)) {
+          try { this.rules.processInteraction(metric, event || { triggerType: metric, eventName: metric, repeatCount: amount, username: "espectador", nickname: "Espectador" }, this.config.mappings); }
+          catch (error) { this.error(error.message); }
+        }
       },
       onComment: (event) => { if (this.config.tts.enabled) this.emit("tiktok:comment", event); }, shouldReadComment: (event) => this.config.tts.enabled && isAllowedTtsUser(event, this.config.tts.allowedUsers), readCommentIds: this.liveReadCommentIds, onError: (message) => this.error(message)
     });
@@ -83,6 +87,23 @@ export class WorkspaceRuntime {
     this.overlayToken = overlayToken;
   }
   emit(event, payload) { this.io.to(this.room()).emit(event, payload); }
+  emitPublic(event, payload) { this.io.of("/public").to(this.publicRoom()).emit(event, payload); }
+  handleRuleActivity(entry) {
+    this.activity(entry);
+    if (entry.type !== "action" || !entry.mapping) return;
+    if (entry.mapping.audio) this.emit("mapping:sound", { audio: entry.mapping.audio, mappingId: entry.mapping.id });
+    if (entry.mapping.videoUrl) {
+      this.emitPublic("action-video:play", {
+        id: randomUUID(),
+        at: Date.now(),
+        mappingId: entry.mapping.id,
+        videoUrl: entry.mapping.videoUrl,
+        triggerType: entry.mapping.triggerType || "gift",
+        username: entry.event?.username || "",
+        nickname: entry.event?.nickname || ""
+      });
+    }
+  }
   emitTimer(timer = this.timerEngine.snapshot()) {
     this.emit("timer:update", timer);
     this.io.of("/public").to(this.publicRoom()).emit("timer:update", this.publicTimer(timer));
@@ -163,10 +184,22 @@ export class WorkspaceRuntime {
     if (!mappingId) return { executed: 0 };
     const mapping = this.config.mappings.find((entry) => entry.id === mappingId);
     if (!mapping) throw new Error("La acción configurada al finalizar ya no existe.");
-    return this.rules.executeSelected(mapping, { giftId: mapping.giftId || "timer", giftName: mapping.giftName || "Temporizador", username: "temporizador", nickname: "Temporizador", repeatCount: 1 });
+    return this.rules.executeSelected(mapping, { giftId: mapping.giftId || "timer", giftName: mapping.giftName || "Temporizador", eventName: "Temporizador", username: "temporizador", nickname: "Temporizador", repeatCount: 1 }, { context: { timer: true }, message: "Acción del temporizador ejecutada" });
   }
   async dispose() { this.timerEngine.dispose(); this.tiktok.disconnect("Sesión finalizada"); this.serverTap.disconnect("Sesión finalizada"); await Promise.all([this.saveNow(), this.pointsEngine.flush(), this.giftCatalogWriteQueue]); }
-  async saveMapping(input) { const mapping = sanitizeConfig({ mappings: [input] }).mappings[0]; if (!mapping) throw new Error("Añade un comando a la acción."); if (mapping.audio && !(await this.listSounds()).includes(mapping.audio)) throw new Error("El audio seleccionado ya no está disponible."); await this.saveNow(); const mappings = [...this.config.mappings]; const index = mappings.findIndex((entry) => entry.id === mapping.id); if (index >= 0) mappings[index] = mapping; else mappings.push(mapping); await this.save({ ...this.config, mappings }); return mapping; }
+  async saveMapping(input) {
+    const mapping = sanitizeConfig({ mappings: [input] }).mappings[0];
+    if (!mapping) throw new Error("Configura al menos un comando, audio o video para la acción.");
+    if (String(input?.videoUrl || "").trim() && !mapping.videoUrl) throw new Error("La URL del video debe comenzar por https://, http:// o /.");
+    if (mapping.triggerType === "gift" && !mapping.giftName && !mapping.giftId) throw new Error("Indica al menos el nombre o ID del regalo.");
+    if (mapping.audio && !(await this.listSounds()).includes(mapping.audio)) throw new Error("El audio seleccionado ya no está disponible.");
+    await this.saveNow();
+    const mappings = [...this.config.mappings];
+    const index = mappings.findIndex((entry) => entry.id === mapping.id);
+    if (index >= 0) mappings[index] = mapping; else mappings.push(mapping);
+    await this.save({ ...this.config, mappings });
+    return mapping;
+  }
   async saveGoal(input) { const type = String(input?.type || "").toLowerCase(); const existing = this.config.goals.find((goal) => goal.id === input?.id || goal.type === type); const candidate = { ...input, id: existing?.id || randomUUID(), type }; const next = sanitizeConfig({ ...this.config, goals: [...this.config.goals.filter((goal) => goal.id !== existing?.id && goal.type !== type), candidate] }); const goal = next.goals.find((goal) => goal.id === candidate.id); if (!goal) throw new Error("Completa un objetivo válido."); await this.save(next); this.emit("goal:update", this.publicGoal(goal)); return this.publicGoal(goal); }
   async connectTikTok() { const connection = await this.tiktok.connect(this.config.tiktokUsername, this.config.eulerStreamApiKey); this.giftHistory = []; this.emit("gift-history:update", this.giftHistory); if (this.config.giftOverlays.resetOnNewLive) { this.giftEngine.reset(); await this.saveNow(); } this.activity({ type: "system", message: `TikTok LIVE conectado: @${this.config.tiktokUsername}` }); return connection; }
 }

@@ -26,7 +26,8 @@ export class RuleEngine {
       "{apodo}": placeholder(event.nickname),
       "{regalo}": placeholder(event.giftName),
       "{regalo_id}": placeholder(event.giftId),
-      "{cantidad}": String(Math.max(1, Number(event.repeatCount) || 1))
+      "{cantidad}": String(Math.max(1, Number(event.repeatCount) || 1)),
+      "{evento}": placeholder(event.eventName || event.triggerType || "regalo")
     };
     return Object.entries(variables).reduce(
       (output, [token, value]) => output.replaceAll(token, value),
@@ -35,20 +36,42 @@ export class RuleEngine {
   }
 
   matches(mapping, event) {
-    if (!mapping.enabled) return false;
+    if (!mapping.enabled || (mapping.triggerType || "gift") !== "gift") return false;
     const idMatches = mapping.giftId && String(mapping.giftId) === String(event.giftId);
     const nameMatches = mapping.giftName && normalize(mapping.giftName) === normalize(event.giftName);
     return Boolean(idMatches || nameMatches);
   }
 
-  executeSelected(mapping, event) {
+  execute(mapping, event, { context = {}, message = "Acción ejecutada" } = {}) {
+    const command = mapping.command ? this.render(mapping.command, event) : "";
+    if (command) this.sendCommand(command, { event, mappingId: mapping.id, ...context });
+    this.onActivity({ type: "action", event, mapping, command, message });
+    return command;
+  }
+
+  executeSelected(mapping, event, options = {}) {
     if (!mapping?.enabled) throw new Error("La acción seleccionada está desactivada.");
-    if (!mapping.command) throw new Error("La acción seleccionada no tiene un comando.");
+    if (!mapping.command && !mapping.audio && !mapping.videoUrl) throw new Error("La acción seleccionada no tiene ninguna salida configurada.");
     const actionEvent = { ...event, repeatCount: 1 };
-    const command = this.render(mapping.command, actionEvent);
-    this.sendCommand(command, { event: actionEvent, mappingId: mapping.id, timer: true });
-    this.onActivity({ type: "action", event: actionEvent, mapping, command, message: "Acción del temporizador enviada a Minecraft" });
+    const command = this.execute(mapping, actionEvent, options);
     return { executed: 1, command };
+  }
+
+  processInteraction(triggerType, event, mappings) {
+    const now = Date.now();
+    const matches = mappings.filter((mapping) => mapping.enabled && mapping.triggerType === triggerType);
+    let executed = 0;
+    for (const mapping of matches) {
+      const lastRun = this.cooldowns.get(mapping.id) || 0;
+      if (now - lastRun < mapping.cooldownMs) {
+        this.onActivity({ type: "cooldown", event, mapping, message: "Acción omitida por enfriamiento" });
+        continue;
+      }
+      this.cooldowns.set(mapping.id, now);
+      this.execute(mapping, event, { message: "Acción de interacción ejecutada" });
+      executed += 1;
+    }
+    return { matched: matches.length, executed };
   }
 
   process(event, mappings) {
@@ -70,10 +93,8 @@ export class RuleEngine {
       this.cooldowns.set(mapping.id, now);
       for (let unit = 0; unit < units; unit += 1) {
         const actionEvent = units === 1 ? event : { ...event, repeatCount: 1 };
-        const command = this.render(mapping.command, actionEvent);
-        this.sendCommand(command, { event: actionEvent, mappingId: mapping.id });
+        this.execute(mapping, actionEvent, { message: "Acción de regalo ejecutada" });
         executed += 1;
-        this.onActivity({ type: "action", event: actionEvent, mapping, command, message: "Acción enviada a Minecraft" });
       }
     }
     return { matched: matches.length, executed };
