@@ -750,7 +750,7 @@ function timerOverlayUrl() {
 }
 
 function actionVideoWidgetUrl() {
-  return `${window.location.origin}/widget/${encodeURIComponent(appState?.workspace?.overlayToken || "")}/action-video`;
+  return `${window.location.origin}/widget/${encodeURIComponent(appState?.workspace?.overlayToken || "")}/action-video?v=20261012-4`;
 }
 
 function timerInputValue(value) {
