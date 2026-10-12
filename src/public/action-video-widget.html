@@ -4,13 +4,14 @@
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
     <title>TikTokraft Live · Videos de acciones</title>
-    <link rel="stylesheet" href="/action-video-widget.css?v=20261012-3" />
+    <link rel="stylesheet" href="/action-video-widget.css?v=20261012-4" />
   </head>
   <body>
     <main class="action-video-stage" id="action-video-stage">
-      <video id="action-video" autoplay playsinline preload="auto" hidden></video>
+      <canvas id="action-video-output" hidden></canvas>
+      <video id="action-video" autoplay playsinline preload="auto" aria-hidden="true"></video>
     </main>
     <script src="/socket.io/socket.io.js"></script>
-    <script src="/action-video-widget.js?v=20261012-3"></script>
+    <script src="/action-video-widget.js?v=20261012-4"></script>
   </body>
 </html>
