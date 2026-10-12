@@ -185,7 +185,10 @@ app.get("/widget/:token/timer", (_request, response) => {
   response.set("Cache-Control", "no-store, no-cache, must-revalidate, proxy-revalidate");
   response.sendFile(path.join(directory, "public", "timer-widget.html"));
 });
-app.get("/widget/:token/action-video", (_request, response) => response.sendFile(path.join(directory, "public", "action-video-widget.html")));
+app.get("/widget/:token/action-video", (_request, response) => {
+  response.set("Cache-Control", "no-store, no-cache, must-revalidate, proxy-revalidate");
+  response.sendFile(path.join(directory, "public", "action-video-widget.html"));
+});
 app.get("/api/public/:token/goal/:id", async (request, response) => { const w = await publicSpace(request.params.token); const goal = w?.config.goals.find((item) => item.id === request.params.id); if (!goal) return response.sendStatus(404); response.json({ goal: w.publicGoal(goal) }); });
 app.get("/api/public/:token/gift/:kind", async (request, response) => { const w = await publicSpace(request.params.token); const overlay = w?.publicGift(request.params.kind); if (!overlay) return response.sendStatus(404); response.json({ overlay }); });
 app.get("/api/public/:token/ranking", async (request, response) => { const w = await publicSpace(request.params.token); if (!w) return response.sendStatus(404); response.json({ overlay: w.publicRanking() }); });
