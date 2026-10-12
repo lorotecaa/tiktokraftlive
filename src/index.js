@@ -243,7 +243,7 @@ io.on("connection", (socket) => {
   socket.on("gift-overlays:reset", (_input, done) => acknowledge(done, async () => { w.giftEngine.reset(); await w.saveNow(); return w.config.giftOverlays; }, w));
   socket.on("overlay-customization:save", (input, done) => acknowledge(done, async () => { const key = String(input?.key || ""); const customization = sanitizeConfig({ overlayCustomizations: { [key]: input?.customization } }).overlayCustomizations[key]; if (!customization) throw new Error("Overlay inválido."); await w.save({ ...w.config, overlayCustomizations: { ...w.config.overlayCustomizations, [key]: customization } }); w.emit("overlay-customization:update", { key, customization }); if (key === "timer:main") w.emitTimer(); return { key, customization }; }, w));
   socket.on("goal:save", (input, done) => acknowledge(done, () => w.saveGoal(input), w));
-  socket.on("timer:sync", (_input, done) => acknowledge(done, () => w.timerEngine.snapshot(), w));
+  socket.on("timer:sync", (_input, done) => acknowledge(done, () => w.timerState(), w));
   socket.on("timer:settings:save", (input, done) => acknowledge(done, () => w.saveTimerSettings(input), w));
   socket.on("timer:start", (_input, done) => acknowledge(done, () => w.timerEngine.start(), w));
   socket.on("timer:pause", (_input, done) => acknowledge(done, () => w.timerEngine.pause(), w));

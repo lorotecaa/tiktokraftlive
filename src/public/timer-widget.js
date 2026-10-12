@@ -2,6 +2,7 @@ const route = location.pathname.split("/").filter(Boolean);
 const overlayToken = decodeURIComponent(route[1] || "");
 const widget = document.querySelector("#timer-widget");
 const valueElement = document.querySelector("#timer-value");
+const coinMessageElement = document.querySelector("#timer-coin-message");
 const statusElement = document.querySelector("#timer-status");
 const statusLabels = { idle: "Listo para comenzar", running: "En marcha", paused: "Pausado", finished: "Finalizado" };
 let currentTimer = null;
@@ -10,6 +11,9 @@ let localDeadline = 0;
 let socketConnected = false;
 let publicSocket = null;
 let authoritativeSyncAt = 0;
+let serverClockOffsetMs = 0;
+let renderTimerId = null;
+let zeroSynchronized = false;
 
 function formatTime(value) {
   const milliseconds = Math.max(0, Math.round(Number(value) || 0));
@@ -48,32 +52,62 @@ function renderClock() {
   if (valueElement.textContent !== formatted) valueElement.textContent = formatted;
 }
 
-function render(timer) {
+function scheduleClock() {
+  clearTimeout(renderTimerId);
+  renderTimerId = null;
+  renderClock();
+  if (currentTimer?.status !== "running") return;
+  const remainingMs = remainingNow();
+  if (remainingMs <= 0) {
+    if (!zeroSynchronized) {
+      zeroSynchronized = true;
+      synchronizeTimer({ force: true });
+    }
+    return;
+  }
+  // Solo despierta para el siguiente segundo visible. El valor se calcula
+  // desde el reloj real, así que no acumula retraso si la fuente es limitada.
+  const delay = Math.max(40, Math.min(1_000, (remainingMs % 1_000) + 20));
+  renderTimerId = setTimeout(scheduleClock, delay);
+}
+
+function render(timer, { localReference = Date.now() } = {}) {
   if (!timer) return;
   currentTimer = timer;
   anchorRemainingMs = Math.max(0, Number(timer.remainingMs) || 0);
-  localDeadline = timer.status === "running" ? Date.now() + anchorRemainingMs : 0;
+  if (Number.isFinite(Number(timer.serverNow))) serverClockOffsetMs = Number(timer.serverNow) - localReference;
+  localDeadline = timer.status === "running"
+    ? Number(timer.endsAt) > 0
+      ? Number(timer.endsAt) - serverClockOffsetMs
+      : Date.now() + anchorRemainingMs
+    : 0;
+  zeroSynchronized = false;
   applyCustomization(timer.customization);
   widget.dataset.status = timer.status || "idle";
-  renderClock();
+  coinMessageElement.textContent = timer.coinMessage || "";
+  coinMessageElement.hidden = !timer.coinMessage;
+  scheduleClock();
   statusElement.textContent = statusLabels[timer.status] || "Listo";
 }
 
 async function loadTimer() {
+  const requestedAt = Date.now();
   const response = await fetch(`/api/public/${encodeURIComponent(overlayToken)}/timer?_=${Date.now()}`, { cache: "no-store" });
   if (!response.ok) throw new Error("No se encontró este temporizador.");
   const { timer } = await response.json();
-  render(timer);
+  const receivedAt = Date.now();
+  render(timer, { localReference: (requestedAt + receivedAt) / 2 });
 }
 
-function synchronizeTimer() {
+function synchronizeTimer({ force = false } = {}) {
   renderClock();
-  const now = Date.now();
-  if (now - authoritativeSyncAt < 750) return;
-  authoritativeSyncAt = now;
+  const requestedAt = Date.now();
+  if (!force && requestedAt - authoritativeSyncAt < 750) return;
+  authoritativeSyncAt = requestedAt;
   if (socketConnected && publicSocket) {
     publicSocket.timeout(5_000).emit("timer:sync", null, (error, result) => {
-      if (!error && result?.ok && result.data) render(result.data);
+      const receivedAt = Date.now();
+      if (!error && result?.ok && result.data) render(result.data, { localReference: (requestedAt + receivedAt) / 2 });
     });
     return;
   }
@@ -85,7 +119,7 @@ function synchronizeTimer() {
 loadTimer().catch(() => { statusElement.textContent = "Esperando conexión…"; });
 if (typeof window.io === "function") {
   publicSocket = window.io("/public", { auth: { overlayToken } });
-  publicSocket.on("connect", () => { socketConnected = true; });
+  publicSocket.on("connect", () => { socketConnected = true; synchronizeTimer({ force: true }); });
   publicSocket.on("disconnect", () => {
     socketConnected = false;
     loadTimer().catch(() => {});
@@ -93,10 +127,10 @@ if (typeof window.io === "function") {
   publicSocket.on("connect_error", () => { socketConnected = false; });
   publicSocket.on("timer:update", render);
 }
-setInterval(renderClock, 200);
 document.addEventListener("visibilitychange", () => { if (!document.hidden) synchronizeTimer(); });
 window.addEventListener("focus", synchronizeTimer);
 window.addEventListener("pageshow", synchronizeTimer);
+window.addEventListener("online", synchronizeTimer);
 // HTTP queda exclusivamente como respaldo cuando Socket.IO no está activo.
 setInterval(() => {
   if (!socketConnected) loadTimer().catch(() => {});

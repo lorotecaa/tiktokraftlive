@@ -22,6 +22,9 @@ let panelTimer = null;
 let panelTimerRemainingMs = 0;
 let panelTimerDeadline = 0;
 let panelTimerSyncAt = 0;
+let panelTimerServerOffsetMs = 0;
+let panelTimerRenderTimer = null;
+let panelTimerZeroSynchronized = false;
 const giftNamesById = window.TIKTOK_GIFT_NAMES || {};
 
 const $ = (selector) => document.querySelector(selector);
@@ -36,9 +39,9 @@ const elements = {
   voiceTester: $("#voice-tester-form"), voiceTesterText: $("#voice-tester-text"), ttsSpeed: $("#tts-speed"), ttsPitch: $("#tts-pitch"),
   allowedUsers: $("#allowed-users-form"), allowAllUsers: $("#tts-allow-all-users"), allowFollowers: $("#tts-allow-followers"), allowSubscribers: $("#tts-allow-subscribers"), allowModerators: $("#tts-allow-moderators"), allowTeamMembers: $("#tts-allow-team-members"), teamMembersMinLevel: $("#tts-team-members-min-level"), allowTopGifters: $("#tts-allow-top-gifters"), topGiftersTop: $("#tts-top-gifters-top"), allowList: $("#tts-allow-list"), manageAllowedUsers: $("#manage-allowed-users"), allowedUsersListEditor: $("#allowed-users-list-editor"), allowedUsernames: $("#tts-allowed-usernames"),
   goalsToggle: $("#goals-toggle"), goalsPanel: $("#goals-panel"), goalCards: [...document.querySelectorAll(".goal-card")],
-  timerToggle: $("#timer-toggle"), timerPanel: $("#timer-panel"), timerUrl: $("#timer-overlay-url"), timerCopy: $("#timer-overlay-copy"), timerPreviewButton: $("#timer-overlay-preview-button"), timerPreview: $("#timer-preview"), timerPreviewValue: $("#timer-preview-value"), timerPreviewStatus: $("#timer-preview-status"),
+  timerToggle: $("#timer-toggle"), timerPanel: $("#timer-panel"), timerUrl: $("#timer-overlay-url"), timerCopy: $("#timer-overlay-copy"), timerPreviewButton: $("#timer-overlay-preview-button"), timerPreview: $("#timer-preview"), timerPreviewCoinLabel: $("#timer-preview-coin-label"), timerPreviewValue: $("#timer-preview-value"), timerPreviewStatus: $("#timer-preview-status"),
   timerStart: $("#timer-start"), timerPause: $("#timer-pause"), timerReset: $("#timer-reset"), timerCurrentMinutes: $("#timer-current-minutes"), timerAddTen: $("#timer-add-ten"), timerRemoveTen: $("#timer-remove-ten"),
-  timerInitialMinutes: $("#timer-initial-minutes"), timerExpiryAction: $("#timer-expiry-action"), timerPerCoin: $("#timer-per-coin"), timerPerSubscription: $("#timer-per-subscription"), timerPerFollow: $("#timer-per-follow"), timerPerShare: $("#timer-per-share"), timerPerLike: $("#timer-per-like"), timerPerComment: $("#timer-per-comment"), timerMultiplierEnabled: $("#timer-multiplier-enabled"), timerMultiplierValue: $("#timer-multiplier-value"), timerShortcutToggle: $("#timer-shortcut-toggle"), timerShortcutIncrease: $("#timer-shortcut-increase"), timerShortcutDecrease: $("#timer-shortcut-decrease"), timerShortcutStep: $("#timer-shortcut-step"), timerAutosaveState: $("#timer-autosave-state"),
+  timerInitialMinutes: $("#timer-initial-minutes"), timerExpiryAction: $("#timer-expiry-action"), timerPerCoin: $("#timer-per-coin"), timerCoinText: $("#timer-coin-text"), timerPerSubscription: $("#timer-per-subscription"), timerPerFollow: $("#timer-per-follow"), timerPerShare: $("#timer-per-share"), timerPerLike: $("#timer-per-like"), timerPerComment: $("#timer-per-comment"), timerMultiplierEnabled: $("#timer-multiplier-enabled"), timerMultiplierValue: $("#timer-multiplier-value"), timerShortcutToggle: $("#timer-shortcut-toggle"), timerShortcutIncrease: $("#timer-shortcut-increase"), timerShortcutDecrease: $("#timer-shortcut-decrease"), timerShortcutStep: $("#timer-shortcut-step"), timerAutosaveState: $("#timer-autosave-state"),
   rankingsToggle: $("#rankings-toggle"), rankingsPanel: $("#rankings-panel"), rankingOverlayCards: [...document.querySelectorAll(".ranking-overlay-option")],
   userPointsToggle: $("#user-points-toggle"), userPointsPanel: $("#user-points-panel"), userPointsSearch: $("#user-points-search"), userPointsList: $("#user-points-list"), userPointsEmpty: $("#user-points-empty"), userPointsStatus: $("#user-points-status"), userPointsAdd: $("#user-points-add"), userPointsUrl: $("#user-points-overlay-url"), userPointsCopy: $("#user-points-overlay-copy"), userPointsPreview: $("#user-points-overlay-preview"), userPointsLimit: $("#user-points-overlay-limit"), userPointsLimitForm: $("#user-points-overlay-form"), transactionModal: $("#user-points-transaction-modal"), transactionForm: $("#user-points-transaction-form"), transactionUser: $("#user-points-transaction-user"), transactionUsers: $("#user-points-known-users"), transactionCoins: $("#user-points-transaction-coins"), transactionDescription: $("#user-points-transaction-description"),
   giftOverlaysToggle: $("#gift-overlays-toggle"), giftOverlaysPanel: $("#gift-overlays-panel"), giftOverlaysForm: $("#gift-overlays-form"), giftOverlaysResetOnLive: $("#gift-overlays-reset-on-live"), giftOverlaysResetNow: $("#gift-overlays-reset-now"), giftOverlayCards: [...document.querySelectorAll(".gift-overlay-option")],
@@ -786,6 +789,7 @@ function renderTimerSettings(timer, mappings) {
   renderTimerActionOptions(mappings, timer.actionMappingId);
   setTimerFieldValue(elements.timerInitialMinutes, timerInputValue(timer.initialMinutes ?? 10));
   setTimerFieldValue(elements.timerPerCoin, timerInputValue(adjustments.coins));
+  setTimerFieldValue(elements.timerCoinText, timer.coinText ?? "Cada moneda suma {segundos} segundos");
   setTimerFieldValue(elements.timerPerSubscription, timerInputValue(adjustments.subscriptions));
   setTimerFieldValue(elements.timerPerFollow, timerInputValue(adjustments.follows));
   setTimerFieldValue(elements.timerPerShare, timerInputValue(adjustments.shares));
@@ -800,19 +804,27 @@ function renderTimerSettings(timer, mappings) {
   setTimerFieldValue(elements.timerShortcutStep, timerInputValue(shortcuts.stepMinutes ?? 1));
 }
 
-function renderTimer(timer) {
+function renderTimer(timer, { localReference = Date.now() } = {}) {
   if (!timer) return;
   if (appState) appState.timer = timer;
   panelTimer = timer;
   panelTimerRemainingMs = Math.max(0, Number(timer.remainingMs) || 0);
-  panelTimerDeadline = timer.status === "running" ? Date.now() + panelTimerRemainingMs : 0;
+  if (Number.isFinite(Number(timer.serverNow))) panelTimerServerOffsetMs = Number(timer.serverNow) - localReference;
+  panelTimerDeadline = timer.status === "running"
+    ? Number(timer.endsAt) > 0
+      ? Number(timer.endsAt) - panelTimerServerOffsetMs
+      : Date.now() + panelTimerRemainingMs
+    : 0;
+  panelTimerZeroSynchronized = false;
   const statusLabels = { idle: "Listo para comenzar", running: "En marcha", paused: "Pausado", finished: "Finalizado" };
   elements.timerPreview.dataset.status = timer.status || "idle";
   elements.timerPreviewStatus.textContent = statusLabels[timer.status] || "Listo";
+  elements.timerPreviewCoinLabel.textContent = timer.coinMessage || "";
+  elements.timerPreviewCoinLabel.hidden = !timer.coinMessage;
   elements.timerStart.textContent = timer.status === "paused" ? "▶ Reanudar" : "▶ Comenzar";
   elements.timerStart.disabled = timer.status === "running";
   elements.timerPause.disabled = timer.status !== "running";
-  renderPanelTimerClock();
+  schedulePanelTimerClock();
 }
 
 function panelTimerRemainingNow() {
@@ -828,15 +840,35 @@ function renderPanelTimerClock() {
   if (elements.timerPreviewValue.textContent !== formatted) elements.timerPreviewValue.textContent = formatted;
 }
 
-function synchronizePanelTimer() {
+function schedulePanelTimerClock() {
+  clearTimeout(panelTimerRenderTimer);
+  panelTimerRenderTimer = null;
+  renderPanelTimerClock();
+  if (panelTimer?.status !== "running") return;
+  const remainingMs = panelTimerRemainingNow();
+  if (remainingMs <= 0) {
+    if (!panelTimerZeroSynchronized) {
+      panelTimerZeroSynchronized = true;
+      synchronizePanelTimer({ force: true });
+    }
+    return;
+  }
+  // Programa únicamente el siguiente cambio visible de segundo. Si Chrome
+  // retrasa este callback, el siguiente valor se recalcula con Date.now().
+  const delay = Math.max(40, Math.min(1_000, (remainingMs % 1_000) + 20));
+  panelTimerRenderTimer = setTimeout(schedulePanelTimerClock, delay);
+}
+
+function synchronizePanelTimer({ force = false } = {}) {
   // Repinta inmediatamente con el plazo local y luego confirma el estado
   // autoritativo del servidor. Ninguna transición se decide en el navegador.
   renderPanelTimerClock();
-  const now = Date.now();
-  if (!socket.connected || now - panelTimerSyncAt < 750) return;
-  panelTimerSyncAt = now;
+  const requestedAt = Date.now();
+  if (!socket.connected || (!force && requestedAt - panelTimerSyncAt < 750)) return;
+  panelTimerSyncAt = requestedAt;
   socket.timeout(5_000).emit("timer:sync", null, (error, result) => {
-    if (!error && result?.ok && result.data) renderTimer(result.data);
+    const receivedAt = Date.now();
+    if (!error && result?.ok && result.data) renderTimer(result.data, { localReference: (requestedAt + receivedAt) / 2 });
   });
 }
 
@@ -848,6 +880,7 @@ function readTimerSettings() {
   return {
     initialMinutes: Number(elements.timerInitialMinutes.value),
     actionMappingId: elements.timerExpiryAction.value,
+    coinText: elements.timerCoinText.value,
     adjustments: {
       coins: Number(elements.timerPerCoin.value),
       subscriptions: Number(elements.timerPerSubscription.value),
@@ -1961,9 +1994,9 @@ function manualTimerAdjustment(button, direction) {
 elements.timerAddTen.addEventListener("click", (event) => manualTimerAdjustment(event.currentTarget, 1));
 elements.timerRemoveTen.addEventListener("click", (event) => manualTimerAdjustment(event.currentTarget, -1));
 
-const timerAutoSaveFields = [elements.timerInitialMinutes, elements.timerExpiryAction, elements.timerPerCoin, elements.timerPerSubscription, elements.timerPerFollow, elements.timerPerShare, elements.timerPerLike, elements.timerPerComment, elements.timerMultiplierValue, elements.timerShortcutToggle, elements.timerShortcutIncrease, elements.timerShortcutDecrease, elements.timerShortcutStep];
+const timerAutoSaveFields = [elements.timerInitialMinutes, elements.timerExpiryAction, elements.timerPerCoin, elements.timerCoinText, elements.timerPerSubscription, elements.timerPerFollow, elements.timerPerShare, elements.timerPerLike, elements.timerPerComment, elements.timerMultiplierValue, elements.timerShortcutToggle, elements.timerShortcutIncrease, elements.timerShortcutDecrease, elements.timerShortcutStep];
 timerAutoSaveFields.forEach((field) => {
-  field.addEventListener(field.matches("input[type=number]") ? "input" : "change", scheduleTimerSettingsSave);
+  field.addEventListener(field.matches("input") ? "input" : "change", scheduleTimerSettingsSave);
 });
 elements.timerMultiplierEnabled.addEventListener("change", () => {
   elements.timerMultiplierValue.disabled = !elements.timerMultiplierEnabled.checked;
@@ -2269,10 +2302,11 @@ socket.on("tiktok:comment", (comment) => {
   ttsQueue.enqueue(spokenComment, currentTtsSettings());
 });
 socket.on("timer:update", (timer) => renderTimer(timer));
-setInterval(renderPanelTimerClock, 200);
+socket.on("connect", () => synchronizePanelTimer({ force: true }));
 document.addEventListener("visibilitychange", () => { if (!document.hidden) synchronizePanelTimer(); });
 window.addEventListener("focus", synchronizePanelTimer);
 window.addEventListener("pageshow", synchronizePanelTimer);
+window.addEventListener("online", synchronizePanelTimer);
 socket.on("goal:update", (goal) => {
   if (!appState || !goal?.id) return;
   const existing = appState.config.goals.findIndex((item) => item.id === goal.id);

@@ -7,14 +7,15 @@
     <link rel="preconnect" href="https://fonts.googleapis.com" />
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
     <link href="https://fonts.googleapis.com/css2?family=DM+Mono:wght@500&family=Press+Start+2P&family=Space+Grotesk:wght@500;600;700&display=swap" rel="stylesheet" />
-    <link rel="stylesheet" href="/timer-widget.css?v=20260927-2" />
+    <link rel="stylesheet" href="/timer-widget.css?v=20261012-1" />
   </head>
   <body>
     <main class="timer-widget" id="timer-widget" aria-live="polite">
-      <strong id="timer-value">00:00</strong>
-      <span id="timer-status">Esperando conexión…</span>
+      <span class="timer-coin-message" id="timer-coin-message"></span>
+      <strong id="timer-value">00:00:00</strong>
+      <span class="timer-status" id="timer-status">Esperando conexión…</span>
     </main>
     <script src="/socket.io/socket.io.js"></script>
-    <script src="/timer-widget.js?v=20260927-6"></script>
+    <script src="/timer-widget.js?v=20261012-1"></script>
   </body>
 </html>

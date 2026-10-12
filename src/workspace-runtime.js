@@ -106,7 +106,7 @@ export class WorkspaceRuntime {
     }
   }
   emitTimer(timer = this.timerEngine.snapshot()) {
-    this.emit("timer:update", timer);
+    this.emit("timer:update", this.timerState(timer));
     this.io.of("/public").to(this.publicRoom()).emit("timer:update", this.publicTimer(timer));
   }
   recordGift(event) {
@@ -163,8 +163,17 @@ export class WorkspaceRuntime {
   publicGift(kind) { const definition = { "best-gift": ["bestGift", "Mejor Regalo"], "best-streak": ["bestStreak", "Mejor Racha"] }[kind]; return definition ? { kind, title: definition[1], record: this.config.giftOverlays[definition[0]], customization: this.custom(`gift:${kind}`) } : null; }
   publicRanking() { return { kind: "top-donors", title: "Top Donadores", entries: this.rankingEngine.entries(), customization: this.custom("ranking:top-donors") }; }
   publicPoints() { const customization = this.custom("user-points:historical"); return { kind: "historical", title: "Usuario y Puntos", entries: this.pointsEngine.entries(customization?.itemLimit || 10), customization }; }
-  publicTimer(timer = this.timerEngine.snapshot()) { return { ...timer, customization: this.custom("timer:main") }; }
-  publicState() { return { ...this.state, giftHistory: this.giftHistory, giftCatalog: this.giftCatalogEntries(), config: publicConfig(this.config), timer: this.timerEngine.snapshot(), rankings: { topDonors: this.rankingEngine.entries() }, userPoints: { entries: this.pointsEngine.entries(100), configured: true }, workspace: { overlayToken: this.overlayToken } }; }
+  timerCoinMessage() {
+    const timer = this.config.timer || {};
+    const seconds = Number(timer.adjustments?.coins) || 0;
+    const multiplier = timer.multiplier?.enabled ? Number(timer.multiplier.value) || 1 : 1;
+    const effectiveSeconds = Number((seconds * multiplier).toFixed(3));
+    const formattedSeconds = new Intl.NumberFormat("es-CO", { maximumFractionDigits: 3 }).format(effectiveSeconds);
+    return String(timer.coinText || "").replaceAll("{segundos}", formattedSeconds).slice(0, 180);
+  }
+  timerState(timer = this.timerEngine.snapshot()) { return { ...timer, coinMessage: this.timerCoinMessage() }; }
+  publicTimer(timer = this.timerEngine.snapshot()) { return { ...this.timerState(timer), customization: this.custom("timer:main") }; }
+  publicState() { return { ...this.state, giftHistory: this.giftHistory, giftCatalog: this.giftCatalogEntries(), config: publicConfig(this.config), timer: this.timerState(), rankings: { topDonors: this.rankingEngine.entries() }, userPoints: { entries: this.pointsEngine.entries(100), configured: true }, workspace: { overlayToken: this.overlayToken } }; }
   broadcast() { this.emit("state", this.publicState()); }
   async save(next = this.config) {
     // Conserva los cambios hechos mientras una escritura anterior espera a

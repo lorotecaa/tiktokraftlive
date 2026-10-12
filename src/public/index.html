@@ -8,7 +8,7 @@
     <link rel="preconnect" href="https://fonts.googleapis.com" />
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
     <link href="https://fonts.googleapis.com/css2?family=DM+Mono:wght@400;500&family=Press+Start+2P&family=Space+Grotesk:wght@400;500;600;700&display=swap" rel="stylesheet" />
-    <link rel="stylesheet" href="/style.css?v=20261012-action-gift-icons" />
+    <link rel="stylesheet" href="/style.css?v=20261012-timer-resilience" />
   </head>
   <body>
     <div class="noise"></div>
@@ -151,7 +151,11 @@
               <button class="button text" id="timer-overlay-preview-button" type="button">▷ Vista previa</button>
               <button class="button text overlay-customize" type="button" data-overlay-key="timer:main" data-overlay-title="Temporizador">⚙ Personalizar</button>
             </div>
-            <div class="timer-preview" id="timer-preview"><strong id="timer-preview-value">10:00</strong><span id="timer-preview-status">Listo para comenzar</span></div>
+            <div class="timer-preview" id="timer-preview">
+              <span class="timer-preview-coin-label" id="timer-preview-coin-label">Cada moneda suma 0 segundos</span>
+              <strong id="timer-preview-value">00:10:00</strong>
+              <span class="timer-preview-status" id="timer-preview-status">Listo para comenzar</span>
+            </div>
           </article>
 
           <article class="timer-card timer-control-card">
@@ -179,6 +183,8 @@
                 <label>Acción al finalizar<select id="timer-expiry-action"><option value="">Sin acción</option></select></label>
                 <p class="timer-settings-help">Define cuántos segundos se agregan o reducen por cada interacción. Puedes usar decimales y valores negativos.</p>
                 <label>Por moneda<input id="timer-per-coin" type="number" min="-1000000" max="1000000" step="0.001" value="0" /></label>
+                <label>Texto sobre el tiempo<input id="timer-coin-text" type="text" maxlength="140" value="Cada moneda suma {segundos} segundos" placeholder="Cada moneda suma {segundos} segundos" /></label>
+                <p class="timer-settings-help timer-token-help">Usa <b>{segundos}</b> para mostrar automáticamente el valor configurado por moneda. Déjalo vacío si no quieres mostrar el texto.</p>
                 <label>Por suscripción / Super Fan<input id="timer-per-subscription" type="number" min="-1000000" max="1000000" step="0.001" value="0" /></label>
                 <label>Por seguimiento<input id="timer-per-follow" type="number" min="-1000000" max="1000000" step="0.001" value="0" /></label>
                 <label>Por compartida<input id="timer-per-share" type="number" min="-1000000" max="1000000" step="0.001" value="0" /></label>
@@ -597,6 +603,6 @@
     <script src="/socket.io/socket.io.js"></script>
     <script src="/gift-catalog.js"></script>
     <script src="/tts.js?v=20261010-voices"></script>
-    <script src="/app.js?v=20261012-action-gift-icons"></script>
+    <script src="/app.js?v=20261012-timer-resilience"></script>
   </body>
 </html>

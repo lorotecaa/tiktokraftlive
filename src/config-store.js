@@ -74,6 +74,7 @@ const defaultConfig = {
   timer: {
     initialMinutes: 10,
     actionMappingId: "",
+    coinText: "Cada moneda suma {segundos} segundos",
     adjustments: {
       coins: 0,
       subscriptions: 0,
@@ -234,6 +235,9 @@ function normalizeTimer(raw) {
   return {
     initialMinutes,
     actionMappingId: stringOrEmpty(raw?.actionMappingId).slice(0, 120),
+    coinText: typeof raw?.coinText === "string"
+      ? raw.coinText.trim().slice(0, 140)
+      : defaultConfig.timer.coinText,
     adjustments: {
       coins: finiteNumber(adjustments.coins, 0, -1_000_000, 1_000_000),
       subscriptions: finiteNumber(adjustments.subscriptions, 0, -1_000_000, 1_000_000),

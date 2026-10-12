@@ -1,5 +1,8 @@
 const maxTimerMilliseconds = 1_000_000 * 60_000;
 const synchronizationIntervalMilliseconds = 30_000;
+// Node limita setTimeout a unos 24,8 días. Los temporizadores de un LIVE
+// pueden superar ese límite, por eso la espera se programa por tramos.
+const maximumNativeTimeoutMilliseconds = 2_147_000_000;
 
 function clampMilliseconds(value) {
   const milliseconds = Number(value);
@@ -55,7 +58,12 @@ export class TimerEngine {
   initialize() {
     if (this.runtime.status === "running") {
       if (this.runtime.endsAt > Date.now()) this.schedule();
-      else this.runtime = { status: "finished", remainingMs: 0, endsAt: 0, updatedAt: Date.now() };
+      else {
+        // Si el proceso estuvo detenido cuando venció el tiempo, el servidor
+        // reconoce y persiste la finalización al volver a arrancar.
+        void this.finish(true).catch((error) => this.onError(error.message));
+        return this.snapshot();
+      }
     }
     this.publish();
     return this.snapshot();
@@ -75,22 +83,39 @@ export class TimerEngine {
   schedule() {
     this.clearSchedule();
     if (this.runtime.status !== "running") return;
+    this.scheduleExpiryChunk();
+    if (this.runtime.status !== "running") return;
+    // El panel y los widgets descuentan el tiempo localmente. Esta emisión
+    // ocasional solo corrige posibles desfases sin transmitir cuatro veces
+    // por segundo durante todo el LIVE.
+    this.synchronizationTimer = setInterval(() => {
+      if (this.runtime.status !== "running") return;
+      if (this.runtime.endsAt <= Date.now()) {
+        void this.finish(true).catch((error) => this.onError(error.message));
+        return;
+      }
+      this.publish();
+    }, synchronizationIntervalMilliseconds);
+    this.synchronizationTimer.unref?.();
+  }
+
+  scheduleExpiryChunk() {
+    if (this.runtime.status !== "running") return;
     const delay = this.runtime.endsAt - Date.now();
     if (delay <= 0) {
       void this.finish(true).catch((error) => this.onError(error.message));
       return;
     }
     this.expiryTimer = setTimeout(() => {
-      void this.finish(true).catch((error) => this.onError(error.message));
-    }, delay);
+      this.expiryTimer = null;
+      if (this.runtime.status !== "running") return;
+      if (this.runtime.endsAt <= Date.now()) {
+        void this.finish(true).catch((error) => this.onError(error.message));
+      } else {
+        this.scheduleExpiryChunk();
+      }
+    }, Math.min(delay, maximumNativeTimeoutMilliseconds));
     this.expiryTimer.unref?.();
-    // El panel y los widgets descuentan el tiempo localmente. Esta emisión
-    // ocasional solo corrige posibles desfases sin transmitir cuatro veces
-    // por segundo durante todo el LIVE.
-    this.synchronizationTimer = setInterval(() => {
-      if (this.runtime.status === "running") this.publish();
-    }, synchronizationIntervalMilliseconds);
-    this.synchronizationTimer.unref?.();
   }
 
   async store({ immediate = false } = {}) {
