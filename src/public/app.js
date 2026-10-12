@@ -47,7 +47,7 @@ const elements = {
   adminModal: $("#admin-modal"), adminMenuView: $("#admin-menu-view"), adminAuthorizationView: $("#admin-authorization-view"), adminRolesView: $("#admin-roles-view"), adminStatisticsView: $("#admin-statistics-view"), adminRegisteredUsersView: $("#admin-registered-users-view"), adminConnectedUsersView: $("#admin-connected-users-view"), adminUserProfileView: $("#admin-user-profile-view"), adminOpenAuthorization: $("#admin-open-authorization"), adminOpenRoles: $("#admin-open-roles"), adminOpenStatistics: $("#admin-open-statistics"), adminBackMenu: $("#admin-back-menu"), adminRolesBackMenu: $("#admin-roles-back-menu"), adminStatisticsBackMenu: $("#admin-statistics-back-menu"), adminOpenRegisteredUsers: $("#admin-open-registered-users"), adminOpenConnectedUsers: $("#admin-open-connected-users"), adminRegisteredUsersBack: $("#admin-registered-users-back"), adminConnectedUsersBack: $("#admin-connected-users-back"), adminRegisteredUsersSearch: $("#admin-registered-users-search"), adminRegisteredUsersList: $("#admin-registered-users-list"), adminRegisteredUsersEmpty: $("#admin-registered-users-empty"), adminConnectedUsersList: $("#admin-connected-users-list"), adminConnectedUsersEmpty: $("#admin-connected-users-empty"), adminRegisteredUsersCount: $("#admin-registered-users-count"), adminConnectedUsersCount: $("#admin-connected-users-count"), adminUserProfileBack: $("#admin-user-profile-back"), adminUserProfileTitle: $("#admin-user-profile-title"), adminUserProfileData: $("#admin-user-profile-data"), adminAuthorizedForm: $("#admin-authorized-form"), adminAuthorizedUsername: $("#admin-authorized-username"), adminAuthorizedSearch: $("#admin-authorized-search"), adminAuthorizedList: $("#admin-authorized-list"), adminAuthorizedEmpty: $("#admin-authorized-empty"), adminRolesForm: $("#admin-roles-form"), adminRoleEmail: $("#admin-role-email"), adminRoleSelect: $("#admin-role-select"), adminRolesSearch: $("#admin-roles-search"), adminRolesList: $("#admin-roles-list"), adminRolesEmpty: $("#admin-roles-empty"),
   profileModal: $("#profile-modal"), profileForm: $("#profile-form"), profileAvatar: $("#profile-avatar"), profileAvatarEmpty: $("#profile-avatar-empty"), profileAvatarInput: $("#profile-avatar-input"), profileEmail: $("#profile-email"), profilePassword: $("#profile-password"), profilePasswordConfirm: $("#profile-password-confirm"), profileMessage: $("#profile-message"),
   mappingForm: $("#mapping-form"), mappingId: $("#mapping-id"), mappingTriggerType: $("#mapping-trigger-type"), mappingGiftFields: $("#mapping-gift-fields"), giftName: $("#gift-name"), giftId: $("#gift-id"),
-  command: $("#mapping-command"), audio: $("#mapping-audio"), audioTest: $("#audio-test"), audioTestStop: $("#audio-test-stop"), audioState: $("#audio-state"), mappingVideoUrl: $("#mapping-video-url"), actionVideoWidgetUrl: $("#action-video-widget-url"), actionVideoWidgetCopy: $("#action-video-widget-copy"), actionVideoWidgetPreview: $("#action-video-widget-preview"), cooldown: $("#cooldown"), enabled: $("#mapping-enabled"), editorHeading: $("#editor-heading"),
+  command: $("#mapping-command"), audio: $("#mapping-audio"), audioTest: $("#audio-test"), audioTestStop: $("#audio-test-stop"), audioState: $("#audio-state"), mappingVideo: $("#mapping-video"), videoState: $("#video-state"), actionVideoWidgetUrl: $("#action-video-widget-url"), actionVideoWidgetCopy: $("#action-video-widget-copy"), actionVideoWidgetPreview: $("#action-video-widget-preview"), cooldown: $("#cooldown"), enabled: $("#mapping-enabled"), editorHeading: $("#editor-heading"),
   cancelEdit: $("#cancel-edit"), mappingList: $("#mapping-list"), mappingEmpty: $("#mapping-empty"), selectGiftButton: $("#select-gift-button"), giftSelectorModal: $("#gift-selector-modal"), giftSelectorSearch: $("#gift-selector-search"), giftSelectorGrid: $("#gift-selector-grid"), giftSelectorEmpty: $("#gift-selector-empty"),
   simulateForm: $("#simulate-form"), simulateGift: $("#simulate-gift"), simulateCount: $("#simulate-count"),
   giftHistoryList: $("#gift-history-list"), giftHistoryEmpty: $("#gift-history-empty"),
@@ -156,6 +156,8 @@ elements.profileForm?.addEventListener("submit", async (event) => {
 });
 let availableSounds = [];
 let soundDurations = new Map();
+let availableVideos = [];
+let videoDurations = new Map();
 let activeAudioTest = null;
 let profileAvatarData = "";
 let availableTtsVoices = [];
@@ -1022,8 +1024,7 @@ function readCustomization() {
   };
 }
 
-function formatSoundDuration(filename) {
-  const duration = soundDurations.get(filename);
+function formatMediaDuration(duration) {
   if (!Number.isFinite(duration)) return "";
   const totalSeconds = Math.max(duration > 0 ? 1 : 0, Math.round(duration));
   const hours = Math.floor(totalSeconds / 3600);
@@ -1035,7 +1036,12 @@ function formatSoundDuration(filename) {
 }
 
 function soundOptionLabel(filename) {
-  const duration = formatSoundDuration(filename);
+  const duration = formatMediaDuration(soundDurations.get(filename));
+  return `${filename}${duration ? ` · ${duration}` : ""}`;
+}
+
+function videoOptionLabel(filename) {
+  const duration = formatMediaDuration(videoDurations.get(filename));
   return `${filename}${duration ? ` · ${duration}` : ""}`;
 }
 
@@ -1075,7 +1081,7 @@ function mappingOutputSummary(mapping) {
   const outputs = [];
   if (mapping.command) outputs.push(mapping.command);
   if (mapping.audio) outputs.push(`Audio: ${mapping.audio}`);
-  if (mapping.videoUrl) outputs.push("Video MP4");
+  if (mapping.video) outputs.push(`Video: ${mapping.video}`);
   return outputs.join(" + ") || "Sin salida";
 }
 
@@ -1094,7 +1100,7 @@ function renderMappings(mappings) {
           <button type="button" class="mapping-audio-trigger" data-action="audio" data-id="${escapeHtml(mapping.id)}" aria-expanded="false" title="Cambiar audio rápidamente"><span>Audio:</span> <b>${escapeHtml(mapping.audio || "Sin audio")}</b></button>
           <select class="mapping-audio-select" data-action="audio" data-id="${escapeHtml(mapping.id)}" aria-label="Cambiar audio de ${escapeHtml(title || "esta acción")}" hidden>${mappingAudioOptions(mapping.audio || "")}</select>
         </div>
-        <p class="mapping-video"><span>Video:</span> ${escapeHtml(mapping.videoUrl || "Sin video")}</p>
+        <p class="mapping-video"><span>Video:</span> ${escapeHtml(mapping.video || "Sin video")}</p>
       </div>
       <div class="mapping-tools">
         <button class="icon-button" data-action="test" data-id="${escapeHtml(mapping.id)}" title="Probar acción">▷</button>
@@ -1368,6 +1374,36 @@ async function loadSounds() {
   }
 }
 
+function renderVideoOptions(selectedVideo = elements.mappingVideo.value) {
+  const selected = selectedVideo || "";
+  elements.mappingVideo.replaceChildren(new Option("Sin video", ""));
+  for (const filename of availableVideos) elements.mappingVideo.add(new Option(videoOptionLabel(filename), filename));
+  if (selected && !availableVideos.includes(selected)) {
+    elements.mappingVideo.add(new Option(`${selected} (no disponible)`, selected));
+  }
+  elements.mappingVideo.value = selected;
+  elements.videoState.textContent = availableVideos.length
+    ? `${availableVideos.length} video(s) aprobado(s) disponible(s).`
+    : "Todavía no hay videos aprobados disponibles.";
+}
+
+async function loadVideos() {
+  try {
+    const response = await fetch("/api/videos", { headers: { Authorization: `Bearer ${window.TikTokraftAuth?.accessToken || ""}` } });
+    if (!response.ok) throw new Error();
+    const payload = await response.json();
+    const videos = Array.isArray(payload.videos) ? payload.videos : [];
+    availableVideos = videos.map((video) => video?.filename).filter((filename) => typeof filename === "string");
+    videoDurations = new Map(videos
+      .filter((video) => video && typeof video.filename === "string" && Number.isFinite(video.durationSeconds))
+      .map((video) => [video.filename, video.durationSeconds]));
+    renderVideoOptions();
+    if (appState?.config?.mappings) renderMappings(appState.config.mappings);
+  } catch {
+    elements.videoState.textContent = "No se pudo cargar el catálogo de videos.";
+  }
+}
+
 function symbolFor(entry) {
   if (entry.type === "gift" || entry.type === "gift-unmapped") return ["♥", "gift"];
   if (entry.type === "action") return ["⚡", "action"];
@@ -1438,6 +1474,7 @@ function resetEditor() {
   elements.cooldown.value = 0;
   elements.enabled.checked = true;
   renderSoundOptions("");
+  renderVideoOptions("");
   elements.editorHeading.textContent = "Nueva acción";
   elements.cancelEdit.hidden = true;
   syncMappingTriggerEditor();
@@ -1449,7 +1486,7 @@ function openEditor(mapping) {
   elements.giftName.value = mapping.giftName;
   elements.giftId.value = mapping.giftId;
   elements.command.value = mapping.command;
-  elements.mappingVideoUrl.value = mapping.videoUrl || "";
+  renderVideoOptions(mapping.video || "");
   renderSoundOptions(mapping.audio);
   elements.cooldown.value = mapping.cooldownMs;
   elements.enabled.checked = mapping.enabled;
@@ -1841,11 +1878,11 @@ elements.mappingForm.addEventListener("submit", async (event) => {
   const data = {
     id: elements.mappingId.value || `rule-${crypto.randomUUID()}`,
     triggerType,
-    giftName: triggerType === "gift" ? elements.giftName.value.trim() : "", giftId: triggerType === "gift" ? elements.giftId.value.trim() : "", command: elements.command.value.trim(), audio: elements.audio.value, videoUrl: elements.mappingVideoUrl.value.trim(),
+    giftName: triggerType === "gift" ? elements.giftName.value.trim() : "", giftId: triggerType === "gift" ? elements.giftId.value.trim() : "", command: elements.command.value.trim(), audio: elements.audio.value, video: elements.mappingVideo.value,
     cooldownMs: Number(elements.cooldown.value), enabled: elements.enabled.checked
   };
   if (triggerType === "gift" && !data.giftName && !data.giftId) return toast("Indica al menos el nombre o ID del regalo.", "error");
-  if (!data.command && !data.audio && !data.videoUrl) return toast("Configura al menos un comando, audio o video.", "error");
+  if (!data.command && !data.audio && !data.video) return toast("Configura al menos un comando, audio o video.", "error");
   try {
     const saved = await request("mapping:save", data);
     if (appState?.config?.mappings && saved?.id) {
@@ -2025,6 +2062,7 @@ void (async () => {
   // panel renueve una sesión vencida evita dejar el selector vacío tras un
   // despliegue o una recarga con un token antiguo.
   await loadSounds();
+  await loadVideos();
   socket.auth.token = window.TikTokraftAuth?.accessToken || "";
   socket.connect();
 })();

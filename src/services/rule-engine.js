@@ -51,7 +51,7 @@ export class RuleEngine {
 
   executeSelected(mapping, event, options = {}) {
     if (!mapping?.enabled) throw new Error("La acción seleccionada está desactivada.");
-    if (!mapping.command && !mapping.audio && !mapping.videoUrl) throw new Error("La acción seleccionada no tiene ninguna salida configurada.");
+    if (!mapping.command && !mapping.audio && !mapping.video) throw new Error("La acción seleccionada no tiene ninguna salida configurada.");
     const actionEvent = { ...event, repeatCount: 1 };
     const command = this.execute(mapping, actionEvent, options);
     return { executed: 1, command };

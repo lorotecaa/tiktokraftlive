@@ -23,8 +23,8 @@ function serverTapUrl(input, current) {
 }
 
 export class WorkspaceRuntime {
-  constructor({ ownerId, config, overlayToken, saveConfig, io, commandsPerSecond, listSounds, onGiftCatalogUpsert = async () => {} }) {
-    this.ownerId = ownerId; this.config = config; this.overlayToken = overlayToken; this.saveConfig = saveConfig; this.io = io; this.commandsPerSecond = commandsPerSecond; this.listSounds = listSounds; this.onGiftCatalogUpsert = onGiftCatalogUpsert;
+  constructor({ ownerId, config, overlayToken, saveConfig, io, commandsPerSecond, listSounds, listVideos = async () => [], onGiftCatalogUpsert = async () => {} }) {
+    this.ownerId = ownerId; this.config = config; this.overlayToken = overlayToken; this.saveConfig = saveConfig; this.io = io; this.commandsPerSecond = commandsPerSecond; this.listSounds = listSounds; this.listVideos = listVideos; this.onGiftCatalogUpsert = onGiftCatalogUpsert;
     this.state = { minecraft: { status: "disconnected", detail: "Sin conectar" }, tiktok: { status: "disconnected", detail: "Sin conectar" }, activity: [] };
     this.sequence = 0; this.giftSequence = 0; this.giftHistory = []; this.giftCatalog = new Map(); this.giftCatalogWriteQueue = Promise.resolve(); this.saveQueue = Promise.resolve(); this.saveTimer = null; this.liveReadCommentIds = new Map();
     this.goalEngine = new GoalEngine({ getGoals: () => this.config.goals, onUpdate: (goal) => this.emit("goal:update", this.publicGoal(goal)) });
@@ -92,12 +92,13 @@ export class WorkspaceRuntime {
     this.activity(entry);
     if (entry.type !== "action" || !entry.mapping) return;
     if (entry.mapping.audio) this.emit("mapping:sound", { audio: entry.mapping.audio, mappingId: entry.mapping.id });
-    if (entry.mapping.videoUrl) {
+    if (entry.mapping.video) {
       this.emitPublic("action-video:play", {
         id: randomUUID(),
         at: Date.now(),
         mappingId: entry.mapping.id,
-        videoUrl: entry.mapping.videoUrl,
+        videoUrl: `/videos/${encodeURIComponent(entry.mapping.video)}`,
+        video: entry.mapping.video,
         triggerType: entry.mapping.triggerType || "gift",
         username: entry.event?.username || "",
         nickname: entry.event?.nickname || ""
@@ -190,9 +191,9 @@ export class WorkspaceRuntime {
   async saveMapping(input) {
     const mapping = sanitizeConfig({ mappings: [input] }).mappings[0];
     if (!mapping) throw new Error("Configura al menos un comando, audio o video para la acción.");
-    if (String(input?.videoUrl || "").trim() && !mapping.videoUrl) throw new Error("La URL del video debe comenzar por https://, http:// o /.");
     if (mapping.triggerType === "gift" && !mapping.giftName && !mapping.giftId) throw new Error("Indica al menos el nombre o ID del regalo.");
     if (mapping.audio && !(await this.listSounds()).includes(mapping.audio)) throw new Error("El audio seleccionado ya no está disponible.");
+    if (mapping.video && !(await this.listVideos()).includes(mapping.video)) throw new Error("El video seleccionado ya no está disponible.");
     await this.saveNow();
     const mappings = [...this.config.mappings];
     const index = mappings.findIndex((entry) => entry.id === mapping.id);

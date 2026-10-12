@@ -4,7 +4,7 @@ import path from "node:path";
 import { fileURLToPath } from "node:url";
 import express from "express";
 import { Server } from "socket.io";
-import { listAvailableSoundDetails, listAvailableSounds, sanitizeConfig } from "./config-store.js";
+import { listAvailableSoundDetails, listAvailableSounds, listAvailableVideos, sanitizeConfig } from "./config-store.js";
 import { authConfigured, changePassword, refreshSession, signIn, signUp, userFromAccessToken } from "./auth-store.js";
 import { claimWorkspace, saveWorkspaceConfig, workspaceByOverlayToken } from "./workspace-store.js";
 import { WorkspaceRuntime } from "./workspace-runtime.js";
@@ -36,7 +36,7 @@ async function publishGlobalGiftCatalog(gift) {
 async function workspaceFor(id) {
   if (!workspaces.has(id)) workspaces.set(id, (async () => {
     const record = await claimWorkspace(id);
-    return new WorkspaceRuntime({ ...record, saveConfig: saveWorkspaceConfig, io, commandsPerSecond: commandRate, listSounds: listAvailableSounds, onGiftCatalogUpsert: publishGlobalGiftCatalog }).initialize();
+    return new WorkspaceRuntime({ ...record, saveConfig: saveWorkspaceConfig, io, commandsPerSecond: commandRate, listSounds: listAvailableSounds, listVideos: async () => (await listAvailableVideos()).map((video) => video.filename), onGiftCatalogUpsert: publishGlobalGiftCatalog }).initialize();
   })());
   try {
     // El workspace activo contiene los récords del LIVE que todavía pueden
@@ -99,6 +99,10 @@ app.get("/api/sounds", protectedRoute, async (_request, response, next) => {
     const details = await listAvailableSoundDetails();
     response.json({ sounds: details.map((sound) => sound.filename), details });
   } catch (error) { next(error); }
+});
+app.get("/api/videos", protectedRoute, async (_request, response, next) => {
+  try { response.json({ videos: await listAvailableVideos() }); }
+  catch (error) { next(error); }
 });
 app.get("/api/user-points", protectedRoute, async (request, response, next) => { try { response.json({ entries: await listWorkspaceUserPoints(request.session.user.id, { query: request.query.q, limit: request.query.limit }), configured: true, overlayToken: request.session.workspace.overlayToken }); } catch (error) { next(error); } });
 app.get("/api/gift-catalog", protectedRoute, async (request, response, next) => { try { response.json({ entries: await listGiftCatalog(request.query.limit) }); } catch (error) { next(error); } });

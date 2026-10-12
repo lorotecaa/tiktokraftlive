@@ -8,7 +8,7 @@
     <link rel="preconnect" href="https://fonts.googleapis.com" />
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
     <link href="https://fonts.googleapis.com/css2?family=DM+Mono:wght@400;500&family=Press+Start+2P&family=Space+Grotesk:wght@400;500;600;700&display=swap" rel="stylesheet" />
-    <link rel="stylesheet" href="/style.css?v=20261012-event-actions" />
+    <link rel="stylesheet" href="/style.css?v=20261012-video-catalog" />
   </head>
   <body>
     <div class="noise"></div>
@@ -365,7 +365,10 @@
               <button class="button text audio-test-stop" id="audio-test-stop" type="button" disabled>■ Detener prueba</button>
               <small id="audio-state">Coloca archivos MP3, WAV, OGG, M4A, AAC o WebM en <code>src/public/sounds/</code>.</small>
             </label>
-            <label>Video MP4 en el widget <input id="mapping-video-url" placeholder="https://ejemplo.com/video.mp4" maxlength="1200" /><small>Opcional. Usa una URL pública HTTPS del archivo MP4.</small></label>
+            <label>Video MP4 en el widget
+              <select class="mapping-video-select" id="mapping-video"><option value="">Sin video</option></select>
+              <small id="video-state">Los videos disponibles son administrados por TikTokraft Live.</small>
+            </label>
             <p class="variables">Configura al menos un comando, audio o video.<br />Variables: <code>{usuario}</code> <code>{apodo}</code> <code>{regalo}</code> <code>{regalo_id}</code> <code>{cantidad}</code> <code>{evento}</code></p>
             <div class="editor-bottom"><label class="cooldown">Enfriamiento (ms)<input id="cooldown" type="number" min="0" max="3600000" value="0" /></label><label class="toggle"><input id="mapping-enabled" type="checkbox" checked /><span></span> Activa</label></div>
             <div class="editor-actions"><button class="button primary" type="submit">Guardar acción</button><button class="button text" type="button" id="cancel-edit" hidden>Cancelar</button></div>
@@ -556,6 +559,6 @@
     <script src="/socket.io/socket.io.js"></script>
     <script src="/gift-catalog.js"></script>
     <script src="/tts.js?v=20261010-voices"></script>
-    <script src="/app.js?v=20261012-event-actions"></script>
+    <script src="/app.js?v=20261012-video-catalog"></script>
   </body>
 </html>

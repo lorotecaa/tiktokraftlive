@@ -25,7 +25,9 @@ const hasPartialSupabaseConfig = Boolean(supabaseUrl || supabaseSecretKey) && !i
 const supabaseConfigId = "tiktokraft-live";
 const supabaseConfigTable = "tiktokraft_config";
 const soundsDirectory = path.join(directory, "public", "sounds");
+const videosDirectory = path.join(directory, "public", "videos");
 const audioExtensions = new Set([".aac", ".m4a", ".mp3", ".ogg", ".wav", ".webm"]);
+const videoExtensions = new Set([".mp4"]);
 const mappingTriggerTypes = new Set(["gift", "likes", "follows", "shares"]);
 const ttsLanguages = new Set(["es-CO", "es-ES", "en-US", "pt-BR"]);
 const goalTypes = new Set(["likes", "follows", "coins"]);
@@ -33,6 +35,7 @@ const overlayFonts = new Set(["Space Grotesk", "DM Mono", "Press Start 2P"]);
 const overlayEffects = new Set(["none", "shadow", "glow"]);
 let configWriteQueue = Promise.resolve();
 const soundMetadataCache = new Map();
+const videoMetadataCache = new Map();
 
 const defaultConfig = {
   tiktokUsername: "",
@@ -94,7 +97,7 @@ const defaultConfig = {
       giftName: "Rosa",
       command: "say Gracias {usuario} por {cantidad} {regalo}!",
       audio: "",
-      videoUrl: "",
+      video: "",
       cooldownMs: 0
     },
     {
@@ -105,7 +108,7 @@ const defaultConfig = {
       giftName: "Corazón",
       command: "effect give @a minecraft:regeneration 5 1 true",
       audio: "",
-      videoUrl: "",
+      video: "",
       cooldownMs: 3000
     }
   ]
@@ -119,16 +122,9 @@ function stringOrEmpty(value) {
   return typeof value === "string" ? value.trim() : "";
 }
 
-function normalizeVideoUrl(value) {
-  const raw = stringOrEmpty(value).slice(0, 1200);
-  if (!raw) return "";
-  if (raw.startsWith("/") && !raw.startsWith("//") && !raw.includes("\\")) return raw;
-  try {
-    const url = new URL(raw);
-    return url.protocol === "https:" || url.protocol === "http:" ? url.toString() : "";
-  } catch {
-    return "";
-  }
+function normalizeVideoFilename(value) {
+  const filename = stringOrEmpty(value).replace(/[\\/\0]/g, "").slice(0, 180);
+  return videoExtensions.has(path.extname(filename).toLowerCase()) ? filename : "";
 }
 
 function normalizeMapping(mapping, index) {
@@ -143,7 +139,7 @@ function normalizeMapping(mapping, index) {
     giftName: triggerType === "gift" ? stringOrEmpty(mapping?.giftName) : "",
     command: command.slice(0, 256),
     audio,
-    videoUrl: normalizeVideoUrl(mapping?.videoUrl),
+    video: normalizeVideoFilename(mapping?.video),
     cooldownMs: Math.max(0, Math.min(Number(mapping?.cooldownMs) || 0, 3_600_000))
   };
 }
@@ -374,11 +370,42 @@ export async function listAvailableSoundDetails() {
   }
 }
 
+export async function listAvailableVideos() {
+  try {
+    const entries = (await fs.readdir(videosDirectory, { withFileTypes: true }))
+      .filter((entry) => entry.isFile() && videoExtensions.has(path.extname(entry.name).toLowerCase()))
+      .sort((left, right) => left.name.localeCompare(right.name, "es"));
+    const availableNames = new Set(entries.map((entry) => entry.name));
+    for (const cachedName of videoMetadataCache.keys()) {
+      if (!availableNames.has(cachedName)) videoMetadataCache.delete(cachedName);
+    }
+    return Promise.all(entries.map(async (entry) => {
+      const filePath = path.join(videosDirectory, entry.name);
+      const stats = await fs.stat(filePath);
+      const cached = videoMetadataCache.get(entry.name);
+      if (cached?.size === stats.size && cached?.modifiedAt === stats.mtimeMs) return cached.detail;
+      let durationSeconds = null;
+      try {
+        const metadata = await parseFile(filePath, { duration: true, skipCovers: true });
+        if (Number.isFinite(metadata.format.duration)) durationSeconds = Math.max(0, Math.round(metadata.format.duration * 1000) / 1000);
+      } catch {
+        // El archivo sigue disponible aunque no exponga metadatos legibles.
+      }
+      const detail = { filename: entry.name, durationSeconds };
+      videoMetadataCache.set(entry.name, { size: stats.size, modifiedAt: stats.mtimeMs, detail });
+      return detail;
+    }));
+  } catch (error) {
+    if (error.code === "ENOENT") return [];
+    throw error;
+  }
+}
+
 export function sanitizeConfig(raw = {}) {
   const mappings = Array.isArray(raw.mappings) ? raw.mappings : defaultConfig.mappings;
   const goals = Array.isArray(raw.goals) ? raw.goals : defaultConfig.goals;
   const normalizedGoals = goals.map(normalizeGoal).filter(Boolean);
-  const normalizedMappings = mappings.map(normalizeMapping).filter((mapping) => mapping.command || mapping.audio || mapping.videoUrl);
+  const normalizedMappings = mappings.map(normalizeMapping).filter((mapping) => mapping.command || mapping.audio || mapping.video);
   const timer = normalizeTimer(raw.timer);
   if (timer.actionMappingId && !normalizedMappings.some((mapping) => mapping.id === timer.actionMappingId)) timer.actionMappingId = "";
   return {
