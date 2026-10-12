@@ -1383,6 +1383,9 @@ function renderVideoSelector() {
     const updateDuration = () => {
       const value = Number(video.duration);
       if (Number.isFinite(value)) videoDurations.set(filename, value);
+      if (video.videoWidth > 0 && video.videoHeight > 0) {
+        preview.style.aspectRatio = `${video.videoWidth} / ${video.videoHeight}`;
+      }
       const label = formatMediaDuration(videoDurations.get(filename));
       duration.textContent = label ? `Duración ${label}` : "Pasa el mouse para reproducir";
       if (elements.mappingVideo.value === filename) elements.mappingVideoSelected.textContent = videoOptionLabel(filename);
