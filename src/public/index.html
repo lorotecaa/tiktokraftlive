@@ -11,6 +11,7 @@
     <link href="https://fonts.googleapis.com/css2?family=DM+Mono:wght@400;500&family=Press+Start+2P&family=Space+Grotesk:wght@400;500;600;700&display=swap" rel="stylesheet" />
     <link rel="stylesheet" href="/style.css?v=20261012-timer-resilience" />
     <link rel="stylesheet" href="/dashboard.css?v=20261014-scene-motion" />
+    <link rel="stylesheet" href="/action-presets.css?v=20261014" />
   </head>
   <body>
     <div class="noise"></div>
@@ -378,7 +379,12 @@
           </div>
         </div>
         <div class="mapping-layout">
-          <form id="mapping-form" class="mapping-editor">
+          <div class="action-workbench">
+          <div class="action-mode-tabs" role="tablist" aria-label="Tipo de acción">
+            <button class="action-mode-tab is-active" id="action-mode-command" type="button" role="tab" aria-selected="true" aria-controls="mapping-form">⌘ Minecraft CMD</button>
+            <button class="action-mode-tab" id="action-mode-presets" type="button" role="tab" aria-selected="false" aria-controls="action-preset-panel">✦ Preajustes</button>
+          </div>
+          <form id="mapping-form" class="mapping-editor" role="tabpanel" aria-labelledby="action-mode-command">
             <input type="hidden" id="mapping-id" />
             <div class="editor-title"><span class="pixel-icon wand">✦</span><h3 id="editor-heading">Nueva acción</h3><button class="button text select-gift-button" id="select-gift-button" type="button">🎁 Seleccionar regalo</button></div>
             <label class="mapping-trigger-label">Activar cuando
@@ -411,6 +417,21 @@
             <div class="editor-bottom"><label class="cooldown">Enfriamiento (ms)<input id="cooldown" type="number" min="0" max="3600000" value="0" /></label><label class="toggle"><input id="mapping-enabled" type="checkbox" checked /><span></span> Activa</label></div>
             <div class="editor-actions"><button class="button primary" type="submit">Guardar acción</button><button class="button text" type="button" id="cancel-edit" hidden>Cancelar</button></div>
           </form>
+          <section class="action-preset-panel" id="action-preset-panel" role="tabpanel" aria-labelledby="action-mode-presets" hidden>
+            <div class="action-preset-heading"><span class="pixel-icon cube" aria-hidden="true"></span><div><h3>Acciones listas para Minecraft</h3><p>Elige un paquete, asigna un regalo a cada efecto y créalos juntos. No necesitas escribir comandos.</p></div></div>
+            <label class="action-preset-search" id="action-preset-search-label">Buscar paquetes<input id="action-preset-search" type="search" placeholder="Supervivencia, mundo, desafíos…" autocomplete="off" /></label>
+            <div class="action-preset-list" id="action-preset-list"></div>
+            <p class="empty-state" id="action-preset-empty" hidden>No hay paquetes que coincidan con la búsqueda.</p>
+            <div class="action-preset-detail" id="action-preset-detail" hidden>
+              <button class="button text action-preset-back" id="action-preset-back" type="button">← Ver paquetes</button>
+              <div class="action-preset-summary"><span id="action-preset-icon" aria-hidden="true"></span><div><h3 id="action-preset-title"></h3><p id="action-preset-description"></p></div></div>
+              <p class="action-preset-instruction">Selecciona un regalo distinto para cada efecto. La imagen y el ID vienen del catálogo de tus LIVE. Los comandos con <code>@a</code> afectan a todos los jugadores.</p>
+              <div class="action-preset-events" id="action-preset-events"></div>
+              <p class="action-preset-warning" id="action-preset-warning" hidden></p>
+              <button class="button primary action-preset-create" id="action-preset-create" type="button" disabled>Crear paquete de acciones</button>
+            </div>
+          </section>
+          </div>
           <div class="mapping-list-wrap"><div class="mapping-list" id="mapping-list"></div><p class="empty-state" id="mapping-empty">Todavía no hay acciones. Crea una a la izquierda.</p></div>
         </div>
       </section>
@@ -631,6 +652,6 @@
     <script src="/socket.io/socket.io.js"></script>
     <script src="/gift-catalog.js"></script>
     <script src="/tts.js?v=20261010-voices"></script>
-    <script src="/app.js?v=20261012-video-canvas"></script>
+    <script src="/app.js?v=20261014-action-presets"></script>
   </body>
 </html>

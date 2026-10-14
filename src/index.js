@@ -272,6 +272,7 @@ io.on("connection", (socket) => {
   socket.on("admin:statistics:connected", (_input, done) => acknowledge(done, async () => { await requireAdministrator(session); return administrationAccounts({ activeOnly: true }); }, w));
   socket.on("admin:statistics:profile", (input, done) => acknowledge(done, async () => { await requireAdministrator(session); const userId = String(input?.userId || ""); const account = (await administrationAccounts()).find((entry) => entry.userId === userId); if (!account) throw new Error("No existe esa cuenta registrada."); return account; }, w));
   socket.on("mapping:save", (input, done) => acknowledge(done, () => w.saveMapping(input), w));
+  socket.on("mapping:save-batch", (input, done) => acknowledge(done, () => w.saveMappingsBatch(input), w));
   socket.on("mapping:delete", (id, done) => acknowledge(done, async () => { const timer = w.config.timer?.actionMappingId === id ? { ...w.config.timer, actionMappingId: "" } : w.config.timer; await w.save({ ...w.config, timer, mappings: w.config.mappings.filter((item) => item.id !== id) }); return { id }; }, w));
   socket.on("mapping:test", (id, done) => acknowledge(done, () => {
     const mapping = w.config.mappings.find((item) => item.id === id);

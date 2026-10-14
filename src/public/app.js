@@ -6,6 +6,9 @@ let userPointsSearchTimer = null;
 let userPointsOverlayToken = "";
 let giftCatalog = [];
 let giftCatalogSearch = "";
+let selectedActionPreset = null;
+let presetGiftChoices = [];
+let pendingPresetGiftIndex = null;
 let videoCatalogSearch = "";
 let authorizedTikTokUsers = [];
 let authorizedTikTokSearch = "";
@@ -26,6 +29,27 @@ let panelTimerServerOffsetMs = 0;
 let panelTimerRenderTimer = null;
 let panelTimerZeroSynchronized = false;
 const giftNamesById = window.TIKTOK_GIFT_NAMES || {};
+const actionPresetPacks = [
+  { id: "survival", icon: "🌱", title: "Supervivencia clásica", description: "Ayudas sencillas para tus jugadores: agradecimiento, curación, velocidad, comida y amanecer.", events: [
+    { icon: "💬", title: "Agradecer", command: "say Gracias {usuario} por {regalo}!", suggestions: ["Rosa", "Rose"] },
+    { icon: "💚", title: "Regeneración", command: "effect give @a minecraft:regeneration 8 0 true", suggestions: ["Corazón", "Heart Me"] },
+    { icon: "⚡", title: "Velocidad", command: "effect give @a minecraft:speed 12 0 true", suggestions: ["Confeti", "Confetti"] },
+    { icon: "🍞", title: "Comida", command: "give @a minecraft:bread 3", suggestions: ["Capybara", "Capibara"] },
+    { icon: "☀️", title: "Amanecer", command: "time set day", suggestions: ["Woodland Wonder"] }
+  ] },
+  { id: "world", icon: "🌦️", title: "Mundo cambiante", description: "Los regalos transforman el día, la noche y el clima del mundo.", events: [
+    { icon: "☀️", title: "Hacer de día", command: "time set day", suggestions: ["Rosa", "Rose"] },
+    { icon: "🌙", title: "Hacer de noche", command: "time set night", suggestions: ["Corazón", "Heart Me"] },
+    { icon: "🌧️", title: "Comenzar lluvia", command: "weather rain", suggestions: ["Confeti", "Confetti"] },
+    { icon: "🌤️", title: "Despejar el cielo", command: "weather clear", suggestions: ["Capybara", "Capibara"] }
+  ] },
+  { id: "challenges", icon: "🎮", title: "Retos del LIVE", description: "Efectos temporales para todos los jugadores. Úsalos cuando quieras una partida más movida.", events: [
+    { icon: "🐢", title: "Lentitud", command: "effect give @a minecraft:slowness 8 0 true", suggestions: ["Rosa", "Rose"] },
+    { icon: "🌑", title: "Ceguera breve", command: "effect give @a minecraft:blindness 5 0 true", suggestions: ["Corazón", "Heart Me"] },
+    { icon: "✨", title: "Resplandor", command: "effect give @a minecraft:glowing 10 0 true", suggestions: ["Confeti", "Confetti"] },
+    { icon: "🦘", title: "Salto", command: "effect give @a minecraft:jump_boost 10 1 true", suggestions: ["Capybara", "Capibara"] }
+  ] }
+];
 
 const $ = (selector) => document.querySelector(selector);
 const elements = {
@@ -53,6 +77,7 @@ const elements = {
   adminMediaView: $("#admin-media-view"), adminOpenMedia: $("#admin-open-media"), adminMediaBackMenu: $("#admin-media-back-menu"), adminVideoUploadForm: $("#admin-video-upload-form"), adminVideoFile: $("#admin-video-file"), adminVideoUploadStatus: $("#admin-video-upload-status"), adminVideoList: $("#admin-video-list"), adminVideoEmpty: $("#admin-video-empty"), adminSoundUploadForm: $("#admin-sound-upload-form"), adminSoundFile: $("#admin-sound-file"), adminSoundUploadStatus: $("#admin-sound-upload-status"), adminSoundList: $("#admin-sound-list"), adminSoundEmpty: $("#admin-sound-empty"),
   profileModal: $("#profile-modal"), profileForm: $("#profile-form"), profileAvatar: $("#profile-avatar"), profileAvatarEmpty: $("#profile-avatar-empty"), profileAvatarInput: $("#profile-avatar-input"), profileEmail: $("#profile-email"), profilePassword: $("#profile-password"), profilePasswordConfirm: $("#profile-password-confirm"), profileMessage: $("#profile-message"),
   mappingForm: $("#mapping-form"), mappingId: $("#mapping-id"), mappingTriggerType: $("#mapping-trigger-type"), mappingGiftFields: $("#mapping-gift-fields"), giftName: $("#gift-name"), giftId: $("#gift-id"),
+  actionModeCommand: $("#action-mode-command"), actionModePresets: $("#action-mode-presets"), actionPresetPanel: $("#action-preset-panel"), actionPresetSearchLabel: $("#action-preset-search-label"), actionPresetSearch: $("#action-preset-search"), actionPresetList: $("#action-preset-list"), actionPresetEmpty: $("#action-preset-empty"), actionPresetDetail: $("#action-preset-detail"), actionPresetBack: $("#action-preset-back"), actionPresetIcon: $("#action-preset-icon"), actionPresetTitle: $("#action-preset-title"), actionPresetDescription: $("#action-preset-description"), actionPresetEvents: $("#action-preset-events"), actionPresetWarning: $("#action-preset-warning"), actionPresetCreate: $("#action-preset-create"),
   command: $("#mapping-command"), audio: $("#mapping-audio"), audioTest: $("#audio-test"), audioTestStop: $("#audio-test-stop"), audioState: $("#audio-state"), mappingVideo: $("#mapping-video"), mappingVideoSelected: $("#mapping-video-selected"), selectVideoButton: $("#select-video-button"), clearVideoButton: $("#clear-video-button"), videoState: $("#video-state"), actionVideoWidgetUrl: $("#action-video-widget-url"), actionVideoWidgetCopy: $("#action-video-widget-copy"), actionVideoWidgetPreview: $("#action-video-widget-preview"), cooldown: $("#cooldown"), enabled: $("#mapping-enabled"), editorHeading: $("#editor-heading"),
   cancelEdit: $("#cancel-edit"), mappingList: $("#mapping-list"), mappingEmpty: $("#mapping-empty"), selectGiftButton: $("#select-gift-button"), giftSelectorModal: $("#gift-selector-modal"), giftSelectorSearch: $("#gift-selector-search"), giftSelectorGrid: $("#gift-selector-grid"), giftSelectorEmpty: $("#gift-selector-empty"),
   videoSelectorModal: $("#video-selector-modal"), videoSelectorSearch: $("#video-selector-search"), videoSelectorGrid: $("#video-selector-grid"), videoSelectorEmpty: $("#video-selector-empty"),
@@ -120,9 +145,28 @@ elements.adminRolesForm?.addEventListener("submit", async (event) => {
 });
 elements.adminVideoUploadForm?.addEventListener("submit", (event) => uploadAdminMedia(event, "videos"));
 elements.adminSoundUploadForm?.addEventListener("submit", (event) => uploadAdminMedia(event, "sounds"));
-elements.selectGiftButton?.addEventListener("click", openGiftSelector);
+elements.selectGiftButton?.addEventListener("click", () => { pendingPresetGiftIndex = null; openGiftSelector(); });
 elements.giftSelectorModal?.querySelectorAll("[data-gift-selector-close]").forEach((button) => button.addEventListener("click", closeGiftSelector));
 elements.giftSelectorSearch?.addEventListener("input", () => { giftCatalogSearch = elements.giftSelectorSearch.value.trim(); renderGiftSelector(); });
+elements.actionModeCommand?.addEventListener("click", () => setActionMode("command"));
+elements.actionModePresets?.addEventListener("click", () => { setActionMode("presets"); loadActionPresetGiftCatalog(); });
+elements.actionPresetSearch?.addEventListener("input", renderActionPresetList);
+elements.actionPresetList?.addEventListener("click", (event) => {
+  const card = event.target.closest("button[data-preset-id]");
+  if (!card) return;
+  selectedActionPreset = actionPresetPacks.find((pack) => pack.id === card.dataset.presetId) || null;
+  presetGiftChoices = selectedActionPreset?.events.map(() => null) || [];
+  fillActionPresetGiftSuggestions();
+  renderActionPresetList();
+});
+elements.actionPresetBack?.addEventListener("click", () => { selectedActionPreset = null; presetGiftChoices = []; renderActionPresetList(); });
+elements.actionPresetEvents?.addEventListener("click", (event) => {
+  const button = event.target.closest("button[data-preset-index]");
+  if (!button) return;
+  pendingPresetGiftIndex = Number(button.dataset.presetIndex);
+  openGiftSelector();
+});
+elements.actionPresetCreate?.addEventListener("click", installActionPreset);
 elements.selectVideoButton?.addEventListener("click", openVideoSelector);
 elements.clearVideoButton?.addEventListener("click", () => renderVideoOptions(""));
 elements.videoSelectorModal?.querySelectorAll("[data-video-selector-close]").forEach((button) => button.addEventListener("click", closeVideoSelector));
@@ -1314,6 +1358,7 @@ function renderMappings(mappings) {
 function closeGiftSelector() {
   elements.giftSelectorModal.hidden = true;
   document.body.classList.remove("modal-open");
+  pendingPresetGiftIndex = null;
 }
 
 async function openGiftSelector() {
@@ -1331,6 +1376,7 @@ async function openGiftSelector() {
     if (!response.ok) throw new Error(payload.error || "No se pudo cargar el catálogo de regalos.");
     giftCatalog = Array.isArray(payload.entries) ? payload.entries : [];
     if (appState) appState.giftCatalog = giftCatalog;
+    fillActionPresetGiftSuggestions();
     renderGiftSelector();
   } catch (error) {
     toast(error.message, "error");
@@ -1369,6 +1415,12 @@ function renderGiftSelector() {
     id.textContent = `ID: ${gift.giftId}`;
     card.append(visual, name, coins, id);
     card.addEventListener("click", () => {
+      if (pendingPresetGiftIndex !== null && selectedActionPreset) {
+        presetGiftChoices[pendingPresetGiftIndex] = gift;
+        closeGiftSelector();
+        renderActionPresetDetail();
+        return;
+      }
       elements.giftName.value = String(gift.giftName || "");
       elements.giftId.value = String(gift.giftId || "");
       closeGiftSelector();
@@ -1377,6 +1429,108 @@ function renderGiftSelector() {
     elements.giftSelectorGrid.append(card);
   }
   elements.giftSelectorEmpty.hidden = entries.length > 0;
+}
+
+function giftLabelKey(value) {
+  return String(value || "").normalize("NFD").replace(/[\u0300-\u036f]/g, "").trim().toLocaleLowerCase();
+}
+
+function setActionMode(mode) {
+  const presets = mode === "presets";
+  elements.mappingForm.hidden = presets;
+  elements.actionPresetPanel.hidden = !presets;
+  elements.actionModeCommand.classList.toggle("is-active", !presets);
+  elements.actionModePresets.classList.toggle("is-active", presets);
+  elements.actionModeCommand.setAttribute("aria-selected", String(!presets));
+  elements.actionModePresets.setAttribute("aria-selected", String(presets));
+  if (presets) renderActionPresetList();
+}
+
+function renderActionPresetList() {
+  if (!elements.actionPresetList) return;
+  const showingDetail = Boolean(selectedActionPreset);
+  elements.actionPresetSearchLabel.hidden = showingDetail;
+  elements.actionPresetList.hidden = showingDetail;
+  elements.actionPresetDetail.hidden = !showingDetail;
+  if (showingDetail) return renderActionPresetDetail();
+  const search = giftLabelKey(elements.actionPresetSearch.value);
+  const packs = actionPresetPacks.filter((pack) => giftLabelKey(`${pack.title} ${pack.description}`).includes(search));
+  elements.actionPresetList.innerHTML = packs.map((pack) => `<button class="action-preset-card" type="button" data-preset-id="${escapeHtml(pack.id)}"><span class="action-preset-card-icon" aria-hidden="true">${pack.icon}</span><span><strong>${escapeHtml(pack.title)}</strong><small>${escapeHtml(pack.description)}</small></span><em>${pack.events.length} acciones →</em></button>`).join("");
+  elements.actionPresetEmpty.hidden = packs.length > 0;
+}
+
+function fillActionPresetGiftSuggestions() {
+  if (!selectedActionPreset) return;
+  const used = new Set(presetGiftChoices.filter(Boolean).map((gift) => String(gift.giftId)));
+  selectedActionPreset.events.forEach((entry, index) => {
+    if (presetGiftChoices[index]) return;
+    const candidates = giftCatalog.filter((gift) => !used.has(String(gift.giftId)) && entry.suggestions.some((name) => giftLabelKey(gift.giftName) === giftLabelKey(name)));
+    const existingId = (appState?.config?.mappings || []).find((mapping) => candidates.some((gift) => String(mapping.giftId || "") === String(gift.giftId)))?.giftId;
+    const suggestion = candidates.find((gift) => String(gift.giftId) === String(existingId)) || (candidates.length === 1 ? candidates[0] : null);
+    if (suggestion) { presetGiftChoices[index] = suggestion; used.add(String(suggestion.giftId)); }
+  });
+  renderActionPresetDetail();
+}
+
+async function loadActionPresetGiftCatalog() {
+  try {
+    const response = await fetch("/api/gift-catalog?limit=2000", { headers: { Authorization: `Bearer ${window.TikTokraftAuth?.accessToken || ""}` } });
+    const payload = await response.json().catch(() => ({}));
+    if (!response.ok) throw new Error(payload.error || "No se pudo cargar el catálogo de regalos.");
+    giftCatalog = Array.isArray(payload.entries) ? payload.entries : [];
+    if (appState) appState.giftCatalog = giftCatalog;
+    fillActionPresetGiftSuggestions();
+  } catch (error) { toast(error.message, "error"); }
+}
+
+function renderActionPresetDetail() {
+  const pack = selectedActionPreset;
+  if (!pack) return;
+  elements.actionPresetIcon.textContent = pack.icon;
+  elements.actionPresetTitle.textContent = pack.title;
+  elements.actionPresetDescription.textContent = pack.description;
+  elements.actionPresetEvents.innerHTML = pack.events.map((entry, index) => {
+    const gift = presetGiftChoices[index];
+    const imageUrl = String(gift?.giftImageUrl || "").trim();
+    return `<div class="action-preset-event"><span class="action-preset-event-icon" aria-hidden="true">${entry.icon}</span><div><strong>${escapeHtml(entry.title)}</strong><code>${escapeHtml(entry.command)}</code><div class="action-preset-gift">${imageUrl ? `<img src="${escapeHtml(imageUrl)}" alt="" referrerpolicy="no-referrer" />` : ""}<button type="button" data-preset-index="${index}">${escapeHtml(gift ? `${gift.giftName} · ID ${gift.giftId}` : "🎁 Elegir regalo")}</button></div></div></div>`;
+  }).join("");
+  const selected = presetGiftChoices.filter(Boolean);
+  const unique = new Set(selected.map((gift) => String(gift.giftId)));
+  const duplicateSelection = unique.size !== selected.length;
+  const existing = selected.filter((gift) => (appState?.config?.mappings || []).some((mapping) => (mapping.triggerType || "gift") === "gift" && (String(mapping.giftId || "") === String(gift.giftId) || giftLabelKey(mapping.giftName) === giftLabelKey(gift.giftName))));
+  const warnings = [];
+  if (duplicateSelection) warnings.push("Un mismo regalo está asignado a varios efectos. Elige regalos distintos.");
+  if (existing.length) warnings.push(`${existing.length} regalo(s) ya tienen una acción. Si creas el paquete, se ejecutarán ambas acciones; las anteriores no se reemplazarán.`);
+  elements.actionPresetWarning.textContent = warnings.join(" ");
+  elements.actionPresetWarning.hidden = warnings.length === 0;
+  elements.actionPresetCreate.disabled = selected.length !== pack.events.length || duplicateSelection;
+  elements.actionPresetCreate.textContent = `Crear ${pack.events.length} acciones`;
+}
+
+async function installActionPreset() {
+  const pack = selectedActionPreset;
+  if (!pack || presetGiftChoices.length !== pack.events.length || presetGiftChoices.some((gift) => !gift)) return;
+  const ids = presetGiftChoices.map((gift) => String(gift.giftId));
+  if (new Set(ids).size !== ids.length) return toast("Elige un regalo distinto para cada efecto.", "error");
+  if (!elements.actionPresetWarning.hidden && !confirm("Algunos regalos ya tienen acciones. El paquete añadirá acciones nuevas sin reemplazarlas, por lo que ambas se ejecutarán. ¿Continuar?")) return;
+  const mappings = pack.events.map((entry, index) => ({
+    triggerType: "gift", giftId: ids[index], giftName: String(presetGiftChoices[index].giftName || ""),
+    command: entry.command, audio: "", video: "", cooldownMs: 0, enabled: true
+  }));
+  elements.actionPresetCreate.disabled = true;
+  try {
+    const created = await request("mapping:save-batch", mappings);
+    if (appState?.config?.mappings) {
+      for (const mapping of created) {
+        if (!appState.config.mappings.some((item) => item.id === mapping.id)) appState.config.mappings.push(mapping);
+      }
+      renderMappings(appState.config.mappings);
+    }
+    toast(`${created.length} acciones de ${pack.title} creadas`, "success");
+    selectedActionPreset = null;
+    presetGiftChoices = [];
+    renderActionPresetList();
+  } catch (error) { toast(error.message, "error"); renderActionPresetDetail(); }
 }
 
 function videoUrl(filename) {
@@ -1781,6 +1935,7 @@ function resetEditor() {
 }
 
 function openEditor(mapping) {
+  setActionMode("command");
   elements.mappingId.value = mapping.id;
   elements.mappingTriggerType.value = mapping.triggerType || "gift";
   elements.giftName.value = mapping.giftName;

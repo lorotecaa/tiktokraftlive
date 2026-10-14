@@ -210,6 +210,21 @@ export class WorkspaceRuntime {
     await this.save({ ...this.config, mappings });
     return mapping;
   }
+  async saveMappingsBatch(inputs) {
+    if (!Array.isArray(inputs) || inputs.length < 1 || inputs.length > 12) throw new Error("El paquete debe contener entre 1 y 12 acciones.");
+    const mappings = inputs.map((input) => sanitizeConfig({ mappings: [{ ...input, id: `rule-${randomUUID()}` }] }).mappings[0]);
+    if (mappings.some((mapping) => !mapping || mapping.triggerType !== "gift" || (!mapping.giftId && !mapping.giftName))) {
+      throw new Error("Cada efecto necesita un regalo y un comando válido.");
+    }
+    if (mappings.some((mapping) => !mapping.command || mapping.audio || mapping.video)) {
+      throw new Error("El paquete solo puede crear acciones de Minecraft con comando.");
+    }
+    const giftKeys = mappings.map((mapping) => mapping.giftId || mapping.giftName.toLocaleLowerCase());
+    if (new Set(giftKeys).size !== giftKeys.length) throw new Error("Selecciona un regalo distinto para cada efecto.");
+    await this.saveNow();
+    await this.save({ ...this.config, mappings: [...this.config.mappings, ...mappings] });
+    return mappings;
+  }
   async saveGoal(input) { const type = String(input?.type || "").toLowerCase(); const existing = this.config.goals.find((goal) => goal.id === input?.id || goal.type === type); const candidate = { ...input, id: existing?.id || randomUUID(), type }; const next = sanitizeConfig({ ...this.config, goals: [...this.config.goals.filter((goal) => goal.id !== existing?.id && goal.type !== type), candidate] }); const goal = next.goals.find((goal) => goal.id === candidate.id); if (!goal) throw new Error("Completa un objetivo válido."); await this.save(next); this.emit("goal:update", this.publicGoal(goal)); return this.publicGoal(goal); }
   async connectTikTok() { const connection = await this.tiktok.connect(this.config.tiktokUsername, this.config.eulerStreamApiKey); this.giftHistory = []; this.emit("gift-history:update", this.giftHistory); if (this.config.giftOverlays.resetOnNewLive) { this.giftEngine.reset(); await this.saveNow(); } this.activity({ type: "system", message: `TikTok LIVE conectado: @${this.config.tiktokUsername}` }); return connection; }
 }
