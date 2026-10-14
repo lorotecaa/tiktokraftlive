@@ -3,43 +3,66 @@
   <head>
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-    <meta name="theme-color" content="#080b12" />
+    <meta name="theme-color" content="#0a0e18" />
     <title>TikTokraft Live</title>
     <link rel="preconnect" href="https://fonts.googleapis.com" />
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
     <link href="https://fonts.googleapis.com/css2?family=DM+Mono:wght@400;500&family=Press+Start+2P&family=Space+Grotesk:wght@400;500;600;700&display=swap" rel="stylesheet" />
     <link rel="stylesheet" href="/style.css?v=20261012-timer-resilience" />
+    <link rel="stylesheet" href="/dashboard.css?v=20261014-topnav" />
   </head>
   <body>
     <div class="noise"></div>
     <header class="topbar">
-      <a href="#inicio" class="brand" aria-label="TikTokraft Live, inicio">
-        <span class="brand-mark"><i></i><i></i><i></i></span>
-        <span>TIKTOKRAFT<span class="lime">LIVE</span></span>
-      </a>
-      <div class="topbar-actions">
-        <div class="live-pill"><span class="pulse"></span><span id="global-status">PANEL LOCAL</span></div>
-        <button id="admin-panel-button" class="button text admin-panel-button" type="button" hidden>Administración</button>
-        <button id="profile-button" class="button text logout-button" type="button">Perfil</button>
-        <button id="logout-button" class="button text logout-button" type="button">Cerrar sesión</button>
+      <div class="topbar-inner">
+        <a href="#inicio" class="brand" aria-label="TikTokraft Live, inicio">
+          <span class="brand-mark"><i></i><i></i><i></i></span>
+          <span>TIKTOKRAFT<span class="lime">LIVE</span></span>
+        </a>
+        <div class="topbar-actions">
+          <div class="live-pill"><span class="pulse"></span><span id="global-status">PANEL LOCAL</span></div>
+          <button id="admin-panel-button" class="button text admin-panel-button" type="button" hidden>Administración</button>
+          <button id="profile-button" class="button text logout-button" type="button">Perfil</button>
+          <button id="logout-button" class="button text logout-button" type="button">Cerrar sesión</button>
+        </div>
       </div>
+      <nav class="primary-nav" aria-label="Secciones de TikTokraft Live">
+        <div class="primary-nav-inner">
+          <a href="#inicio"><span aria-hidden="true">⌂</span>Inicio</a>
+          <a href="#conexiones"><span aria-hidden="true">⌁</span>Conexiones</a>
+          <a href="#audio-bot"><span aria-hidden="true">♫</span>Audio Bot</a>
+          <a href="#temporizador"><span aria-hidden="true">◷</span>Temporizador</a>
+          <a href="#overlays"><span aria-hidden="true">▣</span>Overlays</a>
+          <a href="#acciones"><span aria-hidden="true">✦</span>Acciones</a>
+          <a href="#actividad"><span aria-hidden="true">≡</span>Actividad</a>
+        </div>
+      </nav>
     </header>
 
     <main id="inicio">
       <section class="hero">
-        <div>
-          <p class="eyebrow">TIKTOK LIVE × MINECRAFT</p>
-          <h1>Los regalos<br />entran al <em>juego.</em></h1>
+        <div class="hero-content">
+          <p class="eyebrow">TU ESTUDIO DE TRANSMISIÓN <span aria-hidden="true">/</span> TIKTOK × MINECRAFT</p>
+          <h1>Tu LIVE,<br /><em>en tus manos.</em></h1>
           <p class="hero-copy">Conecta tu directo, asigna acciones y deja que tu comunidad cambie el mundo en tiempo real.</p>
+          <div class="hero-links">
+            <a class="hero-link-primary" href="#conexiones">Preparar conexiones <span aria-hidden="true">↗</span></a>
+            <a class="hero-link-secondary" href="#acciones">Explorar acciones <span aria-hidden="true">→</span></a>
+          </div>
         </div>
-        <div class="hero-art" aria-hidden="true">
-          <div class="sun"></div><div class="cloud cloud-a"></div><div class="cloud cloud-b"></div>
-          <div class="mountain back"></div><div class="mountain front"></div><div class="grass"></div>
-          <div class="creeper"><span></span><span></span><b></b></div>
-          <div class="heart heart-a">♥</div><div class="heart heart-b">♥</div>
+        <div class="hero-visual" aria-hidden="true">
+          <div class="hero-visual-top"><span class="hero-visual-led"></span><span>VISTA DEL MUNDO</span><span class="hero-visual-dots">•••</span></div>
+          <div class="hero-art">
+            <div class="sun"></div><div class="cloud cloud-a"></div><div class="cloud cloud-b"></div>
+            <div class="mountain back"></div><div class="mountain front"></div><div class="grass"></div>
+            <div class="creeper"><span></span><span></span><b></b></div>
+            <div class="heart heart-a">♥</div><div class="heart heart-b">♥</div>
+          </div>
+          <div class="hero-visual-footer"><span>01 / DIRECTO</span><span>TikTok → Minecraft</span></div>
         </div>
       </section>
 
+      <div class="dashboard-intro" id="conexiones"><div><p class="eyebrow">01 / PUNTO DE PARTIDA</p><h2>Conecta tu mundo</h2><p>Tu servidor y tu LIVE, en un mismo lugar.</p></div><span class="dashboard-intro-line" aria-hidden="true"></span></div>
       <section class="connection-grid" aria-label="Conexiones">
         <article class="connection-card minecraft-card">
           <div class="card-top"><span class="pixel-icon cube"></span><div><p class="card-kicker">MUNDO</p><h2>Minecraft · ServerTap</h2></div><span class="status-dot" id="minecraft-dot"></span></div>
@@ -74,7 +97,7 @@
         </form>
       </section>
 
-      <section class="workspace tts-section">
+      <section class="workspace tts-section" id="audio-bot">
         <div class="section-heading"><div><p class="eyebrow">AUDIO EN VIVO</p><h2>AUDIO BOT</h2></div><span class="hint">Se reproduce en este navegador</span></div>
         <form id="tts-settings-form" class="tts-card">
           <label class="toggle"><input id="tts-enabled" type="checkbox" /><span></span> Enabled</label>
@@ -208,6 +231,7 @@
         </div>
       </section>
 
+      <div class="dashboard-intro dashboard-intro-overlays" id="overlays"><div><p class="eyebrow">02 / EN PANTALLA</p><h2>Overlays para tu LIVE</h2><p>Elige qué mostrar y personaliza cada vista para tu transmisión.</p></div><span class="dashboard-intro-line" aria-hidden="true"></span></div>
       <section class="workspace user-points-section" id="usuario-y-puntos">
         <button class="goals-toggle user-points-toggle" id="user-points-toggle" type="button" aria-expanded="false" aria-controls="user-points-panel"><span>Usuario y Puntos</span><b aria-hidden="true">›</b></button>
         <div class="goals-panel user-points-panel" id="user-points-panel" hidden>
