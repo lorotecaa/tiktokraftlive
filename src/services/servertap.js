@@ -1,4 +1,5 @@
 import WebSocket from "ws";
+import { parseMinecraftVersion } from "../survival-preset.js";
 
 function toWebSocketUrl(baseUrl) {
   const parsed = new URL(baseUrl);
@@ -23,11 +24,12 @@ export class ServerTapClient {
     this.keepAliveTimer = null;
     this.reconnectTimer = null;
     this.manualDisconnect = false;
+    this.minecraftVersion = "";
   }
 
   emitState(status, detail = "") {
     this.status = status;
-    this.onState({ status, detail });
+    this.onState({ status, detail, minecraftVersion: status === "connected" ? this.minecraftVersion : "" });
   }
   startKeepAlive(socket) {
   this.stopKeepAlive();
@@ -163,6 +165,8 @@ stopKeepAlive() {
 });
       socket.on("error", (error) => this.onError(`ServerTap: ${error.message}`));
       this.startKeepAlive(socket);
+      const version = parseMinecraftVersion(server.version) || parseMinecraftVersion(server.bukkitVersion);
+      this.minecraftVersion = version ? version.join(".") : "";
       this.emitState("connected", `${server.name || "Minecraft"} conectado`);
       return server;
     } catch (error) {

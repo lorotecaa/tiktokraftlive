@@ -1,0 +1,31 @@
+{
+  "id": "survival",
+  "title": "Supervivencia clásica",
+  "description": "24 efectos listos para asignar a regalos, objetos, criaturas y desafíos de Minecraft.",
+  "effects": [
+    { "id": "enchanted-apple", "title": "Manzana Encantada", "col": 0, "row": 0, "variants": [["give @a minecraft:enchanted_golden_apple 1"]] },
+    { "id": "infinity-bow", "title": "Arco Infinito", "col": 1, "row": 0, "variants": [["give @a minecraft:bow[minecraft:enchantments={infinity:1}] 1"]] },
+    { "id": "random-sword", "title": "Espada Aleatoria", "col": 2, "row": 0, "variants": [["give @a minecraft:iron_sword 1"], ["give @a minecraft:diamond_sword 1"], ["give @a minecraft:netherite_sword 1"]] },
+    { "id": "totem", "title": "Tótem de Inmortalidad", "col": 3, "row": 0, "variants": [["give @a minecraft:totem_of_undying 1"]] },
+    { "id": "random-armor", "title": "Armadura Aleatoria", "col": 4, "row": 0, "variants": [["give @a minecraft:iron_helmet 1", "give @a minecraft:iron_chestplate 1", "give @a minecraft:iron_leggings 1", "give @a minecraft:iron_boots 1"], ["give @a minecraft:diamond_helmet 1", "give @a minecraft:diamond_chestplate 1", "give @a minecraft:diamond_leggings 1", "give @a minecraft:diamond_boots 1"], ["give @a minecraft:netherite_helmet 1", "give @a minecraft:netherite_chestplate 1", "give @a minecraft:netherite_leggings 1", "give @a minecraft:netherite_boots 1"]] },
+    { "id": "netherite-tools", "title": "Herramientas de Netherita", "col": 5, "row": 0, "minimumVersion": "1.16", "variants": [["give @a minecraft:netherite_pickaxe 1"], ["give @a minecraft:netherite_axe 1"], ["give @a minecraft:netherite_shovel 1"], ["give @a minecraft:netherite_hoe 1"]] },
+    { "id": "random-food", "title": "Comida Aleatoria", "col": 6, "row": 0, "variants": [["give @a minecraft:bread 8"], ["give @a minecraft:cooked_beef 8"], ["give @a minecraft:golden_carrot 8"]] },
+    { "id": "ender-pearls", "title": "Perlas de Ender", "col": 0, "row": 1, "variants": [["give @a minecraft:ender_pearl 4"]] },
+    { "id": "creeper", "title": "Creeper", "col": 1, "row": 1, "variants": [["execute at @r run summon minecraft:creeper ~2 ~ ~2"]] },
+    { "id": "evoker", "title": "Evocador", "col": 2, "row": 1, "variants": [["execute at @r run summon minecraft:evoker ~2 ~ ~2"]] },
+    { "id": "ghast", "title": "Ghast", "col": 3, "row": 1, "variants": [["execute at @r run summon minecraft:ghast ~4 ~5 ~4"]] },
+    { "id": "charged-creeper", "title": "Creeper cargado", "col": 4, "row": 1, "variants": [["execute at @r run summon minecraft:creeper ~2 ~ ~2 {powered:1b}"]] },
+    { "id": "random-boss", "title": "Jefe Aleatorio", "col": 5, "row": 1, "variants": [["execute at @r run summon minecraft:wither ~6 ~2 ~6"], ["execute at @r run summon minecraft:warden ~4 ~ ~4"], ["execute at @r run summon minecraft:ravager ~3 ~ ~3"]] },
+    { "id": "skeleton", "title": "Esqueleto", "col": 6, "row": 1, "variants": [["execute at @r run summon minecraft:skeleton ~2 ~ ~2"]] },
+    { "id": "witch", "title": "Bruja", "col": 0, "row": 2, "variants": [["execute at @r run summon minecraft:witch ~2 ~ ~2"]] },
+    { "id": "zombie", "title": "Zombi", "col": 1, "row": 2, "variants": [["execute at @r run summon minecraft:zombie ~2 ~ ~2"]] },
+    { "id": "bees", "title": "Abejas", "col": 2, "row": 2, "minimumVersion": "1.15", "variants": [["execute at @r run summon minecraft:bee ~2 ~1 ~2", "execute at @r run summon minecraft:bee ~-2 ~1 ~2", "execute at @r run summon minecraft:bee ~2 ~1 ~-2"]] },
+    { "id": "glowing", "title": "resplandor", "col": 3, "row": 2, "variants": [["effect give @a minecraft:glowing 30 0 true"]] },
+    { "id": "ravager", "title": "Devastador", "col": 4, "row": 2, "minimumVersion": "1.14", "variants": [["execute at @r run summon minecraft:ravager ~3 ~ ~3"]] },
+    { "id": "piglin", "title": "Piglin", "col": 5, "row": 2, "minimumVersion": "1.16", "variants": [["execute at @r run summon minecraft:piglin ~2 ~ ~2"]] },
+    { "id": "spider", "title": "Araña", "col": 6, "row": 2, "variants": [["execute at @r run summon minecraft:spider ~2 ~ ~2"]] },
+    { "id": "giant-zombie", "title": "Zombie Gigante", "col": 0, "row": 3, "variants": [["execute at @r run summon minecraft:giant ~3 ~ ~3"]] },
+    { "id": "wither", "title": "Wither", "col": 1, "row": 3, "variants": [["execute at @r run summon minecraft:wither ~6 ~2 ~6"]] },
+    { "id": "warden", "title": "Warden", "col": 2, "row": 3, "minimumVersion": "1.19", "variants": [["execute at @r run summon minecraft:warden ~4 ~ ~4"]] }
+  ]
+}

@@ -1,3 +1,5 @@
+import { survivalCommands } from "../survival-preset.js";
+
 function normalize(value) {
   return String(value || "")
     .normalize("NFD")
@@ -14,9 +16,10 @@ function placeholder(value) {
 }
 
 export class RuleEngine {
-  constructor({ sendCommand, onActivity }) {
+  constructor({ sendCommand, onActivity, getMinecraftVersion = () => "" }) {
     this.sendCommand = sendCommand;
     this.onActivity = onActivity;
+    this.getMinecraftVersion = getMinecraftVersion;
     this.cooldowns = new Map();
   }
 
@@ -43,8 +46,12 @@ export class RuleEngine {
   }
 
   execute(mapping, event, { context = {}, message = "Acción ejecutada" } = {}) {
-    const command = mapping.command ? this.render(mapping.command, event) : "";
-    if (command) this.sendCommand(command, { event, mappingId: mapping.id, ...context });
+    const rawCommands = mapping.source === "preset" && mapping.presetPackId === "survival" && mapping.presetEffectId
+      ? survivalCommands(mapping.presetEffectId, this.getMinecraftVersion())
+      : mapping.command ? [mapping.command] : [];
+    const commands = rawCommands.map((raw) => this.render(raw, event));
+    for (const command of commands) this.sendCommand(command, { event, mappingId: mapping.id, ...context });
+    const command = commands.join(" | ");
     this.onActivity({ type: "action", event, mapping, command, message });
     return command;
   }
@@ -93,7 +100,13 @@ export class RuleEngine {
       this.cooldowns.set(mapping.id, now);
       for (let unit = 0; unit < units; unit += 1) {
         const actionEvent = units === 1 ? event : { ...event, repeatCount: 1 };
-        this.execute(mapping, actionEvent, { message: "Acción de regalo ejecutada" });
+        try {
+          this.execute(mapping, actionEvent, { message: "Acción de regalo ejecutada" });
+        } catch (error) {
+          if (mapping.source !== "preset") throw error;
+          this.onActivity({ type: "error", event: actionEvent, mapping, message: `Preajuste omitido: ${error.message}` });
+          break;
+        }
         executed += 1;
       }
     }

@@ -9,6 +9,10 @@ let giftCatalogSearch = "";
 let selectedActionPreset = null;
 let presetGiftChoices = [];
 let pendingPresetGiftIndex = null;
+let survivalGalleryOpen = false;
+let survivalPresetCatalog = null;
+let survivalPresetLoad = null;
+let pendingSurvivalEffectId = "";
 let videoCatalogSearch = "";
 let authorizedTikTokUsers = [];
 let authorizedTikTokSearch = "";
@@ -30,13 +34,7 @@ let panelTimerRenderTimer = null;
 let panelTimerZeroSynchronized = false;
 const giftNamesById = window.TIKTOK_GIFT_NAMES || {};
 const actionPresetPacks = [
-  { id: "survival", icon: "🌱", title: "Supervivencia clásica", description: "Ayudas sencillas para tus jugadores: agradecimiento, curación, velocidad, comida y amanecer.", events: [
-    { icon: "💬", title: "Agradecer", command: "say Gracias {usuario} por {regalo}!", suggestions: ["Rosa", "Rose"] },
-    { icon: "💚", title: "Regeneración", command: "effect give @a minecraft:regeneration 8 0 true", suggestions: ["Corazón", "Heart Me"] },
-    { icon: "⚡", title: "Velocidad", command: "effect give @a minecraft:speed 12 0 true", suggestions: ["Confeti", "Confetti"] },
-    { icon: "🍞", title: "Comida", command: "give @a minecraft:bread 3", suggestions: ["Capybara", "Capibara"] },
-    { icon: "☀️", title: "Amanecer", command: "time set day", suggestions: ["Woodland Wonder"] }
-  ] },
+  { id: "survival", icon: "🌱", title: "Supervivencia clásica", description: "24 efectos de objetos, criaturas y desafíos. Asigna un regalo a cada opción que quieras activar.", optionCount: 24, events: [] },
   { id: "world", icon: "🌦️", title: "Mundo cambiante", description: "Los regalos transforman el día, la noche y el clima del mundo.", events: [
     { icon: "☀️", title: "Hacer de día", command: "time set day", suggestions: ["Rosa", "Rose"] },
     { icon: "🌙", title: "Hacer de noche", command: "time set night", suggestions: ["Corazón", "Heart Me"] },
@@ -154,12 +152,23 @@ elements.actionPresetSearch?.addEventListener("input", renderActionPresetList);
 elements.actionPresetList?.addEventListener("click", (event) => {
   const card = event.target.closest("button[data-preset-id]");
   if (!card) return;
+  if (card.dataset.presetId === "survival") {
+    selectedActionPreset = null;
+    presetGiftChoices = [];
+    survivalGalleryOpen = true;
+    renderActionPresetList();
+    renderMappings(appState?.config?.mappings || []);
+    void loadSurvivalPreset().catch(() => {});
+    return;
+  }
+  survivalGalleryOpen = false;
   selectedActionPreset = actionPresetPacks.find((pack) => pack.id === card.dataset.presetId) || null;
   presetGiftChoices = selectedActionPreset?.events.map(() => null) || [];
   fillActionPresetGiftSuggestions();
   renderActionPresetList();
+  renderMappings(appState?.config?.mappings || []);
 });
-elements.actionPresetBack?.addEventListener("click", () => { selectedActionPreset = null; presetGiftChoices = []; renderActionPresetList(); });
+elements.actionPresetBack?.addEventListener("click", () => { selectedActionPreset = null; presetGiftChoices = []; renderActionPresetList(); renderMappings(appState?.config?.mappings || []); });
 elements.actionPresetEvents?.addEventListener("click", (event) => {
   const button = event.target.closest("button[data-preset-index]");
   if (!button) return;
@@ -1324,6 +1333,12 @@ function mappingGiftVisual(mapping, trigger) {
 
 function renderMappings(mappings) {
   const presets = elements.actionModePresets.getAttribute("aria-selected") === "true";
+  document.querySelector(".mapping-layout")?.classList.toggle("survival-gallery-layout", presets && survivalGalleryOpen);
+  if (presets && survivalGalleryOpen) {
+    renderSurvivalGallery(mappings);
+    elements.mappingEmpty.hidden = true;
+    return;
+  }
   const visible = mappings.filter((mapping) => (mapping.source === "preset") === presets);
   if (presets) {
     const groups = new Map();
@@ -1377,10 +1392,38 @@ function renderMappings(mappings) {
   elements.mappingEmpty.hidden = visible.length > 0;
 }
 
+function renderSurvivalGallery(mappings) {
+  const catalog = survivalPresetCatalog;
+  if (!catalog) {
+    elements.mappingList.innerHTML = '<p class="empty-state">Cargando opciones de supervivencia…</p>';
+    return;
+  }
+  const version = appState?.minecraft?.minecraftVersion || "";
+  const versionLabel = version ? `Minecraft ${escapeHtml(version)}` : appState?.minecraft?.status === "connected" ? "Versión de Minecraft no detectada" : "Conecta ServerTap para ejecutar";
+  const versionParts = version.match(/^(\d+)\.(\d+)(?:\.(\d+))?/);
+  const configured = mappings.filter((mapping) => mapping.source === "preset" && mapping.presetPackId === "survival" && mapping.presetEffectId);
+  const byEffectId = new Map(configured.map((mapping) => [mapping.presetEffectId, mapping]));
+  const oldCount = mappings.filter((mapping) => mapping.source === "preset" && mapping.presetPackId === "survival" && !mapping.presetEffectId).length;
+  elements.mappingList.innerHTML = `<section class="survival-gallery" aria-label="Opciones de Supervivencia clásica">
+    <header class="survival-gallery-header"><div><p class="eyebrow">PREAJUSTE · MINECRAFT</p><h3>${escapeHtml(catalog.title)}</h3><p>${escapeHtml(catalog.description)}</p><small>${configured.length} de ${catalog.effects.length} opciones activas · ${versionLabel}</small></div><button type="button" class="button text" data-survival-back>← Ver paquetes</button></header>
+    ${oldCount ? `<p class="survival-legacy-note">Hay ${oldCount} acción(es) del paquete anterior que siguen activas. Puedes gestionarlas al volver a la lista de paquetes.</p>` : ""}
+    <div class="survival-options-grid">${catalog.effects.map((effect) => {
+      const mapping = byEffectId.get(effect.id);
+      const minimum = effect.minimumVersion?.split(".").map(Number);
+      const unavailable = Boolean(minimum && versionParts && (Number(versionParts[1]) < minimum[0] || Number(versionParts[1]) === minimum[0] && Number(versionParts[2]) < minimum[1]));
+      const x = 16 + Number(effect.col) * 143;
+      const y = 22 + Number(effect.row) * 73;
+      return `<article class="survival-option${mapping ? " is-configured" : ""}${unavailable ? " is-unavailable" : ""}"><button type="button" class="survival-option-select" data-survival-effect-id="${escapeHtml(effect.id)}" ${unavailable ? "disabled" : ""} title="${escapeHtml(unavailable ? `Requiere Minecraft Java ${effect.minimumVersion} o posterior` : mapping ? `Cambiar regalo de ${effect.title}` : `Asignar regalo a ${effect.title}`)}"><span class="survival-option-icon" style="background-position:-${x}px -${y}px" aria-hidden="true"></span><span class="survival-option-copy"><strong>${escapeHtml(effect.title)}</strong><small>${escapeHtml(unavailable ? `Requiere ${effect.minimumVersion}+` : mapping ? mapping.giftName || mapping.giftId : "Elegir regalo")}</small></span></button>${mapping ? `<div class="survival-option-tools"><button type="button" class="icon-button" data-action="test" data-id="${escapeHtml(mapping.id)}" title="Probar efecto">▷</button><button type="button" class="icon-button delete" data-action="remove-survival" data-id="${escapeHtml(mapping.id)}" title="Quitar regalo de esta opción">×</button></div>` : ""}</article>`;
+    }).join("")}</div>
+    <p class="survival-gallery-hint">Las opciones se activan individualmente al asignarles un regalo. Los efectos de criaturas y jefes pueden alterar tu mundo.</p>
+  </section>`;
+}
+
 function closeGiftSelector() {
   elements.giftSelectorModal.hidden = true;
   document.body.classList.remove("modal-open");
   pendingPresetGiftIndex = null;
+  pendingSurvivalEffectId = "";
 }
 
 async function openGiftSelector() {
@@ -1437,6 +1480,12 @@ function renderGiftSelector() {
     id.textContent = `ID: ${gift.giftId}`;
     card.append(visual, name, coins, id);
     card.addEventListener("click", () => {
+      if (pendingSurvivalEffectId) {
+        const effectId = pendingSurvivalEffectId;
+        closeGiftSelector();
+        void assignSurvivalGift(effectId, gift);
+        return;
+      }
       if (pendingPresetGiftIndex !== null && selectedActionPreset) {
         presetGiftChoices[pendingPresetGiftIndex] = gift;
         closeGiftSelector();
@@ -1451,6 +1500,21 @@ function renderGiftSelector() {
     elements.giftSelectorGrid.append(card);
   }
   elements.giftSelectorEmpty.hidden = entries.length > 0;
+}
+
+async function assignSurvivalGift(effectId, gift) {
+  const existing = (appState?.config?.mappings || []).find((mapping) => mapping.source === "preset" && mapping.presetPackId === "survival" && mapping.presetEffectId === effectId);
+  const other = (appState?.config?.mappings || []).find((mapping) => mapping.id !== existing?.id && (mapping.triggerType || "gift") === "gift" && (String(mapping.giftId || "") === String(gift.giftId || "") || giftLabelKey(mapping.giftName) === giftLabelKey(gift.giftName)));
+  if (other && other.source !== "preset" && !confirm("Este regalo ya activa una acción de Minecraft CMD. Si lo asignas también aquí, se ejecutarán ambas. ¿Continuar?")) return;
+  try {
+    const saved = await request("mapping:save-survival-effect", { effectId, giftId: gift.giftId, giftName: gift.giftName });
+    if (appState?.config?.mappings) {
+      const index = appState.config.mappings.findIndex((mapping) => mapping.id === saved.id);
+      if (index >= 0) appState.config.mappings[index] = saved; else appState.config.mappings.push(saved);
+      renderMappings(appState.config.mappings);
+    }
+    toast(`${saved.presetEffectTitle} activado con ${gift.giftName}`, "success");
+  } catch (error) { toast(error.message, "error"); }
 }
 
 function giftLabelKey(value) {
@@ -1469,6 +1533,21 @@ function setActionMode(mode) {
   renderMappings(appState?.config?.mappings || []);
 }
 
+async function loadSurvivalPreset() {
+  if (survivalPresetCatalog) return survivalPresetCatalog;
+  if (!survivalPresetLoad) survivalPresetLoad = fetch("/survival-preset.json?v=20261014")
+    .then(async (response) => {
+      if (!response.ok) throw new Error("No se pudo cargar Supervivencia clásica.");
+      const catalog = await response.json();
+      if (!Array.isArray(catalog.effects) || catalog.effects.length !== 24) throw new Error("El catálogo de supervivencia está incompleto.");
+      survivalPresetCatalog = catalog;
+      renderMappings(appState?.config?.mappings || []);
+      return catalog;
+    })
+    .catch((error) => { survivalPresetLoad = null; toast(error.message, "error"); throw error; });
+  return survivalPresetLoad;
+}
+
 function renderActionPresetList() {
   if (!elements.actionPresetList) return;
   const showingDetail = Boolean(selectedActionPreset);
@@ -1478,7 +1557,7 @@ function renderActionPresetList() {
   if (showingDetail) return renderActionPresetDetail();
   const search = giftLabelKey(elements.actionPresetSearch.value);
   const packs = actionPresetPacks.filter((pack) => giftLabelKey(`${pack.title} ${pack.description}`).includes(search));
-  elements.actionPresetList.innerHTML = packs.map((pack) => `<button class="action-preset-card" type="button" data-preset-id="${escapeHtml(pack.id)}"><span class="action-preset-card-icon" aria-hidden="true">${pack.icon}</span><span><strong>${escapeHtml(pack.title)}</strong><small>${escapeHtml(pack.description)}</small></span><em>${pack.events.length} acciones →</em></button>`).join("");
+  elements.actionPresetList.innerHTML = packs.map((pack) => `<button class="action-preset-card${pack.id === "survival" && survivalGalleryOpen ? " is-selected" : ""}" type="button" data-preset-id="${escapeHtml(pack.id)}"><span class="action-preset-card-icon" aria-hidden="true">${pack.icon}</span><span><strong>${escapeHtml(pack.title)}</strong><small>${escapeHtml(pack.description)}</small></span><em>${pack.optionCount || pack.events.length} ${pack.optionCount ? "opciones" : "acciones"} →</em></button>`).join("");
   elements.actionPresetEmpty.hidden = packs.length > 0;
 }
 
@@ -2381,6 +2460,19 @@ elements.audioTest.addEventListener("click", () => playAudioTest(elements.audio.
 elements.audioTestStop.addEventListener("click", stopAudioTest);
 
 elements.mappingList.addEventListener("click", async (event) => {
+  if (event.target.closest("button[data-survival-back]")) {
+    survivalGalleryOpen = false;
+    renderActionPresetList();
+    renderMappings(appState?.config?.mappings || []);
+    return;
+  }
+  const survivalSelect = event.target.closest("button[data-survival-effect-id]");
+  if (survivalSelect && !survivalSelect.disabled) {
+    pendingPresetGiftIndex = null;
+    pendingSurvivalEffectId = survivalSelect.dataset.survivalEffectId;
+    openGiftSelector();
+    return;
+  }
   const audioTrigger = event.target.closest(".mapping-audio-trigger");
   if (audioTrigger) {
     setMappingAudioPickerOpen(audioTrigger.closest(".mapping-audio"), true);
@@ -2396,6 +2488,10 @@ elements.mappingList.addEventListener("click", async (event) => {
   }
   const mapping = appState.config.mappings.find((item) => item.id === button.dataset.id);
   if (!mapping) return;
+  if (button.dataset.action === "remove-survival" && mapping.source === "preset" && mapping.presetEffectId) {
+    if (!confirm(`¿Quitar el regalo de ${mapping.presetEffectTitle}? La opción permanecerá disponible para configurarla de nuevo.`)) return;
+    return control(button, "mapping:delete", mapping.id, "Regalo quitado del preajuste");
+  }
   if (button.dataset.action === "edit" && mapping.source !== "preset") return openEditor(mapping);
   if (button.dataset.action === "delete") {
     const title = mappingTriggerDefinition(mapping).title(mapping);

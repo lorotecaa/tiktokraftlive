@@ -147,7 +147,8 @@ function normalizeMapping(mapping, index) {
     source,
     presetGroupId: source === "preset" ? presetGroupId : "",
     presetPackId: source === "preset" ? stringOrEmpty(mapping?.presetPackId).slice(0, 40) : "",
-    presetEffectTitle: source === "preset" ? stringOrEmpty(mapping?.presetEffectTitle).slice(0, 80) : ""
+    presetEffectTitle: source === "preset" ? stringOrEmpty(mapping?.presetEffectTitle).slice(0, 80) : "",
+    presetEffectId: source === "preset" ? stringOrEmpty(mapping?.presetEffectId).slice(0, 60) : ""
   };
 }
 

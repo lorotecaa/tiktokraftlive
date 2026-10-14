@@ -10,6 +10,7 @@ import { ServerTapClient } from "./services/servertap.js";
 import { TikTokClient, isAllowedTtsUser } from "./services/tiktok.js";
 import { addWorkspaceManualPoints, addWorkspaceUserPoints, deleteWorkspaceUserPoints, listWorkspaceUserPoints } from "./services/user-points-store.js";
 import { listGiftCatalog, upsertGiftCatalog } from "./services/gift-catalog-store.js";
+import { survivalEffect } from "./survival-preset.js";
 
 function serverTapUrl(input, current) {
   if (input.serverTapHost === undefined) return input.serverTapUrl ?? current.url;
@@ -35,7 +36,7 @@ export class WorkspaceRuntime {
       onUpdate: (entries) => this.emit("user-points:update", { entries: entries.slice(0, 100), configured: true }), onError: (error) => this.error(`Usuario y Puntos: ${error.message}`)
     });
     this.serverTap = new ServerTapClient({ commandsPerSecond, onState: (next) => { this.state.minecraft = next; this.broadcast(); }, onConsole: (entry) => this.activity({ type: "console", entry, message: entry.message }), onError: (message) => this.error(message) });
-    this.rules = new RuleEngine({ sendCommand: (command, context) => this.serverTap.enqueue(command, context), onActivity: (entry) => this.handleRuleActivity(entry) });
+    this.rules = new RuleEngine({ sendCommand: (command, context) => this.serverTap.enqueue(command, context), onActivity: (entry) => this.handleRuleActivity(entry), getMinecraftVersion: () => this.serverTap.minecraftVersion });
     this.timerEngine = new TimerEngine({
       getTimer: () => this.config.timer,
       onUpdate: (timer) => this.emitTimer(timer),
@@ -199,7 +200,7 @@ export class WorkspaceRuntime {
   async dispose() { this.timerEngine.dispose(); this.tiktok.disconnect("Sesión finalizada"); this.serverTap.disconnect("Sesión finalizada"); await Promise.all([this.saveNow(), this.pointsEngine.flush(), this.giftCatalogWriteQueue]); }
   async saveMapping(input) {
     const existing = this.config.mappings.find((entry) => entry.id === input?.id);
-    const mapping = sanitizeConfig({ mappings: [{ ...input, source: existing?.source || "command", presetGroupId: existing?.presetGroupId || "", presetPackId: existing?.presetPackId || "", presetEffectTitle: existing?.presetEffectTitle || "" }] }).mappings[0];
+    const mapping = sanitizeConfig({ mappings: [{ ...input, source: existing?.source || "command", presetGroupId: existing?.presetGroupId || "", presetPackId: existing?.presetPackId || "", presetEffectTitle: existing?.presetEffectTitle || "", presetEffectId: existing?.presetEffectId || "" }] }).mappings[0];
     if (!mapping) throw new Error("Configura al menos un comando, audio o video para la acción.");
     if (mapping.triggerType === "gift" && !mapping.giftName && !mapping.giftId) throw new Error("Indica al menos el nombre o ID del regalo.");
     if (mapping.audio && !(await this.listSounds()).includes(mapping.audio)) throw new Error("El audio seleccionado ya no está disponible.");
@@ -229,6 +230,27 @@ export class WorkspaceRuntime {
     await this.saveNow();
     await this.save({ ...this.config, mappings: [...this.config.mappings, ...mappings] });
     return mappings;
+  }
+  async saveSurvivalEffect(input) {
+    const effect = survivalEffect(String(input?.effectId || ""));
+    if (!effect) throw new Error("Ese efecto de supervivencia no existe.");
+    const giftId = String(input?.giftId || "").trim().slice(0, 80);
+    const giftName = String(input?.giftName || "").trim().slice(0, 80);
+    if (!giftId && !giftName) throw new Error("Selecciona un regalo para activar el efecto.");
+    const existing = this.config.mappings.find((mapping) => mapping.source === "preset" && mapping.presetPackId === "survival" && mapping.presetEffectId === effect.id);
+    const duplicate = this.config.mappings.find((mapping) => mapping.id !== existing?.id && mapping.source === "preset" && mapping.presetPackId === "survival" && mapping.presetEffectId && (giftId && mapping.giftId === giftId || giftName && mapping.giftName?.toLocaleLowerCase() === giftName.toLocaleLowerCase()));
+    if (duplicate) throw new Error("Ese regalo ya está asignado a otro efecto de supervivencia.");
+    const mapping = sanitizeConfig({ mappings: [{
+      id: existing?.id || `rule-${randomUUID()}`, enabled: true, triggerType: "gift", giftId, giftName,
+      command: effect.variants[0][0], audio: "", video: "", cooldownMs: 0,
+      source: "preset", presetGroupId: "survival", presetPackId: "survival", presetEffectTitle: effect.title, presetEffectId: effect.id
+    }] }).mappings[0];
+    await this.saveNow();
+    const mappings = [...this.config.mappings];
+    const index = mappings.findIndex((entry) => entry.id === mapping.id);
+    if (index >= 0) mappings[index] = mapping; else mappings.push(mapping);
+    await this.save({ ...this.config, mappings });
+    return mapping;
   }
   async deletePresetGroup(groupId) {
     const id = String(groupId || "").trim();
