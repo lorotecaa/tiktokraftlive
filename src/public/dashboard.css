@@ -179,7 +179,144 @@ main#inicio [id] { scroll-margin-top: 145px; }
 .hero-visual-dots { margin-left: auto; color: #6f829d; letter-spacing: 3px; }
 .hero-visual-footer { justify-content: space-between; color: #7e95b2; }
 .hero-art { height: 268px; margin: 0; border-radius: 11px; box-shadow: inset 0 0 0 5px rgba(12, 28, 50, .4); }
-.hero-art .sun { border-radius: 8px; }
+.hero-art { isolation: isolate; }
+.hero-art::before {
+  content: "";
+  position: absolute;
+  inset: 0 0 42%;
+  z-index: 0;
+  background: linear-gradient(180deg, #7764b2, #e498aa 84%);
+  opacity: 0;
+  animation: hero-sky-shift 20s ease-in-out infinite;
+  pointer-events: none;
+}
+.hero-art .sun {
+  z-index: 1;
+  top: 42px;
+  right: auto;
+  left: 0;
+  width: 56px;
+  height: 56px;
+  border-radius: 8px;
+  box-shadow: 6px 6px 0 #e8a532, 0 0 25px rgba(255, 218, 77, .55);
+  animation: hero-sun-crossing 20s linear infinite -4s;
+}
+.hero-art .cloud { z-index: 2; }
+.hero-art .cloud-a { animation: hero-cloud-east 23s linear infinite -5s; }
+.hero-art .cloud-b { animation: hero-cloud-west 27s linear infinite -12s; }
+.hero-art .mountain { z-index: 3; }
+.hero-art .mountain.back { animation: hero-mountain-back 20s ease-in-out infinite; }
+.hero-art .mountain.front { animation: hero-mountain-front 20s ease-in-out infinite; }
+.hero-art .grass {
+  z-index: 4;
+  left: -12px;
+  width: calc(100% + 24px);
+  animation: hero-grass-sway 3.8s ease-in-out infinite alternate;
+}
+.hero-art .creeper {
+  --hero-scale: 1;
+  z-index: 5;
+  transform-origin: 50% 100%;
+  animation: hero-creeper-journey 20s ease-in-out infinite;
+}
+.hero-art .creeper span { transform-origin: center; animation: hero-creeper-blink 20s linear infinite; }
+.hero-art .creeper::before { animation: hero-left-step 20s ease-in-out infinite; }
+.hero-art .creeper::after { animation: hero-right-step 20s ease-in-out infinite; }
+.hero-art .heart {
+  z-index: 6;
+  margin: 0;
+  opacity: 0;
+  pointer-events: none;
+  animation: hero-heart-rise 20s ease-out infinite;
+}
+.hero-art .heart-a { left: 42%; top: 74px; animation-delay: -6s; }
+.hero-art .heart-b { left: 55%; top: 103px; font-size: 22px; animation-delay: -12s; }
+.hero-art .heart-c { left: 34%; top: 117px; font-size: 17px; animation-delay: -2s; }
+.hero-art .heart-d { left: 64%; top: 63px; font-size: 27px; animation-delay: -16s; }
+.hero-spark {
+  position: absolute;
+  z-index: 6;
+  width: 5px;
+  height: 5px;
+  background: #f7f4b1;
+  box-shadow: 0 0 12px #f7f4b1, 7px 0 0 -1px #f7f4b1, -7px 0 0 -1px #f7f4b1, 0 7px 0 -1px #f7f4b1, 0 -7px 0 -1px #f7f4b1;
+  opacity: 0;
+  pointer-events: none;
+  animation: hero-spark-rise 20s ease-out infinite;
+}
+.hero-spark-a { left: 26%; bottom: 28%; animation-delay: -3s; }
+.hero-spark-b { left: 72%; bottom: 31%; animation-delay: -8s; }
+.hero-spark-c { left: 59%; bottom: 20%; animation-delay: -13s; }
+.hero-spark-d { left: 37%; bottom: 38%; animation-delay: -18s; }
+
+@keyframes hero-sky-shift {
+  0%, 12%, 100% { opacity: 0; }
+  55% { opacity: .2; }
+  82% { opacity: .38; }
+}
+@keyframes hero-sun-crossing {
+  0% { left: -15%; top: 85px; opacity: 0; }
+  12% { left: 9%; top: 43px; opacity: 1; }
+  48% { left: 47%; top: 9px; opacity: 1; }
+  82% { left: 83%; top: 53px; opacity: 1; }
+  94%, 100% { left: 110%; top: 88px; opacity: 0; }
+}
+@keyframes hero-cloud-east {
+  from { transform: translate3d(-95px, 0, 0); }
+  to { transform: translate3d(480px, 0, 0); }
+}
+@keyframes hero-cloud-west {
+  from { transform: translate3d(90px, 0, 0) scale(.7); }
+  to { transform: translate3d(-480px, 0, 0) scale(.7); }
+}
+@keyframes hero-mountain-back {
+  0%, 100% { transform: translate3d(0, 0, 0) rotate(45deg); }
+  50% { transform: translate3d(-8px, 3px, 0) rotate(45deg); }
+}
+@keyframes hero-mountain-front {
+  0%, 100% { transform: translate3d(0, 0, 0) rotate(45deg); }
+  50% { transform: translate3d(11px, -3px, 0) rotate(45deg); }
+}
+@keyframes hero-grass-sway {
+  from { transform: translate3d(-5px, 0, 0); }
+  to { transform: translate3d(5px, 0, 0); }
+}
+@keyframes hero-creeper-journey {
+  0%, 10%, 100% { transform: translate3d(0, 0, 0) rotate(0) scale(var(--hero-scale)); }
+  18% { transform: translate3d(-13px, -6px, 0) rotate(-4deg) scale(var(--hero-scale)); }
+  26% { transform: translate3d(-31px, 0, 0) rotate(3deg) scale(var(--hero-scale)); }
+  35% { transform: translate3d(-54px, -8px, 0) rotate(-5deg) scale(var(--hero-scale)); }
+  43% { transform: translate3d(-58px, 0, 0) rotate(0) scale(var(--hero-scale)); }
+  51% { transform: translate3d(-58px, -25px, 0) rotate(-8deg) scale(var(--hero-scale)); }
+  58% { transform: translate3d(-58px, 0, 0) rotate(5deg) scale(var(--hero-scale)); }
+  70% { transform: translate3d(-34px, -7px, 0) rotate(-3deg) scale(var(--hero-scale)); }
+  82% { transform: translate3d(7px, 0, 0) rotate(4deg) scale(var(--hero-scale)); }
+  91% { transform: translate3d(0, -5px, 0) rotate(0) scale(var(--hero-scale)); }
+}
+@keyframes hero-creeper-blink {
+  0%, 44%, 47%, 76%, 79%, 100% { transform: scaleY(1); }
+  45%, 77% { transform: scaleY(.1); }
+}
+@keyframes hero-left-step {
+  0%, 14%, 27%, 42%, 59%, 74%, 100% { transform: rotate(0); }
+  20%, 34%, 66% { transform: rotate(17deg); }
+}
+@keyframes hero-right-step {
+  0%, 18%, 32%, 45%, 62%, 80%, 100% { transform: rotate(0); }
+  25%, 39%, 72% { transform: rotate(-17deg); }
+}
+@keyframes hero-heart-rise {
+  0%, 18% { opacity: 0; transform: translate3d(0, 17px, 0) scale(.45) rotate(-12deg); }
+  29% { opacity: 1; transform: translate3d(-6px, 0, 0) scale(1) rotate(4deg); }
+  43% { opacity: .9; transform: translate3d(10px, -31px, 0) scale(1.13) rotate(-8deg); }
+  57%, 100% { opacity: 0; transform: translate3d(-9px, -66px, 0) scale(.85) rotate(10deg); }
+}
+@keyframes hero-spark-rise {
+  0%, 26% { opacity: 0; transform: translate3d(0, 0, 0) scale(.2); }
+  34% { opacity: 1; transform: translate3d(8px, -6px, 0) scale(1); }
+  46% { opacity: .9; transform: translate3d(-7px, -23px, 0) scale(.8); }
+  59%, 100% { opacity: 0; transform: translate3d(9px, -48px, 0) scale(.2); }
+}
 
 /* Section rhythm and cards. Inputs and their application bindings are untouched. */
 .dashboard-intro { display: flex; align-items: end; gap: 24px; margin-top: 62px; }
@@ -280,6 +417,7 @@ main#inicio .goals-panel.is-open { margin-top: 14px; }
   .hero-links { margin-top: 23px; }
   .hero-visual { max-width: 570px; width: 100%; }
   .hero-art { height: 210px; margin: 0; }
+  .hero-art .creeper { --hero-scale: .7; }
   .dashboard-intro { margin-top: 49px; }
   .dashboard-intro-overlays { margin-top: 65px; }
   .connection-grid { grid-template-columns: 1fr; gap: 13px; }
@@ -301,6 +439,8 @@ main#inicio .goals-panel.is-open { margin-top: 14px; }
   .hero-links { align-items: stretch; flex-direction: column; }
   .hero-links a { width: 100%; }
   .hero-art { height: 180px; }
+  .hero-art .mountain.back { width: 94px; height: 94px; right: 118px; bottom: 75px; }
+  .hero-art .mountain.front { width: 118px; height: 118px; right: -14px; bottom: 62px; }
   .dashboard-intro-line { display: none; }
   .dashboard-intro p:last-child { font-size: 13px; }
   .section-heading { align-items: start; flex-direction: column; gap: 7px; }
@@ -310,4 +450,12 @@ main#inicio .goals-panel.is-open { margin-top: 14px; }
 
 @media (prefers-reduced-motion: reduce) {
   .primary-nav a,.hero-links a,main#inicio .goals-toggle { transition: none; }
+  .hero-art::before,
+  .hero-art :is(.sun,.cloud,.mountain,.grass,.creeper,.creeper span,.heart,.hero-spark),
+  .hero-art .creeper::before,
+  .hero-art .creeper::after { animation: none !important; }
+  .hero-art .sun { left: 10%; top: 23px; opacity: 1; }
+  .hero-art .creeper { transform: scale(var(--hero-scale)); }
+  .hero-art .heart-a { opacity: 1; transform: none; }
+  .hero-art :is(.heart-b,.heart-c,.heart-d,.hero-spark) { display: none; }
 }
