@@ -32,4 +32,12 @@
 .action-preset-gift img{width:25px;height:25px;object-fit:contain}
 .action-preset-warning{margin:13px 0 0;padding:10px;border:1px solid #8a6436;border-radius:6px;background:#352914;color:#ffdfaa;font-size:11px;line-height:1.5}
 .action-preset-create{width:100%;margin-top:15px}
-@media(max-width:760px){.action-preset-panel{padding:15px}.action-preset-card{grid-template-columns:40px minmax(0,1fr)}.action-preset-card-icon{width:40px;height:40px}.action-preset-card em{grid-column:2}.action-mode-tab{font-size:11px}}
+.installed-preset-card{min-width:0;margin-bottom:12px;border:1px solid #2c405a;border-radius:10px;background:#101b2d;overflow:hidden}
+.installed-preset-header{display:flex;align-items:center;gap:11px;padding:12px 14px;border-bottom:1px solid #2c405a;background:#17263c}
+.installed-preset-icon{display:grid;place-items:center;flex:none;width:39px;height:39px;border-radius:7px;background:#1c3b5d;font-size:22px}
+.installed-preset-header>div{flex:1;min-width:0}.installed-preset-header strong{display:block;font-size:14px}.installed-preset-header small{display:block;margin-top:3px;color:#9db2ce;font-size:11px}
+.installed-preset-delete{flex:none;font-size:11px!important;color:#c6d8ef!important}
+.installed-preset-effects{display:grid;gap:0;padding:4px 12px}
+.installed-preset-effect{display:grid;grid-template-columns:32px minmax(0,1fr) 30px;align-items:center;gap:10px;min-width:0;padding:11px 2px;border-bottom:1px solid #253851}
+.installed-preset-effect:last-child{border-bottom:0}.installed-preset-effect .mapping-gift{width:32px;height:32px}.installed-preset-effect>div:nth-child(2){min-width:0}.installed-preset-effect strong{display:block;font-size:12px}.installed-preset-effect small{display:block;margin:3px 0;color:#a3b8d2;font-size:11px}.installed-preset-effect code{display:block;overflow-wrap:anywhere;color:#7ca8df;font:10px/1.4 "DM Mono",monospace}
+@media(max-width:760px){.action-preset-panel{padding:15px}.action-preset-card{grid-template-columns:40px minmax(0,1fr)}.action-preset-card-icon{width:40px;height:40px}.action-preset-card em{grid-column:2}.action-mode-tab{font-size:11px}.installed-preset-header{flex-wrap:wrap}.installed-preset-delete{margin-left:auto}}

@@ -132,6 +132,8 @@ function normalizeMapping(mapping, index) {
   const command = stringOrEmpty(mapping?.command).replace(/[\r\n\0]/g, "");
   const audio = stringOrEmpty(mapping?.audio).replace(/[\\/\0]/g, "").slice(0, 160);
   const triggerType = mappingTriggerTypes.has(mapping?.triggerType) ? mapping.triggerType : "gift";
+  const presetGroupId = stringOrEmpty(mapping?.presetGroupId).slice(0, 80);
+  const source = mapping?.source === "preset" && presetGroupId ? "preset" : "command";
   return {
     id: stringOrEmpty(mapping?.id) || `rule-${Date.now()}-${index}`,
     enabled: mapping?.enabled !== false,
@@ -141,7 +143,11 @@ function normalizeMapping(mapping, index) {
     command: command.slice(0, 256),
     audio,
     video: normalizeVideoFilename(mapping?.video),
-    cooldownMs: Math.max(0, Math.min(Number(mapping?.cooldownMs) || 0, 3_600_000))
+    cooldownMs: Math.max(0, Math.min(Number(mapping?.cooldownMs) || 0, 3_600_000)),
+    source,
+    presetGroupId: source === "preset" ? presetGroupId : "",
+    presetPackId: source === "preset" ? stringOrEmpty(mapping?.presetPackId).slice(0, 40) : "",
+    presetEffectTitle: source === "preset" ? stringOrEmpty(mapping?.presetEffectTitle).slice(0, 80) : ""
   };
 }
 

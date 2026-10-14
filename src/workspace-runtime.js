@@ -198,7 +198,8 @@ export class WorkspaceRuntime {
   }
   async dispose() { this.timerEngine.dispose(); this.tiktok.disconnect("Sesión finalizada"); this.serverTap.disconnect("Sesión finalizada"); await Promise.all([this.saveNow(), this.pointsEngine.flush(), this.giftCatalogWriteQueue]); }
   async saveMapping(input) {
-    const mapping = sanitizeConfig({ mappings: [input] }).mappings[0];
+    const existing = this.config.mappings.find((entry) => entry.id === input?.id);
+    const mapping = sanitizeConfig({ mappings: [{ ...input, source: existing?.source || "command", presetGroupId: existing?.presetGroupId || "", presetPackId: existing?.presetPackId || "", presetEffectTitle: existing?.presetEffectTitle || "" }] }).mappings[0];
     if (!mapping) throw new Error("Configura al menos un comando, audio o video para la acción.");
     if (mapping.triggerType === "gift" && !mapping.giftName && !mapping.giftId) throw new Error("Indica al menos el nombre o ID del regalo.");
     if (mapping.audio && !(await this.listSounds()).includes(mapping.audio)) throw new Error("El audio seleccionado ya no está disponible.");
@@ -210,9 +211,13 @@ export class WorkspaceRuntime {
     await this.save({ ...this.config, mappings });
     return mapping;
   }
-  async saveMappingsBatch(inputs) {
+  async saveMappingsBatch(input) {
+    const inputs = input?.mappings;
+    const packId = String(input?.packId || "").trim();
+    if (!/^[a-z0-9-]{1,40}$/.test(packId)) throw new Error("El paquete seleccionado no es válido.");
     if (!Array.isArray(inputs) || inputs.length < 1 || inputs.length > 12) throw new Error("El paquete debe contener entre 1 y 12 acciones.");
-    const mappings = inputs.map((input) => sanitizeConfig({ mappings: [{ ...input, id: `rule-${randomUUID()}` }] }).mappings[0]);
+    const presetGroupId = randomUUID();
+    const mappings = inputs.map((entry) => sanitizeConfig({ mappings: [{ ...entry, id: `rule-${randomUUID()}`, source: "preset", presetGroupId, presetPackId: packId }] }).mappings[0]);
     if (mappings.some((mapping) => !mapping || mapping.triggerType !== "gift" || (!mapping.giftId && !mapping.giftName))) {
       throw new Error("Cada efecto necesita un regalo y un comando válido.");
     }
@@ -224,6 +229,15 @@ export class WorkspaceRuntime {
     await this.saveNow();
     await this.save({ ...this.config, mappings: [...this.config.mappings, ...mappings] });
     return mappings;
+  }
+  async deletePresetGroup(groupId) {
+    const id = String(groupId || "").trim();
+    const removed = this.config.mappings.filter((mapping) => mapping.source === "preset" && mapping.presetGroupId === id);
+    if (!id || !removed.length) throw new Error("Ese paquete de preajustes ya no existe.");
+    const removedIds = new Set(removed.map((mapping) => mapping.id));
+    const timer = removedIds.has(this.config.timer?.actionMappingId) ? { ...this.config.timer, actionMappingId: "" } : this.config.timer;
+    await this.save({ ...this.config, timer, mappings: this.config.mappings.filter((mapping) => !removedIds.has(mapping.id)) });
+    return { groupId: id, deleted: removed.length };
   }
   async saveGoal(input) { const type = String(input?.type || "").toLowerCase(); const existing = this.config.goals.find((goal) => goal.id === input?.id || goal.type === type); const candidate = { ...input, id: existing?.id || randomUUID(), type }; const next = sanitizeConfig({ ...this.config, goals: [...this.config.goals.filter((goal) => goal.id !== existing?.id && goal.type !== type), candidate] }); const goal = next.goals.find((goal) => goal.id === candidate.id); if (!goal) throw new Error("Completa un objetivo válido."); await this.save(next); this.emit("goal:update", this.publicGoal(goal)); return this.publicGoal(goal); }
   async connectTikTok() { const connection = await this.tiktok.connect(this.config.tiktokUsername, this.config.eulerStreamApiKey); this.giftHistory = []; this.emit("gift-history:update", this.giftHistory); if (this.config.giftOverlays.resetOnNewLive) { this.giftEngine.reset(); await this.saveNow(); } this.activity({ type: "system", message: `TikTok LIVE conectado: @${this.config.tiktokUsername}` }); return connection; }

@@ -1323,7 +1323,27 @@ function mappingGiftVisual(mapping, trigger) {
 }
 
 function renderMappings(mappings) {
-  elements.mappingList.innerHTML = mappings.map((mapping) => {
+  const presets = elements.actionModePresets.getAttribute("aria-selected") === "true";
+  const visible = mappings.filter((mapping) => (mapping.source === "preset") === presets);
+  if (presets) {
+    const groups = new Map();
+    for (const mapping of visible) {
+      const id = mapping.presetGroupId;
+      if (!groups.has(id)) groups.set(id, []);
+      groups.get(id).push(mapping);
+    }
+    elements.mappingList.innerHTML = [...groups].map(([groupId, entries]) => {
+      const pack = actionPresetPacks.find((item) => item.id === entries[0].presetPackId);
+      return `<article class="installed-preset-card">
+        <header class="installed-preset-header"><span class="installed-preset-icon" aria-hidden="true">${pack?.icon || "✦"}</span><div><strong>${escapeHtml(pack?.title || "Paquete de preajustes")}</strong><small>${entries.length} efecto${entries.length === 1 ? "" : "s"} configurado${entries.length === 1 ? "" : "s"}</small></div><button type="button" class="button text installed-preset-delete" data-action="delete-preset-group" data-group-id="${escapeHtml(groupId)}" title="Eliminar este paquete completo">Eliminar paquete</button></header>
+        <div class="installed-preset-effects">${entries.map((mapping) => {
+          const trigger = mappingTriggerDefinition(mapping);
+          return `<div class="installed-preset-effect">${mappingGiftVisual(mapping, trigger)}<div><strong>${escapeHtml(mapping.presetEffectTitle || trigger.title(mapping))}</strong><small>Regalo: ${escapeHtml(trigger.title(mapping))}</small><code>${escapeHtml(mapping.command || "")}</code></div><button type="button" class="icon-button" data-action="test" data-id="${escapeHtml(mapping.id)}" title="Probar efecto">▷</button></div>`;
+        }).join("")}</div>
+      </article>`;
+    }).join("");
+  } else {
+  elements.mappingList.innerHTML = visible.map((mapping) => {
     const trigger = mappingTriggerDefinition(mapping);
     const title = trigger.title(mapping);
     return `
@@ -1346,13 +1366,15 @@ function renderMappings(mappings) {
       </div>
     </article>`;
   }).join("");
+  }
   elements.mappingList.querySelectorAll(".mapping-gift img").forEach((image) => {
     image.addEventListener("error", () => {
       image.closest(".mapping-gift")?.classList.remove("has-image");
       image.remove();
     }, { once: true });
   });
-  elements.mappingEmpty.hidden = mappings.length > 0;
+  elements.mappingEmpty.textContent = presets ? "Todavía no has creado ningún paquete de preajustes. Elige uno a la izquierda y asigna sus regalos." : "Todavía no hay acciones de Minecraft CMD. Crea una a la izquierda.";
+  elements.mappingEmpty.hidden = visible.length > 0;
 }
 
 function closeGiftSelector() {
@@ -1444,6 +1466,7 @@ function setActionMode(mode) {
   elements.actionModeCommand.setAttribute("aria-selected", String(!presets));
   elements.actionModePresets.setAttribute("aria-selected", String(presets));
   if (presets) renderActionPresetList();
+  renderMappings(appState?.config?.mappings || []);
 }
 
 function renderActionPresetList() {
@@ -1515,11 +1538,11 @@ async function installActionPreset() {
   if (!elements.actionPresetWarning.hidden && !confirm("Algunos regalos ya tienen acciones. El paquete añadirá acciones nuevas sin reemplazarlas, por lo que ambas se ejecutarán. ¿Continuar?")) return;
   const mappings = pack.events.map((entry, index) => ({
     triggerType: "gift", giftId: ids[index], giftName: String(presetGiftChoices[index].giftName || ""),
-    command: entry.command, audio: "", video: "", cooldownMs: 0, enabled: true
+    command: entry.command, audio: "", video: "", cooldownMs: 0, enabled: true, presetEffectTitle: entry.title
   }));
   elements.actionPresetCreate.disabled = true;
   try {
-    const created = await request("mapping:save-batch", mappings);
+    const created = await request("mapping:save-batch", { packId: pack.id, mappings });
     if (appState?.config?.mappings) {
       for (const mapping of created) {
         if (!appState.config.mappings.some((item) => item.id === mapping.id)) appState.config.mappings.push(mapping);
@@ -2365,9 +2388,15 @@ elements.mappingList.addEventListener("click", async (event) => {
   }
   const button = event.target.closest("button[data-action]");
   if (!button || !appState) return;
+  if (button.dataset.action === "delete-preset-group") {
+    const groupId = button.dataset.groupId;
+    const group = appState.config.mappings.filter((item) => item.source === "preset" && item.presetGroupId === groupId);
+    if (!group.length || !confirm(`¿Eliminar este paquete y sus ${group.length} efectos?`)) return;
+    return control(button, "mapping:delete-preset-group", groupId, "Paquete de preajustes eliminado");
+  }
   const mapping = appState.config.mappings.find((item) => item.id === button.dataset.id);
   if (!mapping) return;
-  if (button.dataset.action === "edit") return openEditor(mapping);
+  if (button.dataset.action === "edit" && mapping.source !== "preset") return openEditor(mapping);
   if (button.dataset.action === "delete") {
     const title = mappingTriggerDefinition(mapping).title(mapping);
     if (!confirm(`¿Eliminar la acción de ${title}?`)) return;
