@@ -2142,6 +2142,7 @@ function toggleAccordion(button, panel) {
 const workspaceGroups = {
   tools: { button: document.querySelector('[data-workspace-group="tools"]'), menu: document.querySelector("#workspace-tools-menu") },
   overlays: { button: document.querySelector('[data-workspace-group="overlays"]'), menu: document.querySelector("#workspace-overlays-menu") },
+  audio: { button: document.querySelector('[data-workspace-group="audio"]'), menu: document.querySelector("#workspace-audio-panel") },
 };
 const workspaceFeatures = {
   temporizador: { group: "tools", section: document.querySelector("#temporizador"), toggle: elements.timerToggle, panel: elements.timerPanel },
@@ -2203,6 +2204,7 @@ function revealWorkspaceHash() {
   if (workspaceFeatures[target]) showWorkspaceFeature(target);
   else if (target === "herramientas") showWorkspaceGroup("tools", true);
   else if (target === "overlays") showWorkspaceGroup("overlays", true);
+  else if (target === "audio-bot") showWorkspaceGroup("audio", true);
 }
 window.addEventListener("hashchange", revealWorkspaceHash);
 revealWorkspaceHash();

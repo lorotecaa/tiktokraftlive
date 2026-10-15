@@ -12,7 +12,7 @@
     <link rel="stylesheet" href="/style.css?v=20261012-timer-resilience" />
     <link rel="stylesheet" href="/dashboard.css?v=20261014-scene-motion" />
     <link rel="stylesheet" href="/action-presets.css?v=20261014-preset-cards" />
-    <link rel="stylesheet" href="/workspace-launcher.css?v=20261014-icon-navigation" />
+    <link rel="stylesheet" href="/workspace-launcher.css?v=20261014-audio-category" />
   </head>
   <body>
     <div class="noise"></div>
@@ -33,7 +33,7 @@
         <div class="primary-nav-inner">
           <a href="#inicio"><span aria-hidden="true">⌂</span>Inicio</a>
           <a href="#conexiones"><span aria-hidden="true">⌁</span>Conexiones</a>
-          <a href="#audio-bot"><span aria-hidden="true">♫</span>Audio Bot</a>
+          <a href="#audio-bot" data-workspace-nav="audio"><span aria-hidden="true">♫</span>Sonidos</a>
           <a href="#herramientas" data-workspace-nav="tools"><span aria-hidden="true">✣</span>Herramientas</a>
           <a href="#overlays" data-workspace-nav="overlays"><span aria-hidden="true">▣</span>Overlays</a>
           <a href="#acciones"><span aria-hidden="true">✦</span>Acciones</a>
@@ -103,7 +103,24 @@
         </form>
       </section>
 
-      <section class="workspace tts-section" id="audio-bot">
+      <section class="workspace-launcher" aria-label="Herramientas, overlays y sonidos">
+        <div class="workspace-launcher-categories">
+          <button class="workspace-launcher-category" id="herramientas" type="button" aria-expanded="false" aria-controls="workspace-tools-menu" data-workspace-group="tools">
+            <span class="workspace-launcher-icon tools" aria-hidden="true"><svg viewBox="0 0 24 24"><path d="M7 7h10a5 5 0 0 1 4.8 3.6l.7 4.7a2.8 2.8 0 0 1-4.5 2.5l-2.2-1.8H8.2L6 17.8a2.8 2.8 0 0 1-4.5-2.5l.7-4.7A5 5 0 0 1 7 7Z"/><path d="M6 11v4m-2-2h4"/><circle cx="16" cy="11.5" r=".8"/><circle cx="18.5" cy="14" r=".8"/></svg></span>
+            <span><strong>Herramientas</strong><small>Controla tu LIVE</small></span><span class="workspace-launcher-chevron" aria-hidden="true">⌄</span>
+          </button>
+          <button class="workspace-launcher-category" id="overlays" type="button" aria-expanded="false" aria-controls="workspace-overlays-menu" data-workspace-group="overlays">
+            <span class="workspace-launcher-icon overlays" aria-hidden="true"><svg viewBox="0 0 24 24"><rect x="3" y="4" width="18" height="14" rx="2"/><path d="M9 21h6m-3-3v3"/></svg></span>
+            <span><strong>Overlays</strong><small>Vistas para tu LIVE</small></span><span class="workspace-launcher-chevron" aria-hidden="true">⌄</span>
+          </button>
+          <button class="workspace-launcher-category" id="audio-bot" type="button" aria-expanded="false" aria-controls="workspace-audio-panel" data-workspace-group="audio">
+            <span class="workspace-launcher-icon audio" aria-hidden="true"><svg viewBox="0 0 24 24"><path d="M4 9v6h4l5 4V5L8 9H4Zm12 0a4 4 0 0 1 0 6m2-9a8 8 0 0 1 0 12"/></svg></span>
+            <span><strong>Sonidos</strong><small>Audio Bot y voces</small></span><span class="workspace-launcher-chevron" aria-hidden="true">⌄</span>
+          </button>
+        </div>
+        <div class="workspace-audio-panel" id="workspace-audio-panel" hidden>
+          <div class="workspace-audio-content">
+      <section class="workspace tts-section">
         <div class="section-heading"><div><p class="eyebrow">AUDIO EN VIVO</p><h2>AUDIO BOT</h2></div><span class="hint">Se reproduce en este navegador</span></div>
         <form id="tts-settings-form" class="tts-card">
           <label class="toggle"><input id="tts-enabled" type="checkbox" /><span></span> Enabled</label>
@@ -167,16 +184,7 @@
         </div>
       </section>
 
-      <section class="workspace-launcher" aria-label="Herramientas y overlays">
-        <div class="workspace-launcher-categories">
-          <button class="workspace-launcher-category" id="herramientas" type="button" aria-expanded="false" aria-controls="workspace-tools-menu" data-workspace-group="tools">
-            <span class="workspace-launcher-icon tools" aria-hidden="true"><svg viewBox="0 0 24 24"><path d="M7 7h10a5 5 0 0 1 4.8 3.6l.7 4.7a2.8 2.8 0 0 1-4.5 2.5l-2.2-1.8H8.2L6 17.8a2.8 2.8 0 0 1-4.5-2.5l.7-4.7A5 5 0 0 1 7 7Z"/><path d="M6 11v4m-2-2h4"/><circle cx="16" cy="11.5" r=".8"/><circle cx="18.5" cy="14" r=".8"/></svg></span>
-            <span><strong>Herramientas</strong><small>Controla tu LIVE</small></span><span class="workspace-launcher-chevron" aria-hidden="true">⌄</span>
-          </button>
-          <button class="workspace-launcher-category" id="overlays" type="button" aria-expanded="false" aria-controls="workspace-overlays-menu" data-workspace-group="overlays">
-            <span class="workspace-launcher-icon overlays" aria-hidden="true"><svg viewBox="0 0 24 24"><rect x="3" y="4" width="18" height="14" rx="2"/><path d="M9 21h6m-3-3v3"/></svg></span>
-            <span><strong>Overlays</strong><small>Vistas para tu LIVE</small></span><span class="workspace-launcher-chevron" aria-hidden="true">⌄</span>
-          </button>
+          </div>
         </div>
         <div class="workspace-launcher-menu" id="workspace-tools-menu" hidden>
           <button class="workspace-launcher-choice" id="workspace-choice-timer" type="button" data-workspace-feature="temporizador" aria-expanded="false" aria-controls="timer-panel"><span class="workspace-choice-icon" aria-hidden="true"><svg viewBox="0 0 24 24"><circle cx="12" cy="13" r="8"/><path d="M12 8v5l3 2M9 2h6"/></svg></span><span>Temporizador</span></button>
@@ -666,6 +674,6 @@
     <script src="/socket.io/socket.io.js"></script>
     <script src="/gift-catalog.js"></script>
     <script src="/tts.js?v=20261010-voices"></script>
-    <script src="/app.js?v=20261014-icon-navigation-no-scroll"></script>
+    <script src="/app.js?v=20261014-audio-category"></script>
   </body>
 </html>
