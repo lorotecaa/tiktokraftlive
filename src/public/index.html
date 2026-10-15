@@ -13,7 +13,7 @@
     <link rel="stylesheet" href="/dashboard.css?v=20261014-scene-motion" />
     <link rel="stylesheet" href="/action-presets.css?v=20261014-preset-cards" />
     <link rel="stylesheet" href="/workspace-launcher.css?v=20261014-gift-browser" />
-    <link rel="stylesheet" href="/gift-browser.css?v=20261014-a" />
+    <link rel="stylesheet" href="/gift-browser.css?v=20261015-live-sync" />
   </head>
   <body>
     <div class="noise"></div>
@@ -127,7 +127,7 @@
         <div class="workspace-gifts-panel" id="workspace-gifts-panel" hidden>
           <div class="workspace-gifts-content">
             <section class="gift-browser" aria-label="Catálogo de regalos TikTok LIVE">
-              <header class="gift-browser-heading"><span class="gift-browser-heading-icon" aria-hidden="true"><svg viewBox="0 0 24 24"><rect x="3" y="10" width="18" height="11" rx="1"/><path d="M2 7h20v3H2zm10 0v14M12 7C8 7 5 6 5 3.8A2 2 0 0 1 7 2c2 0 5 3 5 5Zm0 0c4 0 7-1 7-3.2A2 2 0 0 0 17 2c-2 0-5 3-5 5Z"/></svg></span><div><p class="eyebrow">GALERÍA DEL LIVE</p><h2>Regalos de TikTok LIVE</h2><p>Busca regalos, consulta sus diamantes y descarga sus imágenes. El catálogo se amplía con los regalos detectados en los LIVE.</p></div></header>
+              <header class="gift-browser-heading"><span class="gift-browser-heading-icon" aria-hidden="true"><svg viewBox="0 0 24 24"><rect x="3" y="10" width="18" height="11" rx="1"/><path d="M2 7h20v3H2zm10 0v14M12 7C8 7 5 6 5 3.8A2 2 0 0 1 7 2c2 0 5 3 5 5Zm0 0c4 0 7-1 7-3.2A2 2 0 0 0 17 2c-2 0-5 3-5 5Z"/></svg></span><div><p class="eyebrow">GALERÍA DEL LIVE</p><h2>Regalos de TikTok LIVE</h2><p>Busca regalos, consulta sus diamantes y descarga sus imágenes. Al conectar tu LIVE, intentamos consultar todos los regalos disponibles en tu sala sin esperar donaciones.</p><p class="gift-browser-sync-status" id="gift-browser-sync-status" role="status">Conecta tu LIVE para consultar sus regalos sin esperar donaciones.</p></div></header>
               <div class="gift-browser-layout">
                 <aside class="gift-browser-filters" aria-label="Filtros de regalos">
                   <h3>Filtros</h3>
@@ -150,7 +150,7 @@
                   <p class="gift-browser-filter-note">Básicos: 1–99 · Premium: 1000+. La disponibilidad y el precio pueden variar según el LIVE y la región.</p>
                 </aside>
                 <div class="gift-browser-main">
-                  <div class="gift-browser-toolbar"><label class="gift-browser-search"><span class="sr-only">Buscar regalo</span><input id="gift-browser-search" type="search" placeholder="Buscar regalo por nombre o ID…" autocomplete="off" /></label><select id="gift-browser-sort" aria-label="Ordenar regalos"><option value="recent">Más recientes</option><option value="name">Nombre A–Z</option><option value="price-asc">Menor precio</option><option value="price-desc">Mayor precio</option></select><span class="gift-browser-count" id="gift-browser-count" aria-live="polite">0 regalos</span></div>
+                  <div class="gift-browser-toolbar"><label class="gift-browser-search"><span class="sr-only">Buscar regalo</span><input id="gift-browser-search" type="search" placeholder="Buscar regalo por nombre o ID…" autocomplete="off" /></label><select id="gift-browser-sort" aria-label="Ordenar regalos"><option value="recent">Más recientes</option><option value="name">Nombre A–Z</option><option value="price-asc">Menor precio</option><option value="price-desc">Mayor precio</option></select><button class="gift-browser-sync-button" id="gift-browser-sync" type="button">↻ Sincronizar LIVE</button><span class="gift-browser-count" id="gift-browser-count" aria-live="polite">0 regalos</span></div>
                   <div class="gift-browser-grid-scroll"><div class="gift-browser-grid" id="gift-browser-grid"></div><p class="gift-browser-empty" id="gift-browser-empty" hidden>No hay regalos que coincidan con estos filtros.</p><button class="gift-browser-more" id="gift-browser-more" type="button" hidden>Mostrar más regalos</button></div>
                 </div>
                 <aside class="gift-browser-preview" aria-label="Vista previa del regalo"><h3>◉ Vista previa</h3><div class="gift-browser-preview-body" id="gift-browser-preview-body"><span class="gift-browser-preview-placeholder">Selecciona un regalo para verlo aquí.</span></div><div class="gift-browser-preview-footer"><button class="button primary" id="gift-browser-download" type="button" disabled>↓ Descargar PNG</button><p id="gift-browser-download-status" role="status"></p></div></aside>
@@ -714,7 +714,7 @@
     <script src="/socket.io/socket.io.js"></script>
     <script src="/gift-catalog.js"></script>
     <script src="/tts.js?v=20261010-voices"></script>
-    <script src="/gift-browser.js?v=20261014-a"></script>
-    <script src="/app.js?v=20261014-gift-browser"></script>
+    <script src="/gift-browser.js?v=20261015-live-sync"></script>
+    <script src="/app.js?v=20261015-live-sync"></script>
   </body>
 </html>

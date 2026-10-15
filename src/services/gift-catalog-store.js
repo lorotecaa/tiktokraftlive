@@ -84,3 +84,25 @@ export async function upsertGiftCatalog(gift) {
   const rows = await response.json();
   return rows[0] ? normalize(rows[0]) : null;
 }
+
+export async function upsertGiftCatalogBatch(gifts) {
+  const rows = (Array.isArray(gifts) ? gifts : []).map((gift) => ({
+    gift_id: value(gift?.giftId, 80),
+    gift_name: value(gift?.giftName, 80) || "Regalo",
+    coin_value: number(gift?.coinValue),
+    image_url: value(gift?.giftImageUrl, 2_048),
+    last_seen_at: new Date().toISOString()
+  })).filter((gift) => gift.gift_id);
+  for (let index = 0; index < rows.length; index += 100) {
+    await request("tiktokraft_gift_catalog?on_conflict=gift_id", {
+      method: "POST",
+      headers: headers({
+        "Content-Type": "application/json",
+        "Content-Profile": "public",
+        Prefer: "resolution=merge-duplicates,return=minimal"
+      }),
+      body: JSON.stringify(rows.slice(index, index + 100))
+    });
+  }
+  return rows.length;
+}

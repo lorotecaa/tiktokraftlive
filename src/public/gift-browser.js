@@ -11,6 +11,8 @@
   const preview = root.querySelector("#gift-browser-preview-body");
   const download = root.querySelector("#gift-browser-download");
   const downloadStatus = root.querySelector("#gift-browser-download-status");
+  const syncButton = root.querySelector("#gift-browser-sync");
+  const syncStatus = root.querySelector("#gift-browser-sync-status");
   const favoriteKey = "tiktokraft:favorite-gifts";
   let favorites;
   try { favorites = new Set(JSON.parse(localStorage.getItem(favoriteKey) || "[]").map(String)); }
@@ -21,6 +23,14 @@
   let price = "all";
   let visibleLimit = 120;
   let loading = false;
+
+  function setSyncStatus(next) {
+    const status = String(next?.status || "idle");
+    syncStatus.textContent = String(next?.detail || "");
+    syncStatus.dataset.status = status;
+    syncButton.disabled = status === "loading";
+    syncButton.textContent = status === "loading" ? "Consultando…" : "↻ Sincronizar LIVE";
+  }
 
   function imageUrl(value) {
     try {
@@ -169,7 +179,7 @@
     const matches = filtered();
     count.textContent = `${matches.length.toLocaleString("es-CO")} / ${entries.length.toLocaleString("es-CO")} regalos`;
     empty.hidden = matches.length > 0;
-    empty.textContent = entries.length ? "No hay regalos que coincidan con estos filtros." : "Aún no hay regalos registrados. El catálogo se amplía automáticamente con los regalos que llegan a los LIVE.";
+    empty.textContent = entries.length ? "No hay regalos que coincidan con estos filtros." : "Aún no hay regalos registrados. Conecta tu LIVE para consultar los regalos disponibles en tu sala.";
     grid.replaceChildren(...matches.slice(0, visibleLimit).map(renderCard));
     more.hidden = matches.length <= visibleLimit;
     if (!matches.some((gift) => gift.giftId === selectedId)) selectedId = matches[0]?.giftId || "";
@@ -241,6 +251,14 @@
   sort.addEventListener("change", render);
   more.addEventListener("click", () => { visibleLimit += 120; render(); });
   download.addEventListener("click", downloadPng);
-  window.TikTokraftGiftBrowser = { setEntries, open };
+  syncButton.addEventListener("click", async () => {
+    setSyncStatus({ status: "loading", detail: "Consultando los regalos disponibles en tu LIVE…" });
+    try {
+      if (typeof window.TikTokraftGiftBrowserSync !== "function") throw new Error("El panel aún está cargando.");
+      await window.TikTokraftGiftBrowserSync();
+    }
+    catch { setSyncStatus({ status: "error", detail: "No se pudo consultar la lista. Comprueba que TikTok LIVE esté conectado y vuelve a intentarlo." }); }
+  });
+  window.TikTokraftGiftBrowser = { setEntries, setSyncStatus, open };
   render();
 })();

@@ -230,6 +230,9 @@ function request(event, payload) {
     socket.emit(event, payload, (result) => result?.ok ? resolve(result.data) : reject(new Error(result?.error || "No se pudo completar la acción.")));
   });
 }
+window.TikTokraftGiftBrowserSync = () => socket.connected
+  ? request("gift-catalog:sync", {})
+  : Promise.reject(new Error("Conecta el panel y tu TikTok LIVE antes de sincronizar."));
 
 function renderProfileAvatar(value) {
   const avatar = String(value || "");
@@ -741,6 +744,7 @@ function renderState(next) {
   elements.globalStatus.textContent = minecraft.status === "connected" && tiktok.status === "connected" ? "INTERACTIVO EN VIVO" : "PANEL LOCAL";
   giftCatalog = Array.isArray(next.giftCatalog) ? next.giftCatalog : giftCatalog;
   window.TikTokraftGiftBrowser?.setEntries(giftCatalog);
+  window.TikTokraftGiftBrowser?.setSyncStatus(next.giftCatalogSync);
   renderMappings(config.mappings || []);
   renderTimerSettings(config.timer || {}, config.mappings || []);
   renderTimer(next.timer || appState.timer);
@@ -2558,11 +2562,25 @@ socket.on("gift-catalog:update", (gifts) => {
   if (appState?.config?.mappings) renderMappings(appState.config.mappings);
   if (!elements.giftSelectorModal.hidden) renderGiftSelector();
 });
+socket.on("gift-catalog:sync-status", (status) => {
+  if (appState) appState.giftCatalogSync = status;
+  window.TikTokraftGiftBrowser?.setSyncStatus(status);
+});
 socket.on("gift-catalog:upsert", (gift) => {
   if (!gift?.giftId) return;
   const index = giftCatalog.findIndex((entry) => String(entry.giftId) === String(gift.giftId));
   if (index >= 0) giftCatalog[index] = { ...giftCatalog[index], ...gift };
   else giftCatalog.unshift(gift);
+  if (appState) appState.giftCatalog = giftCatalog;
+  window.TikTokraftGiftBrowser?.setEntries(giftCatalog);
+  if (appState?.config?.mappings) renderMappings(appState.config.mappings);
+  if (!elements.giftSelectorModal.hidden) renderGiftSelector();
+});
+socket.on("gift-catalog:batch", (gifts) => {
+  if (!Array.isArray(gifts) || !gifts.length) return;
+  const byId = new Map(giftCatalog.map((gift) => [String(gift.giftId), gift]));
+  for (const gift of gifts) if (gift?.giftId) byId.set(String(gift.giftId), { ...byId.get(String(gift.giftId)), ...gift });
+  giftCatalog = [...byId.values()];
   if (appState) appState.giftCatalog = giftCatalog;
   window.TikTokraftGiftBrowser?.setEntries(giftCatalog);
   if (appState?.config?.mappings) renderMappings(appState.config.mappings);

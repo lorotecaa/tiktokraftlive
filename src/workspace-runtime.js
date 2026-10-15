@@ -9,7 +9,8 @@ import { TimerEngine } from "./services/timer-engine.js";
 import { ServerTapClient } from "./services/servertap.js";
 import { TikTokClient, isAllowedTtsUser } from "./services/tiktok.js";
 import { addWorkspaceManualPoints, addWorkspaceUserPoints, deleteWorkspaceUserPoints, listWorkspaceUserPoints } from "./services/user-points-store.js";
-import { listGiftCatalog, upsertGiftCatalog } from "./services/gift-catalog-store.js";
+import { listGiftCatalog, upsertGiftCatalog, upsertGiftCatalogBatch } from "./services/gift-catalog-store.js";
+import { fetchLiveRoomGifts } from "./services/tiktok-gift-catalog.js";
 import { presetEffect } from "./action-preset-catalog.js";
 
 function serverTapUrl(input, current) {
@@ -24,10 +25,10 @@ function serverTapUrl(input, current) {
 }
 
 export class WorkspaceRuntime {
-  constructor({ ownerId, config, overlayToken, saveConfig, io, commandsPerSecond, listSounds, listVideos = async () => [], onGiftCatalogUpsert = async () => {} }) {
-    this.ownerId = ownerId; this.config = config; this.overlayToken = overlayToken; this.saveConfig = saveConfig; this.io = io; this.commandsPerSecond = commandsPerSecond; this.listSounds = listSounds; this.listVideos = listVideos; this.onGiftCatalogUpsert = onGiftCatalogUpsert;
+  constructor({ ownerId, config, overlayToken, saveConfig, io, commandsPerSecond, listSounds, listVideos = async () => [], onGiftCatalogUpsert = async () => {}, onGiftCatalogBatchUpsert = async () => {} }) {
+    this.ownerId = ownerId; this.config = config; this.overlayToken = overlayToken; this.saveConfig = saveConfig; this.io = io; this.commandsPerSecond = commandsPerSecond; this.listSounds = listSounds; this.listVideos = listVideos; this.onGiftCatalogUpsert = onGiftCatalogUpsert; this.onGiftCatalogBatchUpsert = onGiftCatalogBatchUpsert;
     this.state = { minecraft: { status: "disconnected", detail: "Sin conectar" }, tiktok: { status: "disconnected", detail: "Sin conectar" }, activity: [] };
-    this.sequence = 0; this.giftSequence = 0; this.giftHistory = []; this.giftCatalog = new Map(); this.giftCatalogWriteQueue = Promise.resolve(); this.saveQueue = Promise.resolve(); this.saveTimer = null; this.liveReadCommentIds = new Map();
+    this.sequence = 0; this.giftSequence = 0; this.giftHistory = []; this.giftCatalog = new Map(); this.giftCatalogWriteQueue = Promise.resolve(); this.giftCatalogSyncPromise = null; this.giftCatalogSyncStatus = { status: "idle", detail: "Conecta tu LIVE para consultar sus regalos sin esperar donaciones." }; this.saveQueue = Promise.resolve(); this.saveTimer = null; this.liveReadCommentIds = new Map();
     this.goalEngine = new GoalEngine({ getGoals: () => this.config.goals, onUpdate: (goal) => this.emit("goal:update", this.publicGoal(goal)) });
     this.giftEngine = new GiftOverlayEngine({ getOverlays: () => this.config.giftOverlays, onUpdate: ({ kind, record }) => this.emit("gift-overlay:update", { ...this.publicGift(kind), record }) });
     this.rankingEngine = new RankingOverlayEngine({ onUpdate: ({ kind, entries }) => this.emit("ranking-overlay:update", { kind, title: "Top Donadores", entries, customization: this.custom(`ranking:${kind}`) }) });
@@ -157,6 +158,47 @@ export class WorkspaceRuntime {
     });
     this.giftCatalogWriteQueue = write.catch((error) => this.error(error.message));
   }
+  setGiftCatalogSyncStatus(status, detail) {
+    this.giftCatalogSyncStatus = { status, detail };
+    this.emit("gift-catalog:sync-status", this.giftCatalogSyncStatus);
+  }
+  async syncGiftCatalog() {
+    if (this.giftCatalogSyncPromise) return this.giftCatalogSyncPromise;
+    if (this.tiktok.status !== "connected") throw new Error("Conecta tu TikTok LIVE antes de sincronizar sus regalos.");
+    this.setGiftCatalogSyncStatus("loading", "Consultando los regalos disponibles en tu LIVE…");
+    const sync = (async () => {
+      const roomGifts = await fetchLiveRoomGifts(this.config.tiktokUsername, this.config.eulerStreamApiKey);
+      if (!roomGifts.length) throw new Error("TikTok no devolvió regalos para este LIVE.");
+      await this.giftCatalogWriteQueue;
+      const lastSeenAt = new Date().toISOString();
+      const merged = roomGifts.map((gift) => {
+        const previous = this.giftCatalog.get(gift.giftId);
+        return {
+          giftId: gift.giftId,
+          giftName: gift.giftName || previous?.giftName || `Regalo #${gift.giftId}`,
+          coinValue: gift.coinValue || previous?.coinValue || 0,
+          giftImageUrl: gift.giftImageUrl || previous?.giftImageUrl || "",
+          lastSeenAt
+        };
+      });
+      await upsertGiftCatalogBatch(merged);
+      let added = 0;
+      for (const gift of merged) {
+        if (!this.giftCatalog.has(gift.giftId)) added += 1;
+        this.mergeGiftCatalog(gift);
+      }
+      await this.onGiftCatalogBatchUpsert(merged);
+      this.emit("gift-catalog:update", this.giftCatalogEntries());
+      this.setGiftCatalogSyncStatus("success", `${roomGifts.length} regalos consultados; ${added} nuevos en el catálogo.`);
+      return { count: roomGifts.length, added };
+    })().catch((error) => {
+      this.setGiftCatalogSyncStatus("error", "No se pudo consultar la lista de tu sala. Confirma que sigues en LIVE e inténtalo de nuevo; TikTok también puede restringir esta consulta gratuita.");
+      console.warn(`[${this.ownerId}] No se pudo sincronizar el catálogo del LIVE: ${error.message}`);
+      throw error;
+    }).finally(() => { this.giftCatalogSyncPromise = null; });
+    this.giftCatalogSyncPromise = sync;
+    return sync;
+  }
   activity(entry) { const item = { id: ++this.sequence, at: Date.now(), ...entry }; this.state.activity.unshift(item); this.state.activity = this.state.activity.slice(0, 100); this.emit("activity", item); }
   error(message) { console.error(`[${this.ownerId}] ${message}`); this.activity({ type: "error", message }); }
   custom(key) { return this.config.overlayCustomizations[key] || null; }
@@ -174,7 +216,7 @@ export class WorkspaceRuntime {
   }
   timerState(timer = this.timerEngine.snapshot()) { return { ...timer, coinMessage: this.timerCoinMessage() }; }
   publicTimer(timer = this.timerEngine.snapshot()) { return { ...this.timerState(timer), customization: this.custom("timer:main") }; }
-  publicState() { return { ...this.state, giftHistory: this.giftHistory, giftCatalog: this.giftCatalogEntries(), config: publicConfig(this.config), timer: this.timerState(), rankings: { topDonors: this.rankingEngine.entries() }, userPoints: { entries: this.pointsEngine.entries(100), configured: true }, workspace: { overlayToken: this.overlayToken } }; }
+  publicState() { return { ...this.state, giftHistory: this.giftHistory, giftCatalog: this.giftCatalogEntries(), giftCatalogSync: this.giftCatalogSyncStatus, config: publicConfig(this.config), timer: this.timerState(), rankings: { topDonors: this.rankingEngine.entries() }, userPoints: { entries: this.pointsEngine.entries(100), configured: true }, workspace: { overlayToken: this.overlayToken } }; }
   broadcast() { this.emit("state", this.publicState()); }
   async save(next = this.config) {
     // Conserva los cambios hechos mientras una escritura anterior espera a
@@ -267,5 +309,5 @@ export class WorkspaceRuntime {
     return { groupId: id, deleted: removed.length };
   }
   async saveGoal(input) { const type = String(input?.type || "").toLowerCase(); const existing = this.config.goals.find((goal) => goal.id === input?.id || goal.type === type); const candidate = { ...input, id: existing?.id || randomUUID(), type }; const next = sanitizeConfig({ ...this.config, goals: [...this.config.goals.filter((goal) => goal.id !== existing?.id && goal.type !== type), candidate] }); const goal = next.goals.find((goal) => goal.id === candidate.id); if (!goal) throw new Error("Completa un objetivo válido."); await this.save(next); this.emit("goal:update", this.publicGoal(goal)); return this.publicGoal(goal); }
-  async connectTikTok() { const connection = await this.tiktok.connect(this.config.tiktokUsername, this.config.eulerStreamApiKey); this.giftHistory = []; this.emit("gift-history:update", this.giftHistory); if (this.config.giftOverlays.resetOnNewLive) { this.giftEngine.reset(); await this.saveNow(); } this.activity({ type: "system", message: `TikTok LIVE conectado: @${this.config.tiktokUsername}` }); return connection; }
+  async connectTikTok() { const connection = await this.tiktok.connect(this.config.tiktokUsername, this.config.eulerStreamApiKey); this.giftHistory = []; this.emit("gift-history:update", this.giftHistory); if (this.config.giftOverlays.resetOnNewLive) { this.giftEngine.reset(); await this.saveNow(); } this.activity({ type: "system", message: `TikTok LIVE conectado: @${this.config.tiktokUsername}` }); void this.syncGiftCatalog().catch(() => {}); return connection; }
 }

@@ -67,10 +67,20 @@ async function publishGlobalGiftCatalog(gift) {
   io.emit("gift-catalog:upsert", gift);
 }
 
+async function publishGlobalGiftCatalogBatch(gifts) {
+  for (const pendingWorkspace of workspaces.values()) {
+    try {
+      const workspace = await pendingWorkspace;
+      for (const gift of gifts) workspace.mergeGiftCatalog(gift);
+    } catch { /* La sincronización de otra cuenta no afecta este catálogo. */ }
+  }
+  io.emit("gift-catalog:batch", gifts);
+}
+
 async function workspaceFor(id) {
   if (!workspaces.has(id)) workspaces.set(id, (async () => {
     const record = await claimWorkspace(id);
-    return new WorkspaceRuntime({ ...record, saveConfig: saveWorkspaceConfig, io, commandsPerSecond: commandRate, listSounds: () => listCatalogFilenames("sounds"), listVideos: () => listCatalogFilenames("videos"), onGiftCatalogUpsert: publishGlobalGiftCatalog }).initialize();
+    return new WorkspaceRuntime({ ...record, saveConfig: saveWorkspaceConfig, io, commandsPerSecond: commandRate, listSounds: () => listCatalogFilenames("sounds"), listVideos: () => listCatalogFilenames("videos"), onGiftCatalogUpsert: publishGlobalGiftCatalog, onGiftCatalogBatchUpsert: publishGlobalGiftCatalogBatch }).initialize();
   })());
   try {
     // El workspace activo contiene los récords del LIVE que todavía pueden
@@ -295,6 +305,7 @@ io.on("connection", (socket) => {
     return w.connectTikTok();
   }, w));
   socket.on("tiktok:disconnect", (_input, done) => acknowledge(done, async () => { w.tiktok.disconnect(); w.giftEngine.reset(); w.rankingEngine.reset(); await w.saveNow(); return w.config.giftOverlays; }, w));
+  socket.on("gift-catalog:sync", (_input, done) => acknowledge(done, () => w.syncGiftCatalog(), w));
   socket.on("admin:authorized-tiktok:list", (_input, done) => acknowledge(done, async () => { await requireAdministrator(session); return listAuthorizedTikTokUsers(); }, w));
   socket.on("admin:authorized-tiktok:add", (input, done) => acknowledge(done, async () => { await requireAdministrator(session); return authorizeTikTokUsername(input?.username, session.user.id); }, w));
   socket.on("admin:authorized-tiktok:remove", (input, done) => acknowledge(done, async () => { await requireAdministrator(session); return revokeTikTokUsername(input?.username); }, w));
