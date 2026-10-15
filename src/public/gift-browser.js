@@ -257,7 +257,9 @@
       if (typeof window.TikTokraftGiftBrowserSync !== "function") throw new Error("El panel aún está cargando.");
       await window.TikTokraftGiftBrowserSync();
     }
-    catch { setSyncStatus({ status: "error", detail: "No se pudo consultar la lista. Comprueba que TikTok LIVE esté conectado y vuelve a intentarlo." }); }
+    catch {
+      if (syncStatus.dataset.status !== "error") setSyncStatus({ status: "error", detail: "No se pudo consultar la lista. Comprueba que TikTok LIVE esté conectado y vuelve a intentarlo." });
+    }
   });
   window.TikTokraftGiftBrowser = { setEntries, setSyncStatus, open };
   render();

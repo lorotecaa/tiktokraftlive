@@ -192,7 +192,13 @@ export class WorkspaceRuntime {
       this.setGiftCatalogSyncStatus("success", `${roomGifts.length} regalos consultados; ${added} nuevos en el catálogo.`);
       return { count: roomGifts.length, added };
     })().catch((error) => {
-      this.setGiftCatalogSyncStatus("error", "No se pudo consultar la lista de tu sala. Confirma que sigues en LIVE e inténtalo de nuevo; TikTok también puede restringir esta consulta gratuita.");
+      const cause = String(error?.message || "");
+      const detail = /\b(401|403|premium|forbidden|permission|signature|signing)\b/i.test(cause)
+        ? "TikTok o el servicio de firma rechazó la consulta con tu clave actual. No se compró ningún plan; tus regalos anteriores siguen disponibles."
+        : /\b429\b|rate.?limit/i.test(cause)
+          ? "Se alcanzó el límite temporal de consultas. Inténtalo más tarde; tus regalos anteriores siguen disponibles."
+          : "No se pudo consultar la lista de tu sala. Confirma que sigues en LIVE e inténtalo de nuevo; tus regalos anteriores siguen disponibles.";
+      this.setGiftCatalogSyncStatus("error", detail);
       console.warn(`[${this.ownerId}] No se pudo sincronizar el catálogo del LIVE: ${error.message}`);
       throw error;
     }).finally(() => { this.giftCatalogSyncPromise = null; });
