@@ -1,0 +1,34 @@
+[
+  {
+    "id": "survival",
+    "icon": "🌱",
+    "title": "Supervivencia clásica",
+    "description": "24 efectos de objetos, criaturas y desafíos. Asigna un regalo a cada opción que quieras activar.",
+    "effectsPath": "/survival-preset.json",
+    "optionCount": 24
+  },
+  {
+    "id": "world",
+    "icon": "🌦️",
+    "title": "Mundo cambiante",
+    "description": "Los regalos transforman el día, la noche y el clima del mundo.",
+    "effects": [
+      { "id": "day", "icon": "☀️", "title": "Hacer de día", "command": "time set day" },
+      { "id": "night", "icon": "🌙", "title": "Hacer de noche", "command": "time set night" },
+      { "id": "rain", "icon": "🌧️", "title": "Comenzar lluvia", "command": "weather rain" },
+      { "id": "clear", "icon": "🌤️", "title": "Despejar el cielo", "command": "weather clear" }
+    ]
+  },
+  {
+    "id": "challenges",
+    "icon": "🎮",
+    "title": "Retos del LIVE",
+    "description": "Efectos temporales para todos los jugadores. Úsalos cuando quieras una partida más movida.",
+    "effects": [
+      { "id": "slowness", "icon": "🐢", "title": "Lentitud", "command": "effect give @a minecraft:slowness 8 0 true" },
+      { "id": "blindness", "icon": "🌑", "title": "Ceguera breve", "command": "effect give @a minecraft:blindness 5 0 true" },
+      { "id": "glowing", "icon": "✨", "title": "Resplandor", "command": "effect give @a minecraft:glowing 10 0 true" },
+      { "id": "jump", "icon": "🦘", "title": "Salto", "command": "effect give @a minecraft:jump_boost 10 1 true" }
+    ]
+  }
+]

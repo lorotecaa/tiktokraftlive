@@ -11,7 +11,7 @@
     <link href="https://fonts.googleapis.com/css2?family=DM+Mono:wght@400;500&family=Press+Start+2P&family=Space+Grotesk:wght@400;500;600;700&display=swap" rel="stylesheet" />
     <link rel="stylesheet" href="/style.css?v=20261012-timer-resilience" />
     <link rel="stylesheet" href="/dashboard.css?v=20261014-scene-motion" />
-    <link rel="stylesheet" href="/action-presets.css?v=20261014-survival-gallery" />
+    <link rel="stylesheet" href="/action-presets.css?v=20261014-all-galleries" />
   </head>
   <body>
     <div class="noise"></div>
@@ -418,18 +418,10 @@
             <div class="editor-actions"><button class="button primary" type="submit">Guardar acción</button><button class="button text" type="button" id="cancel-edit" hidden>Cancelar</button></div>
           </form>
           <section class="action-preset-panel" id="action-preset-panel" role="tabpanel" aria-labelledby="action-mode-presets" hidden>
-            <div class="action-preset-heading"><span class="pixel-icon cube" aria-hidden="true"></span><div><h3>Acciones listas para Minecraft</h3><p>Elige un paquete, asigna un regalo a cada efecto y créalos juntos. No necesitas escribir comandos.</p></div></div>
+            <div class="action-preset-heading"><span class="pixel-icon cube" aria-hidden="true"></span><div><h3>Acciones listas para Minecraft</h3><p>Elige un paquete y asigna un regalo a cada opción que quieras activar. Se guarda al instante; no necesitas escribir comandos.</p></div></div>
             <label class="action-preset-search" id="action-preset-search-label">Buscar paquetes<input id="action-preset-search" type="search" placeholder="Supervivencia, mundo, desafíos…" autocomplete="off" /></label>
             <div class="action-preset-list" id="action-preset-list"></div>
             <p class="empty-state" id="action-preset-empty" hidden>No hay paquetes que coincidan con la búsqueda.</p>
-            <div class="action-preset-detail" id="action-preset-detail" hidden>
-              <button class="button text action-preset-back" id="action-preset-back" type="button">← Ver paquetes</button>
-              <div class="action-preset-summary"><span id="action-preset-icon" aria-hidden="true"></span><div><h3 id="action-preset-title"></h3><p id="action-preset-description"></p></div></div>
-              <p class="action-preset-instruction">Selecciona un regalo distinto para cada efecto. La imagen y el ID vienen del catálogo de tus LIVE. Los comandos con <code>@a</code> afectan a todos los jugadores.</p>
-              <div class="action-preset-events" id="action-preset-events"></div>
-              <p class="action-preset-warning" id="action-preset-warning" hidden></p>
-              <button class="button primary action-preset-create" id="action-preset-create" type="button" disabled>Crear paquete de acciones</button>
-            </div>
           </section>
           </div>
           <div class="mapping-list-wrap"><div class="mapping-list" id="mapping-list"></div><p class="empty-state" id="mapping-empty">Todavía no hay acciones. Crea una a la izquierda.</p></div>
@@ -652,6 +644,6 @@
     <script src="/socket.io/socket.io.js"></script>
     <script src="/gift-catalog.js"></script>
     <script src="/tts.js?v=20261010-voices"></script>
-    <script src="/app.js?v=20261014-survival-gallery"></script>
+    <script src="/app.js?v=20261014-all-galleries"></script>
   </body>
 </html>

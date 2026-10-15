@@ -274,6 +274,7 @@ io.on("connection", (socket) => {
   socket.on("mapping:save", (input, done) => acknowledge(done, () => w.saveMapping(input), w));
   socket.on("mapping:save-batch", (input, done) => acknowledge(done, () => w.saveMappingsBatch(input), w));
   socket.on("mapping:save-survival-effect", (input, done) => acknowledge(done, () => w.saveSurvivalEffect(input), w));
+  socket.on("mapping:save-preset-effect", (input, done) => acknowledge(done, () => w.savePresetEffect(input), w));
   socket.on("mapping:delete-preset-group", (id, done) => acknowledge(done, () => w.deletePresetGroup(id), w));
   socket.on("mapping:delete", (id, done) => acknowledge(done, async () => { const timer = w.config.timer?.actionMappingId === id ? { ...w.config.timer, actionMappingId: "" } : w.config.timer; await w.save({ ...w.config, timer, mappings: w.config.mappings.filter((item) => item.id !== id) }); return { id }; }, w));
   socket.on("mapping:test", (id, done) => acknowledge(done, () => {
