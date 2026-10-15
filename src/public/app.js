@@ -2181,7 +2181,6 @@ function showWorkspaceFeature(featureId) {
   toggleAccordion(feature.toggle, feature.panel);
   document.querySelector(`[data-workspace-feature="${featureId}"]`)?.setAttribute("aria-expanded", "true");
   if (featureId === "usuario-y-puntos" && !userPointsSearch) loadUserPoints();
-  requestAnimationFrame(() => feature.section.scrollIntoView({ behavior: "smooth", block: "start" }));
 }
 
 for (const [name, group] of Object.entries(workspaceGroups)) {
