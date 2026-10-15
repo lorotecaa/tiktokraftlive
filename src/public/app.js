@@ -2139,6 +2139,75 @@ function toggleAccordion(button, panel) {
   }
 }
 
+const workspaceGroups = {
+  tools: { button: document.querySelector('[data-workspace-group="tools"]'), menu: document.querySelector("#workspace-tools-menu") },
+  overlays: { button: document.querySelector('[data-workspace-group="overlays"]'), menu: document.querySelector("#workspace-overlays-menu") },
+};
+const workspaceFeatures = {
+  temporizador: { group: "tools", section: document.querySelector("#temporizador"), toggle: elements.timerToggle, panel: elements.timerPanel },
+  "usuario-y-puntos": { group: "overlays", section: document.querySelector("#usuario-y-puntos"), toggle: elements.userPointsToggle, panel: elements.userPointsPanel },
+  "rankings-overlays": { group: "overlays", section: document.querySelector("#rankings-overlays"), toggle: elements.rankingsToggle, panel: elements.rankingsPanel },
+  "regalo-overlays": { group: "overlays", section: document.querySelector("#regalo-overlays"), toggle: elements.giftOverlaysToggle, panel: elements.giftOverlaysPanel },
+  metas: { group: "overlays", section: document.querySelector("#metas"), toggle: elements.goalsToggle, panel: elements.goalsPanel },
+};
+
+function hideWorkspaceFeatures() {
+  for (const feature of Object.values(workspaceFeatures)) {
+    feature.section.hidden = true;
+    feature.panel.hidden = true;
+    feature.panel.classList.remove("is-open");
+    feature.toggle.setAttribute("aria-expanded", "false");
+    document.querySelector(`[data-workspace-feature="${feature.section.id}"]`)?.setAttribute("aria-expanded", "false");
+  }
+}
+
+function showWorkspaceGroup(groupName, keepOpen = false) {
+  const current = workspaceGroups[groupName];
+  if (!current) return;
+  const wasOpen = current.button.getAttribute("aria-expanded") === "true";
+  for (const [name, group] of Object.entries(workspaceGroups)) {
+    if (name !== groupName && group.button.getAttribute("aria-expanded") === "true") toggleAccordion(group.button, group.menu);
+  }
+  if (!keepOpen || !wasOpen) hideWorkspaceFeatures();
+  if (!wasOpen || !keepOpen) toggleAccordion(current.button, current.menu);
+}
+
+function showWorkspaceFeature(featureId) {
+  const feature = workspaceFeatures[featureId];
+  if (!feature) return;
+  showWorkspaceGroup(feature.group, true);
+  hideWorkspaceFeatures();
+  feature.section.hidden = false;
+  toggleAccordion(feature.toggle, feature.panel);
+  document.querySelector(`[data-workspace-feature="${featureId}"]`)?.setAttribute("aria-expanded", "true");
+  if (featureId === "usuario-y-puntos" && !userPointsSearch) loadUserPoints();
+  requestAnimationFrame(() => feature.section.scrollIntoView({ behavior: "smooth", block: "start" }));
+}
+
+for (const [name, group] of Object.entries(workspaceGroups)) {
+  group.button.addEventListener("click", () => showWorkspaceGroup(name));
+}
+document.querySelectorAll("[data-workspace-feature]").forEach((choice) => choice.addEventListener("click", () => {
+  const featureId = choice.dataset.workspaceFeature;
+  history.replaceState(null, "", `#${featureId}`);
+  showWorkspaceFeature(featureId);
+}));
+document.querySelectorAll("[data-workspace-nav]").forEach((link) => link.addEventListener("click", (event) => {
+  event.preventDefault();
+  const groupName = link.dataset.workspaceNav;
+  history.replaceState(null, "", link.getAttribute("href"));
+  showWorkspaceGroup(groupName, true);
+  workspaceGroups[groupName].button.scrollIntoView({ behavior: "smooth", block: "start" });
+}));
+function revealWorkspaceHash() {
+  const target = decodeURIComponent(location.hash.slice(1));
+  if (workspaceFeatures[target]) showWorkspaceFeature(target);
+  else if (target === "herramientas") showWorkspaceGroup("tools", true);
+  else if (target === "overlays") showWorkspaceGroup("overlays", true);
+}
+window.addEventListener("hashchange", revealWorkspaceHash);
+revealWorkspaceHash();
+
 elements.goalsToggle.addEventListener("click", () => {
   toggleAccordion(elements.goalsToggle, elements.goalsPanel);
 });
