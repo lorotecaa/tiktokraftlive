@@ -1,0 +1,31 @@
+{
+  "id": "diamond-challenge",
+  "title": "DIAMOND CHALLENGE",
+  "description": "24 desafíos de diamantes, mineral, criaturas y jefes para Minecraft Java.",
+  "effects": [
+    { "id": "give-5", "icon": "💎", "title": "+5 Diamantes", "command": "give @a minecraft:diamond 5" },
+    { "id": "give-20", "icon": "💎", "title": "+20 Diamantes", "command": "give @a minecraft:diamond 20" },
+    { "id": "give-100", "icon": "💎", "title": "+100 Diamantes", "command": "give @a minecraft:diamond 100" },
+    { "id": "give-1500", "icon": "💎", "title": "+1500 Diamantes", "command": "give @a minecraft:diamond 1500" },
+    { "id": "ore-rain-3", "icon": "🌧️", "title": "Lluvia de mineral 3s", "command": "execute at @r run summon minecraft:falling_block ~-2 ~10 ~ {BlockState:{Name:\"minecraft:diamond_ore\"},Time:1,DropItem:1b}", "durationMs": 3000, "pulseMs": 500, "pulseCommands": ["execute at @r run summon minecraft:falling_block ~-2 ~10 ~ {BlockState:{Name:\"minecraft:diamond_ore\"},Time:1,DropItem:1b}", "execute at @r run summon minecraft:falling_block ~2 ~11 ~1 {BlockState:{Name:\"minecraft:diamond_ore\"},Time:1,DropItem:1b}", "execute at @r run summon minecraft:falling_block ~ ~12 ~-2 {BlockState:{Name:\"minecraft:diamond_ore\"},Time:1,DropItem:1b}"] },
+    { "id": "ore-rain-10", "icon": "🌧️", "title": "Lluvia de mineral 10s", "command": "execute at @r run summon minecraft:falling_block ~-2 ~10 ~ {BlockState:{Name:\"minecraft:diamond_ore\"},Time:1,DropItem:1b}", "durationMs": 10000, "pulseMs": 500, "pulseCommands": ["execute at @r run summon minecraft:falling_block ~-2 ~10 ~ {BlockState:{Name:\"minecraft:diamond_ore\"},Time:1,DropItem:1b}", "execute at @r run summon minecraft:falling_block ~2 ~11 ~1 {BlockState:{Name:\"minecraft:diamond_ore\"},Time:1,DropItem:1b}", "execute at @r run summon minecraft:falling_block ~ ~12 ~-2 {BlockState:{Name:\"minecraft:diamond_ore\"},Time:1,DropItem:1b}"] },
+    { "id": "remove-15", "icon": "🔻", "title": "-15 Diamantes", "command": "clear @a minecraft:diamond 15" },
+    { "id": "remove-120", "icon": "🔻", "title": "-120 Diamantes", "command": "clear @a minecraft:diamond 120" },
+    { "id": "remove-500", "icon": "🔻", "title": "-500 Diamantes", "command": "clear @a minecraft:diamond 500" },
+    { "id": "remove-1500", "icon": "🔻", "title": "-1500 Diamantes", "command": "clear @a minecraft:diamond 1500" },
+    { "id": "remove-3000", "icon": "🔻", "title": "-3000 Diamantes", "command": "clear @a minecraft:diamond 3000" },
+    { "id": "remove-9999", "icon": "🔻", "title": "-9999 Diamantes", "command": "clear @a minecraft:diamond 9999" },
+    { "id": "death-ray", "icon": "⚡", "title": "Rayo de la muerte", "command": "execute at @r run summon minecraft:lightning_bolt ~ ~ ~" },
+    { "id": "tnt-rain", "icon": "💥", "title": "Lluvia de TNT", "command": "execute at @r run summon minecraft:tnt ~-2 ~10 ~", "durationMs": 1500, "pulseMs": 300, "pulseCommands": ["execute at @r run summon minecraft:tnt ~-2 ~10 ~", "execute at @r run summon minecraft:tnt ~2 ~11 ~1", "execute at @r run summon minecraft:tnt ~ ~12 ~-2", "execute at @r run summon minecraft:tnt ~3 ~9 ~-1", "execute at @r run summon minecraft:tnt ~-3 ~11 ~2"] },
+    { "id": "creeper", "icon": "🟩", "title": "Creeper", "command": "execute at @r run summon minecraft:creeper ~2 ~ ~2" },
+    { "id": "zombie", "icon": "🧟", "title": "Zombi", "command": "execute at @r run summon minecraft:zombie ~2 ~ ~2" },
+    { "id": "skeleton", "icon": "💀", "title": "Esqueleto", "command": "execute at @r run summon minecraft:skeleton ~2 ~ ~2" },
+    { "id": "spider", "icon": "🕷️", "title": "Araña", "command": "execute at @r run summon minecraft:spider ~2 ~ ~2" },
+    { "id": "wither-skeleton", "icon": "☠️", "title": "Esqueleto Wither", "command": "execute at @r run summon minecraft:wither_skeleton ~2 ~ ~2" },
+    { "id": "ravager", "icon": "🦬", "title": "Devastador", "minimumVersion": "1.14", "command": "execute at @r run summon minecraft:ravager ~3 ~ ~3" },
+    { "id": "guardian", "icon": "🐡", "title": "Jefe Guardián", "command": "execute at @r run summon minecraft:guardian ~3 ~ ~3" },
+    { "id": "elder-guardian", "icon": "🔱", "title": "Guardián Anciano", "command": "execute at @r run summon minecraft:elder_guardian ~4 ~ ~4" },
+    { "id": "wither-boss", "icon": "☠️", "title": "Jefe Wither", "command": "execute at @r run summon minecraft:wither ~6 ~2 ~6" },
+    { "id": "immortal-boss", "icon": "👑", "title": "JEFE INMORTAL", "command": "execute at @r run summon minecraft:wither ~6 ~2 ~6 {Invulnerable:1b,PersistenceRequired:1b,Tags:[\"tiktokraft_diamond_boss\"]}" }
+  ]
+}

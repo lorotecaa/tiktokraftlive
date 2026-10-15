@@ -8,16 +8,13 @@
     "optionCount": 24
   },
   {
-    "id": "world",
-    "icon": "🌦️",
-    "title": "Mundo cambiante",
-    "description": "Los regalos transforman el día, la noche y el clima del mundo.",
-    "effects": [
-      { "id": "day", "icon": "☀️", "title": "Hacer de día", "command": "time set day" },
-      { "id": "night", "icon": "🌙", "title": "Hacer de noche", "command": "time set night" },
-      { "id": "rain", "icon": "🌧️", "title": "Comenzar lluvia", "command": "weather rain" },
-      { "id": "clear", "icon": "🌤️", "title": "Despejar el cielo", "command": "weather clear" }
-    ]
+    "id": "diamond-challenge",
+    "icon": "💎",
+    "title": "DIAMOND CHALLENGE",
+    "description": "Diamantes, lluvias de mineral, criaturas y jefes. Asigna un regalo a cada desafío que quieras activar.",
+    "effectsPath": "/diamond-challenge.json",
+    "optionCount": 24,
+    "minimumVersion": "1.13"
   },
   {
     "id": "challenges",

@@ -36,7 +36,7 @@ export class WorkspaceRuntime {
       onUpdate: (entries) => this.emit("user-points:update", { entries: entries.slice(0, 100), configured: true }), onError: (error) => this.error(`Usuario y Puntos: ${error.message}`)
     });
     this.serverTap = new ServerTapClient({ commandsPerSecond, onState: (next) => { this.state.minecraft = next; this.broadcast(); }, onConsole: (entry) => this.activity({ type: "console", entry, message: entry.message }), onError: (message) => this.error(message) });
-    this.rules = new RuleEngine({ sendCommand: (command, context) => this.serverTap.enqueue(command, context), onActivity: (entry) => this.handleRuleActivity(entry), getMinecraftVersion: () => this.serverTap.minecraftVersion });
+    this.rules = new RuleEngine({ sendCommand: (command, context) => this.serverTap.enqueue(command, context), onActivity: (entry) => this.handleRuleActivity(entry), getMinecraftVersion: () => this.serverTap.minecraftVersion, isMappingActive: (mapping) => this.serverTap.status === "connected" && this.config.mappings.some((entry) => entry.id === mapping.id && entry.enabled) });
     this.timerEngine = new TimerEngine({
       getTimer: () => this.config.timer,
       onUpdate: (timer) => this.emitTimer(timer),
@@ -197,7 +197,7 @@ export class WorkspaceRuntime {
     if (!mapping) throw new Error("La acción configurada al finalizar ya no existe.");
     return this.rules.executeSelected(mapping, { giftId: mapping.giftId || "timer", giftName: mapping.giftName || "Temporizador", eventName: "Temporizador", username: "temporizador", nickname: "Temporizador", repeatCount: 1 }, { context: { timer: true }, message: "Acción del temporizador ejecutada" });
   }
-  async dispose() { this.timerEngine.dispose(); this.tiktok.disconnect("Sesión finalizada"); this.serverTap.disconnect("Sesión finalizada"); await Promise.all([this.saveNow(), this.pointsEngine.flush(), this.giftCatalogWriteQueue]); }
+  async dispose() { this.timerEngine.dispose(); this.rules.dispose(); this.tiktok.disconnect("Sesión finalizada"); this.serverTap.disconnect("Sesión finalizada"); await Promise.all([this.saveNow(), this.pointsEngine.flush(), this.giftCatalogWriteQueue]); }
   async saveMapping(input) {
     const existing = this.config.mappings.find((entry) => entry.id === input?.id);
     const mapping = sanitizeConfig({ mappings: [{ ...input, source: existing?.source || "command", presetGroupId: existing?.presetGroupId || "", presetPackId: existing?.presetPackId || "", presetEffectTitle: existing?.presetEffectTitle || "", presetEffectId: existing?.presetEffectId || "" }] }).mappings[0];

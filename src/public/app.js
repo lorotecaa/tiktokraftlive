@@ -32,6 +32,7 @@ let panelTimerRenderTimer = null;
 let panelTimerZeroSynchronized = false;
 const giftNamesById = window.TIKTOK_GIFT_NAMES || {};
 const actionPresetPacks = [];
+const legacyPresetPacks = { world: { title: "Mundo cambiante (anterior)", icon: "🌦️" } };
 
 const $ = (selector) => document.querySelector(selector);
 const elements = {
@@ -1314,7 +1315,7 @@ function renderMappings(mappings) {
       groups.get(id).push(mapping);
     }
     elements.mappingList.innerHTML = [...groups].map(([groupId, entries]) => {
-      const pack = actionPresetPacks.find((item) => item.id === entries[0].presetPackId);
+      const pack = actionPresetPacks.find((item) => item.id === entries[0].presetPackId) || legacyPresetPacks[entries[0].presetPackId];
       return `<article class="installed-preset-card">
         <header class="installed-preset-header"><span class="installed-preset-icon" aria-hidden="true">${pack?.icon || "✦"}</span><div><strong>${escapeHtml(pack?.title || "Paquete de preajustes")}</strong><small>${entries.length} efecto${entries.length === 1 ? "" : "s"} configurado${entries.length === 1 ? "" : "s"}</small></div><button type="button" class="button text installed-preset-delete" data-action="delete-preset-group" data-group-id="${escapeHtml(groupId)}" title="Eliminar este paquete completo">Eliminar paquete</button></header>
         <div class="installed-preset-effects">${entries.map((mapping) => {
@@ -1376,14 +1377,17 @@ function renderPresetGallery(mappings) {
     ${oldCount ? `<p class="survival-legacy-note">Hay ${oldCount} acción(es) del paquete anterior que siguen activas. Puedes gestionarlas al volver a la lista de paquetes.</p>` : ""}
     <div class="survival-options-grid">${catalog.effects.map((effect) => {
       const mapping = byEffectId.get(effect.id);
-      const minimum = effect.minimumVersion?.split(".").map(Number);
-      const unavailable = Boolean(minimum && versionParts && (Number(versionParts[1]) < minimum[0] || Number(versionParts[1]) === minimum[0] && Number(versionParts[2]) < minimum[1]));
+      const minimumVersion = effect.minimumVersion || pack.minimumVersion;
+      const minimum = minimumVersion?.split(".").map(Number);
+      const current = versionParts ? [Number(versionParts[1]), Number(versionParts[2]), Number(versionParts[3] || 0)] : null;
+      const firstDifference = minimum && current ? current.findIndex((part, index) => part !== (minimum[index] || 0)) : -1;
+      const unavailable = firstDifference >= 0 && current[firstDifference] < (minimum[firstDifference] || 0);
       const icon = Number.isInteger(effect.col) && Number.isInteger(effect.row)
         ? `<span class="survival-option-icon" style="background-position:-${16 + effect.col * 143}px -${22 + effect.row * 73}px" aria-hidden="true"></span>`
         : `<span class="survival-option-emoji" aria-hidden="true">${escapeHtml(effect.icon || pack.icon || "✦")}</span>`;
-      return `<article class="survival-option${mapping ? " is-configured" : ""}${unavailable ? " is-unavailable" : ""}"><button type="button" class="survival-option-select" data-preset-effect-id="${escapeHtml(effect.id)}" ${unavailable ? "disabled" : ""} title="${escapeHtml(unavailable ? `Requiere Minecraft Java ${effect.minimumVersion} o posterior` : mapping ? `Cambiar regalo de ${effect.title}` : `Asignar regalo a ${effect.title}`)}">${icon}<span class="survival-option-copy"><strong>${escapeHtml(effect.title)}</strong><small>${escapeHtml(unavailable ? `Requiere ${effect.minimumVersion}+` : mapping ? mapping.giftName || mapping.giftId : "Elegir regalo")}</small></span></button>${mapping ? `<div class="survival-option-tools"><button type="button" class="icon-button" data-action="test" data-id="${escapeHtml(mapping.id)}" title="Probar efecto">▷</button><button type="button" class="icon-button delete" data-action="remove-preset-effect" data-id="${escapeHtml(mapping.id)}" title="Quitar regalo de esta opción">×</button></div>` : ""}</article>`;
+      return `<article class="survival-option${mapping ? " is-configured" : ""}${unavailable ? " is-unavailable" : ""}"><button type="button" class="survival-option-select" data-preset-effect-id="${escapeHtml(effect.id)}" ${unavailable ? "disabled" : ""} title="${escapeHtml(unavailable ? `Requiere Minecraft Java ${minimumVersion} o posterior` : mapping ? `Cambiar regalo de ${effect.title}` : `Asignar regalo a ${effect.title}`)}">${icon}<span class="survival-option-copy"><strong>${escapeHtml(effect.title)}</strong><small>${escapeHtml(unavailable ? `Requiere ${minimumVersion}+` : mapping ? mapping.giftName || mapping.giftId : "Elegir regalo")}</small></span></button>${mapping ? `<div class="survival-option-tools"><button type="button" class="icon-button" data-action="test" data-id="${escapeHtml(mapping.id)}" title="Probar efecto">▷</button><button type="button" class="icon-button delete" data-action="remove-preset-effect" data-id="${escapeHtml(mapping.id)}" title="Quitar regalo de esta opción">×</button></div>` : ""}</article>`;
     }).join("")}</div>
-    <p class="survival-gallery-hint">Las opciones se activan individualmente al asignarles un regalo.${activePresetPackId === "survival" ? " Los efectos de criaturas y jefes pueden alterar tu mundo." : ""}</p>
+    <p class="survival-gallery-hint">Las opciones se activan individualmente al asignarles un regalo.${activePresetPackId === "diamond-challenge" ? " Atención: la TNT y los jefes pueden dañar tu mundo. JEFE INMORTAL permanece hasta retirarlo con comandos de Minecraft." : activePresetPackId === "survival" ? " Los efectos de criaturas y jefes pueden alterar tu mundo." : ""}</p>
   </section>`;
 }
 
@@ -1510,7 +1514,7 @@ async function loadPresetDetails(pack) {
 
 async function loadActionPresetCatalog() {
   if (actionPresetPacks.length) return actionPresetPacks;
-  if (!actionPresetCatalogLoad) actionPresetCatalogLoad = fetch("/action-preset-catalog.json?v=20261014-gallery")
+  if (!actionPresetCatalogLoad) actionPresetCatalogLoad = fetch("/action-preset-catalog.json?v=20261014-diamond")
     .then(async (response) => {
       if (!response.ok) throw new Error("No se pudo cargar el catálogo de preajustes.");
       const packs = await response.json();
