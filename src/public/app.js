@@ -740,6 +740,7 @@ function renderState(next) {
   setStatus(elements.tiktokDetail, elements.tiktokDot, tiktok);
   elements.globalStatus.textContent = minecraft.status === "connected" && tiktok.status === "connected" ? "INTERACTIVO EN VIVO" : "PANEL LOCAL";
   giftCatalog = Array.isArray(next.giftCatalog) ? next.giftCatalog : giftCatalog;
+  window.TikTokraftGiftBrowser?.setEntries(giftCatalog);
   renderMappings(config.mappings || []);
   renderTimerSettings(config.timer || {}, config.mappings || []);
   renderTimer(next.timer || appState.timer);
@@ -2143,6 +2144,7 @@ const workspaceGroups = {
   tools: { button: document.querySelector('[data-workspace-group="tools"]'), menu: document.querySelector("#workspace-tools-menu") },
   overlays: { button: document.querySelector('[data-workspace-group="overlays"]'), menu: document.querySelector("#workspace-overlays-menu") },
   audio: { button: document.querySelector('[data-workspace-group="audio"]'), menu: document.querySelector("#workspace-audio-panel") },
+  gifts: { button: document.querySelector('[data-workspace-group="gifts"]'), menu: document.querySelector("#workspace-gifts-panel") },
 };
 const workspaceFeatures = {
   temporizador: { group: "tools", section: document.querySelector("#temporizador"), toggle: elements.timerToggle, panel: elements.timerPanel },
@@ -2171,6 +2173,7 @@ function showWorkspaceGroup(groupName, keepOpen = false) {
   }
   if (!keepOpen || !wasOpen) hideWorkspaceFeatures();
   if (!wasOpen || !keepOpen) toggleAccordion(current.button, current.menu);
+  if (groupName === "gifts" && (!wasOpen || keepOpen)) void window.TikTokraftGiftBrowser?.open();
 }
 
 function showWorkspaceFeature(featureId) {
@@ -2205,6 +2208,7 @@ function revealWorkspaceHash() {
   else if (target === "herramientas") showWorkspaceGroup("tools", true);
   else if (target === "overlays") showWorkspaceGroup("overlays", true);
   else if (target === "audio-bot") showWorkspaceGroup("audio", true);
+  else if (target === "regalos-tiktok") showWorkspaceGroup("gifts", true);
 }
 window.addEventListener("hashchange", revealWorkspaceHash);
 revealWorkspaceHash();
@@ -2550,6 +2554,7 @@ socket.on("gift-history:update", (gifts) => {
 socket.on("gift-catalog:update", (gifts) => {
   giftCatalog = Array.isArray(gifts) ? gifts : [];
   if (appState) appState.giftCatalog = giftCatalog;
+  window.TikTokraftGiftBrowser?.setEntries(giftCatalog);
   if (appState?.config?.mappings) renderMappings(appState.config.mappings);
   if (!elements.giftSelectorModal.hidden) renderGiftSelector();
 });
@@ -2559,6 +2564,7 @@ socket.on("gift-catalog:upsert", (gift) => {
   if (index >= 0) giftCatalog[index] = { ...giftCatalog[index], ...gift };
   else giftCatalog.unshift(gift);
   if (appState) appState.giftCatalog = giftCatalog;
+  window.TikTokraftGiftBrowser?.setEntries(giftCatalog);
   if (appState?.config?.mappings) renderMappings(appState.config.mappings);
   if (!elements.giftSelectorModal.hidden) renderGiftSelector();
 });

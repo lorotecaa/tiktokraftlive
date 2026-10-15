@@ -9,7 +9,7 @@ import { authConfigured, changePassword, refreshSession, signIn, signUp, userFro
 import { claimWorkspace, saveWorkspaceConfig, workspaceByOverlayToken } from "./workspace-store.js";
 import { WorkspaceRuntime } from "./workspace-runtime.js";
 import { listWorkspaceUserPoints } from "./services/user-points-store.js";
-import { listGiftCatalog } from "./services/gift-catalog-store.js";
+import { findGiftCatalog, listGiftCatalog } from "./services/gift-catalog-store.js";
 import { assignAccountRole, authorizeTikTokUsername, getAccountRole, isTikTokUsernameAuthorized, listAccountRoles, listAuthorizedTikTokUsers, normalizeAccountEmail, removeAccountRole, revokeTikTokUsername } from "./services/access-store.js";
 import { listRegisteredAccounts } from "./services/admin-statistics-store.js";
 import { deleteGlobalMedia, listGlobalMedia, normalizeMediaFilename, uploadGlobalMedia } from "./services/media-catalog-store.js";
@@ -175,6 +175,39 @@ app.delete("/api/admin/media/:kind", protectedRoute, administratorRoute, async (
 });
 app.get("/api/user-points", protectedRoute, async (request, response, next) => { try { response.json({ entries: await listWorkspaceUserPoints(request.session.user.id, { query: request.query.q, limit: request.query.limit }), configured: true, overlayToken: request.session.workspace.overlayToken }); } catch (error) { next(error); } });
 app.get("/api/gift-catalog", protectedRoute, async (request, response, next) => { try { response.json({ entries: await listGiftCatalog(request.query.limit) }); } catch (error) { next(error); } });
+app.get("/api/gift-catalog/:giftId/image", protectedRoute, async (request, response, next) => {
+  try {
+    if (!/^\d{1,20}$/.test(request.params.giftId)) return response.sendStatus(400);
+    const gift = await findGiftCatalog(request.params.giftId);
+    if (!gift?.giftImageUrl) return response.sendStatus(404);
+    const allowedHosts = ["tiktokcdn.com", "tiktokcdn-us.com", "tiktok.com", "byteimg.com", "ibyteimg.com", "ttwstatic.com", "ttcdn-tos.com", "muscdn.com"];
+    let source = new URL(gift.giftImageUrl);
+    const allowed = (url) => url.protocol === "https:" && allowedHosts.some((host) => url.hostname === host || url.hostname.endsWith(`.${host}`));
+    if (!allowed(source)) return response.status(400).json({ error: "Origen de imagen no permitido." });
+    let image;
+    for (let redirects = 0; redirects < 4; redirects += 1) {
+      image = await fetch(source, { redirect: "manual", signal: AbortSignal.timeout(12000) });
+      if (![301, 302, 303, 307, 308].includes(image.status)) break;
+      const location = image.headers.get("location");
+      if (!location) return response.sendStatus(502);
+      source = new URL(location, source);
+      if (!allowed(source)) return response.status(400).json({ error: "Redirección de imagen no permitida." });
+    }
+    if (!image.ok || [301, 302, 303, 307, 308].includes(image.status)) return response.sendStatus(502);
+    const contentType = image.headers.get("content-type")?.split(";")[0]?.trim().toLowerCase();
+    if (!["image/png", "image/jpeg", "image/webp", "image/avif", "image/gif"].includes(contentType)) return response.status(415).json({ error: "Formato de imagen no compatible." });
+    if (Number(image.headers.get("content-length")) > 8_000_000) return response.sendStatus(413);
+    const chunks = [];
+    let size = 0;
+    for await (const chunk of image.body) {
+      size += chunk.length;
+      if (size > 8_000_000) return response.sendStatus(413);
+      chunks.push(Buffer.from(chunk));
+    }
+    response.set({ "Content-Type": contentType, "Cache-Control": "private, max-age=300", "X-Content-Type-Options": "nosniff" });
+    response.send(Buffer.concat(chunks, size));
+  } catch (error) { next(error); }
+});
 
 async function publicSpace(token) { const data = await workspaceByOverlayToken(token); return data ? workspaceFor(data.ownerId) : null; }
 app.get("/widget/:token/goal/:id", (_request, response) => response.sendFile(path.join(directory, "public", "goal-widget.html")));

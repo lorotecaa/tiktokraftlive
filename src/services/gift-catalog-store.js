@@ -49,6 +49,17 @@ export async function listGiftCatalog(limit = 2_000) {
   return (await response.json()).map(normalize);
 }
 
+export async function findGiftCatalog(giftId) {
+  const params = new URLSearchParams({
+    select: "gift_id,gift_name,coin_value,image_url,last_seen_at",
+    gift_id: `eq.${value(giftId, 80)}`,
+    limit: "1"
+  });
+  const response = await request(`tiktokraft_gift_catalog?${params}`, { headers: headers() });
+  const rows = await response.json();
+  return rows[0] ? normalize(rows[0]) : null;
+}
+
 export async function upsertGiftCatalog(gift) {
   const giftId = value(gift?.giftId, 80);
   if (!giftId) return null;
