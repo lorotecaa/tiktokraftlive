@@ -1514,7 +1514,7 @@ async function loadPresetDetails(pack) {
 
 async function loadActionPresetCatalog() {
   if (actionPresetPacks.length) return actionPresetPacks;
-  if (!actionPresetCatalogLoad) actionPresetCatalogLoad = fetch("/action-preset-catalog.json?v=20261014-diamond")
+  if (!actionPresetCatalogLoad) actionPresetCatalogLoad = fetch("/action-preset-catalog.json?v=20261014-preset-cards")
     .then(async (response) => {
       if (!response.ok) throw new Error("No se pudo cargar el catálogo de preajustes.");
       const packs = await response.json();
@@ -1534,7 +1534,13 @@ function renderActionPresetList() {
   elements.actionPresetList.hidden = false;
   const search = giftLabelKey(elements.actionPresetSearch.value);
   const packs = actionPresetPacks.filter((pack) => giftLabelKey(`${pack.title} ${pack.description}`).includes(search));
-  elements.actionPresetList.innerHTML = packs.map((pack) => `<button class="action-preset-card${pack.id === activePresetPackId ? " is-selected" : ""}" type="button" data-preset-id="${escapeHtml(pack.id)}"><span class="action-preset-card-icon" aria-hidden="true">${escapeHtml(pack.icon || "✦")}</span><span><strong>${escapeHtml(pack.title)}</strong><small>${escapeHtml(pack.description)}</small></span><em>${pack.optionCount || pack.effects?.length || 0} opciones →</em></button>`).join("");
+  elements.actionPresetList.innerHTML = packs.map((pack) => {
+    const image = pack.image
+      ? `<img class="action-preset-card-image" src="${escapeHtml(pack.image)}" alt="" loading="lazy" decoding="async">`
+      : `<span class="action-preset-card-icon" aria-hidden="true">${escapeHtml(pack.icon || "✦")}</span>`;
+    const count = pack.optionCount || pack.effects?.length || 0;
+    return `<button class="action-preset-card${pack.id === activePresetPackId ? " is-selected" : ""}" type="button" data-preset-id="${escapeHtml(pack.id)}">${image}<span class="action-preset-card-copy"><strong>${escapeHtml(pack.title)}</strong><small>${escapeHtml(count)} opciones</small></span></button>`;
+  }).join("");
   elements.actionPresetEmpty.hidden = packs.length > 0;
 }
 

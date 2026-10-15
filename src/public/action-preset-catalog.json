@@ -2,6 +2,7 @@
   {
     "id": "survival",
     "icon": "🌱",
+    "image": "/preset-icons/grass-block.png",
     "title": "Supervivencia clásica",
     "description": "24 efectos de objetos, criaturas y desafíos. Asigna un regalo a cada opción que quieras activar.",
     "effectsPath": "/survival-preset.json",
@@ -10,6 +11,7 @@
   {
     "id": "diamond-challenge",
     "icon": "💎",
+    "image": "/preset-icons/diamond-block.png",
     "title": "DIAMOND CHALLENGE",
     "description": "Diamantes, lluvias de mineral, criaturas y jefes. Asigna un regalo a cada desafío que quieras activar.",
     "effectsPath": "/diamond-challenge.json",
@@ -19,6 +21,7 @@
   {
     "id": "challenges",
     "icon": "🎮",
+    "image": "/preset-icons/tnt.png",
     "title": "Retos del LIVE",
     "description": "Efectos temporales para todos los jugadores. Úsalos cuando quieras una partida más movida.",
     "effects": [

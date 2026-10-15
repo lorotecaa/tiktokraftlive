@@ -11,7 +11,7 @@
     <link href="https://fonts.googleapis.com/css2?family=DM+Mono:wght@400;500&family=Press+Start+2P&family=Space+Grotesk:wght@400;500;600;700&display=swap" rel="stylesheet" />
     <link rel="stylesheet" href="/style.css?v=20261012-timer-resilience" />
     <link rel="stylesheet" href="/dashboard.css?v=20261014-scene-motion" />
-    <link rel="stylesheet" href="/action-presets.css?v=20261014-all-galleries" />
+    <link rel="stylesheet" href="/action-presets.css?v=20261014-preset-cards" />
   </head>
   <body>
     <div class="noise"></div>
@@ -418,8 +418,8 @@
             <div class="editor-actions"><button class="button primary" type="submit">Guardar acción</button><button class="button text" type="button" id="cancel-edit" hidden>Cancelar</button></div>
           </form>
           <section class="action-preset-panel" id="action-preset-panel" role="tabpanel" aria-labelledby="action-mode-presets" hidden>
-            <div class="action-preset-heading"><span class="pixel-icon cube" aria-hidden="true"></span><div><h3>Acciones listas para Minecraft</h3><p>Elige un paquete y asigna un regalo a cada opción que quieras activar. Se guarda al instante; no necesitas escribir comandos.</p></div></div>
-            <label class="action-preset-search" id="action-preset-search-label">Buscar paquetes<input id="action-preset-search" type="search" placeholder="Supervivencia, mundo, desafíos…" autocomplete="off" /></label>
+            <div class="action-preset-heading"><span class="pixel-icon cube" aria-hidden="true"></span><div><h3>Acciones listas para Minecraft</h3><p>Elige un paquete y asigna regalos a sus opciones.</p></div></div>
+            <label class="action-preset-search" id="action-preset-search-label">Buscar paquetes<input id="action-preset-search" type="search" placeholder="Supervivencia, diamantes, retos…" autocomplete="off" /></label>
             <div class="action-preset-list" id="action-preset-list"></div>
             <p class="empty-state" id="action-preset-empty" hidden>No hay paquetes que coincidan con la búsqueda.</p>
           </section>
@@ -644,6 +644,6 @@
     <script src="/socket.io/socket.io.js"></script>
     <script src="/gift-catalog.js"></script>
     <script src="/tts.js?v=20261010-voices"></script>
-    <script src="/app.js?v=20261014-diamond-challenge"></script>
+    <script src="/app.js?v=20261014-preset-cards"></script>
   </body>
 </html>
