@@ -322,7 +322,13 @@ io.on("connection", (socket) => {
     const revoked = await revokeAccountAuthorization(input?.userId);
     try {
       const activeWorkspace = workspaces.get(revoked.userId);
-      if (activeWorkspace) (await activeWorkspace).tiktok.disconnect();
+      if (activeWorkspace) {
+        const revokedWorkspace = await activeWorkspace;
+        revokedWorkspace.tiktok.disconnect();
+        revokedWorkspace.giftEngine.reset();
+        revokedWorkspace.rankingEngine.reset();
+        await revokedWorkspace.saveNow();
+      }
     } catch (error) { console.warn(`No se pudo desconectar el LIVE revocado: ${error.message}`); }
     return revoked;
   }, w));
