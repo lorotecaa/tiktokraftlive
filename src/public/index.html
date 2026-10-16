@@ -544,14 +544,14 @@
           </div>
         </div>
         <div class="admin-authorization-view" id="admin-authorization-view" hidden>
-          <div class="admin-view-heading"><button class="button text admin-back-button" id="admin-back-menu" type="button">← Menú principal</button><div><p class="eyebrow">ACCESO AL LIVE</p><h3>Autorización</h3><span>Agrega, busca o revoca cuentas de TikTok autorizadas.</span></div></div>
+          <div class="admin-view-heading"><button class="button text admin-back-button" id="admin-back-menu" type="button">← Menú principal</button><div><p class="eyebrow">ACCESO AL LIVE</p><h3>Autorización</h3><span>Autoriza por correo a cuentas registradas para conectar un LIVE. El usuario de TikTok por sí solo no concede acceso.</span></div></div>
           <form class="admin-authorized-form" id="admin-authorized-form">
-            <label>Usuario de TikTok autorizado<input id="admin-authorized-username" maxlength="80" autocomplete="off" placeholder="usuario_tiktok" /></label>
+            <label>Correo de la cuenta registrada<input id="admin-authorized-email" type="email" maxlength="320" autocomplete="email" placeholder="correo@ejemplo.com" required /></label>
             <button class="button primary" type="submit">Autorizar</button>
           </form>
-          <label class="admin-search"><span>⌕</span><input id="admin-authorized-search" type="search" placeholder="Buscar usuario autorizado" autocomplete="off" /></label>
+          <label class="admin-search"><span>⌕</span><input id="admin-authorized-search" type="search" placeholder="Buscar correo autorizado" autocomplete="off" /></label>
           <div class="admin-authorized-list" id="admin-authorized-list"></div>
-          <p class="empty-state" id="admin-authorized-empty">No hay cuentas de TikTok autorizadas todavía.</p>
+          <p class="empty-state" id="admin-authorized-empty">No hay cuentas autorizadas todavía. Las autorizaciones anteriores por nombre de TikTok ya no dan acceso.</p>
         </div>
         <div class="admin-roles-view" id="admin-roles-view" hidden>
           <div class="admin-view-heading"><button class="button text admin-back-button" id="admin-roles-back-menu" type="button">← Menú principal</button><div><p class="eyebrow">PERMISOS DE CUENTA</p><h3>Roles</h3><span>Asigna y administra los permisos de las cuentas registradas.</span></div></div>
@@ -732,6 +732,6 @@
     <script src="/gift-catalog.js"></script>
     <script src="/tts.js?v=20261010-voices"></script>
     <script src="/gift-browser.js?v=20261015-live-sync-2"></script>
-    <script src="/app.js?v=20261016-admin-users"></script>
+    <script src="/app.js?v=20261016-email-authorization"></script>
   </body>
 </html>

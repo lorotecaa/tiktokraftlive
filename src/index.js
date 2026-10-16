@@ -10,7 +10,7 @@ import { claimWorkspace, saveWorkspaceConfig, workspaceByOverlayToken } from "./
 import { WorkspaceRuntime } from "./workspace-runtime.js";
 import { listWorkspaceUserPoints } from "./services/user-points-store.js";
 import { findGiftCatalog, listGiftCatalog } from "./services/gift-catalog-store.js";
-import { assignAccountRole, authorizeTikTokUsername, getAccountRole, isTikTokUsernameAuthorized, listAccountRoles, listAuthorizedTikTokUsers, normalizeAccountEmail, removeAccountRole, revokeTikTokUsername } from "./services/access-store.js";
+import { assignAccountRole, authorizeAccountEmail, getAccountRole, isAccountAuthorized, listAccountRoles, listAuthorizedAccounts, normalizeAccountEmail, removeAccountRole, revokeAccountAuthorization } from "./services/access-store.js";
 import { deleteRegisteredAccount, listRegisteredAccounts } from "./services/admin-statistics-store.js";
 import { deleteGlobalMedia, listGlobalMedia, normalizeMediaFilename, uploadGlobalMedia } from "./services/media-catalog-store.js";
 
@@ -308,16 +308,24 @@ io.on("connection", (socket) => {
   socket.on("minecraft:connect", (_input, done) => proAcknowledge(done, session, () => w.serverTap.connect(w.config.serverTap), w));
   socket.on("minecraft:disconnect", (_input, done) => proAcknowledge(done, session, () => w.serverTap.disconnect(), w));
   socket.on("tiktok:connect", (_input, done) => proAcknowledge(done, session, async () => {
-    if (!(await isTikTokUsernameAuthorized(w.config.tiktokUsername))) {
+    if (!(await isAccountAuthorized(session.user.id))) {
       throw new Error("🔒 Tu cuenta aún no tiene acceso a TikTokraft Live.\nContacta al administrador.");
     }
     return w.connectTikTok();
   }, w));
   socket.on("tiktok:disconnect", (_input, done) => proAcknowledge(done, session, async () => { w.tiktok.disconnect(); w.giftEngine.reset(); w.rankingEngine.reset(); await w.saveNow(); return w.config.giftOverlays; }, w));
   socket.on("gift-catalog:sync", (_input, done) => proAcknowledge(done, session, () => w.syncGiftCatalog(), w));
-  socket.on("admin:authorized-tiktok:list", (_input, done) => acknowledge(done, async () => { await requireAdministrator(session); return listAuthorizedTikTokUsers(); }, w));
-  socket.on("admin:authorized-tiktok:add", (input, done) => acknowledge(done, async () => { await requireAdministrator(session); return authorizeTikTokUsername(input?.username, session.user.id); }, w));
-  socket.on("admin:authorized-tiktok:remove", (input, done) => acknowledge(done, async () => { await requireAdministrator(session); return revokeTikTokUsername(input?.username); }, w));
+  socket.on("admin:authorized-accounts:list", (_input, done) => acknowledge(done, async () => { await requireAdministrator(session); return listAuthorizedAccounts(); }, w));
+  socket.on("admin:authorized-accounts:add", (input, done) => acknowledge(done, async () => { await requireAdministrator(session); return authorizeAccountEmail(input?.email, session.user.id); }, w));
+  socket.on("admin:authorized-accounts:remove", (input, done) => acknowledge(done, async () => {
+    await requireAdministrator(session);
+    const revoked = await revokeAccountAuthorization(input?.userId);
+    try {
+      const activeWorkspace = workspaces.get(revoked.userId);
+      if (activeWorkspace) (await activeWorkspace).tiktok.disconnect();
+    } catch (error) { console.warn(`No se pudo desconectar el LIVE revocado: ${error.message}`); }
+    return revoked;
+  }, w));
   socket.on("admin:roles:list", (_input, done) => acknowledge(done, async () => { await requireAdministrator(session); return listAccountRoles(); }, w));
   socket.on("admin:roles:assign", (input, done) => acknowledge(done, async () => { await requireAdministrator(session); return assignAccountRole(input?.email, input?.role, session.user.id); }, w));
   socket.on("admin:roles:remove", (input, done) => acknowledge(done, async () => { await requireAdministrator(session); const email = normalizeAccountEmail(input?.email); if (email === administratorEmail) throw new Error("El administrador principal no puede perder sus permisos."); return removeAccountRole(email); }, w));

@@ -9,10 +9,6 @@ function headers(extra = {}) {
   return { apikey: key, Authorization: `Bearer ${key}`, "Accept-Profile": "public", ...extra };
 }
 
-export function normalizeTikTokUsername(value) {
-  return String(value || "").trim().replace(/^@/, "").toLocaleLowerCase().slice(0, 80);
-}
-
 export function normalizeAccountEmail(value) {
   return String(value || "").trim().toLocaleLowerCase().slice(0, 320);
 }
@@ -23,8 +19,8 @@ export function normalizeAccountRole(value) {
   return role;
 }
 
-function normalize(row) {
-  return { username: normalizeTikTokUsername(row?.username), addedAt: row?.added_at || null };
+function normalizeAuthorizedAccount(row) {
+  return { userId: String(row?.user_id || ""), email: normalizeAccountEmail(row?.email), addedAt: row?.added_at || null };
 }
 
 function normalizeAccountRoleRow(row) {
@@ -63,38 +59,40 @@ async function registeredAccountByEmail(email) {
   return user;
 }
 
-export async function listAuthorizedTikTokUsers() {
-  const response = await request("tiktokraft_authorized_tiktok_users?select=username,added_at&order=username.asc&limit=2000", { headers: headers() });
-  return (await response.json()).map(normalize);
+export async function listAuthorizedAccounts() {
+  const response = await request("tiktokraft_authorized_accounts?select=user_id,email,added_at&order=email.asc&limit=2000", { headers: headers() });
+  return (await response.json()).map(normalizeAuthorizedAccount);
 }
 
-export async function isTikTokUsernameAuthorized(value) {
-  const username = normalizeTikTokUsername(value);
-  if (!username) return false;
-  const response = await request(`tiktokraft_authorized_tiktok_users?username=eq.${encodeURIComponent(username)}&select=username&limit=1`, { headers: headers() });
+export async function isAccountAuthorized(userId) {
+  const id = String(userId || "").trim();
+  if (!id) return false;
+  const response = await request(`tiktokraft_authorized_accounts?user_id=eq.${encodeURIComponent(id)}&select=user_id&limit=1`, { headers: headers() });
   return (await response.json()).length > 0;
 }
 
-export async function authorizeTikTokUsername(value, addedBy) {
-  const username = normalizeTikTokUsername(value);
-  if (!username) throw new Error("Escribe un nombre de usuario de TikTok válido.");
-  const response = await request("rpc/tiktokraft_authorize_tiktok_username", {
+export async function authorizeAccountEmail(value, addedBy) {
+  const email = normalizeAccountEmail(value);
+  if (!email || !email.includes("@")) throw new Error("Escribe el correo de una cuenta registrada.");
+  const account = await registeredAccountByEmail(email);
+  const response = await request("tiktokraft_authorized_accounts?on_conflict=user_id", {
     method: "POST",
-    headers: headers({ "Content-Type": "application/json", "Content-Profile": "public" }),
-    body: JSON.stringify({ p_username: username, p_added_by: addedBy })
+    headers: headers({ "Content-Type": "application/json", "Content-Profile": "public", Prefer: "resolution=merge-duplicates,return=representation,missing=default" }),
+    body: JSON.stringify({ user_id: account.id, email: normalizeAccountEmail(account.email), added_by: addedBy })
   });
-  const rows = await response.json();
-  return rows[0] ? normalize(rows[0]) : { username, addedAt: null };
+  const [row] = await response.json();
+  if (!row) throw new Error("No se pudo autorizar la cuenta.");
+  return normalizeAuthorizedAccount(row);
 }
 
-export async function revokeTikTokUsername(value) {
-  const username = normalizeTikTokUsername(value);
-  if (!username) throw new Error("No se encontró el usuario de TikTok.");
-  await request(`tiktokraft_authorized_tiktok_users?username=eq.${encodeURIComponent(username)}`, {
+export async function revokeAccountAuthorization(value) {
+  const userId = String(value || "").trim();
+  if (!userId) throw new Error("No se encontró la cuenta autorizada.");
+  await request(`tiktokraft_authorized_accounts?user_id=eq.${encodeURIComponent(userId)}`, {
     method: "DELETE",
     headers: headers({ Prefer: "return=minimal" })
   });
-  return { username };
+  return { userId };
 }
 
 export async function getAccountRole(userId) {

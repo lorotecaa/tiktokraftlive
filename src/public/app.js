@@ -12,8 +12,8 @@ const presetDetails = new Map();
 const presetDetailLoads = new Map();
 let pendingPresetAssignment = null;
 let videoCatalogSearch = "";
-let authorizedTikTokUsers = [];
-let authorizedTikTokSearch = "";
+let authorizedAccounts = [];
+let authorizedAccountSearch = "";
 let accountRoles = [];
 let accountRolesSearch = "";
 let statisticsAccounts = [];
@@ -57,7 +57,7 @@ const elements = {
   tiktokDetail: $("#tiktok-detail"), tiktokDot: $("#tiktok-dot"),
   globalStatus: $("#global-status"), adminPanelButton: $("#admin-panel-button"), profileButton: $("#profile-button"), logout: $("#logout-button"),
   proAccessBanner: $("#pro-access-banner"), proAccessDetails: $("#pro-access-details"), proUpgradeModal: $("#pro-upgrade-modal"),
-  adminModal: $("#admin-modal"), adminMenuView: $("#admin-menu-view"), adminAuthorizationView: $("#admin-authorization-view"), adminRolesView: $("#admin-roles-view"), adminStatisticsView: $("#admin-statistics-view"), adminRegisteredUsersView: $("#admin-registered-users-view"), adminConnectedUsersView: $("#admin-connected-users-view"), adminUserProfileView: $("#admin-user-profile-view"), adminOpenAuthorization: $("#admin-open-authorization"), adminOpenRoles: $("#admin-open-roles"), adminOpenStatistics: $("#admin-open-statistics"), adminBackMenu: $("#admin-back-menu"), adminRolesBackMenu: $("#admin-roles-back-menu"), adminStatisticsBackMenu: $("#admin-statistics-back-menu"), adminOpenRegisteredUsers: $("#admin-open-registered-users"), adminOpenConnectedUsers: $("#admin-open-connected-users"), adminRegisteredUsersBack: $("#admin-registered-users-back"), adminConnectedUsersBack: $("#admin-connected-users-back"), adminRegisteredUsersSearch: $("#admin-registered-users-search"), adminRegisteredUsersList: $("#admin-registered-users-list"), adminRegisteredUsersEmpty: $("#admin-registered-users-empty"), adminConnectedUsersList: $("#admin-connected-users-list"), adminConnectedUsersEmpty: $("#admin-connected-users-empty"), adminRegisteredUsersCount: $("#admin-registered-users-count"), adminConnectedUsersCount: $("#admin-connected-users-count"), adminUserProfileBack: $("#admin-user-profile-back"), adminUserProfileTitle: $("#admin-user-profile-title"), adminUserProfileData: $("#admin-user-profile-data"), adminAuthorizedForm: $("#admin-authorized-form"), adminAuthorizedUsername: $("#admin-authorized-username"), adminAuthorizedSearch: $("#admin-authorized-search"), adminAuthorizedList: $("#admin-authorized-list"), adminAuthorizedEmpty: $("#admin-authorized-empty"), adminRolesForm: $("#admin-roles-form"), adminRoleEmail: $("#admin-role-email"), adminRoleSelect: $("#admin-role-select"), adminRolesSearch: $("#admin-roles-search"), adminRolesList: $("#admin-roles-list"), adminRolesEmpty: $("#admin-roles-empty"),
+  adminModal: $("#admin-modal"), adminMenuView: $("#admin-menu-view"), adminAuthorizationView: $("#admin-authorization-view"), adminRolesView: $("#admin-roles-view"), adminStatisticsView: $("#admin-statistics-view"), adminRegisteredUsersView: $("#admin-registered-users-view"), adminConnectedUsersView: $("#admin-connected-users-view"), adminUserProfileView: $("#admin-user-profile-view"), adminOpenAuthorization: $("#admin-open-authorization"), adminOpenRoles: $("#admin-open-roles"), adminOpenStatistics: $("#admin-open-statistics"), adminBackMenu: $("#admin-back-menu"), adminRolesBackMenu: $("#admin-roles-back-menu"), adminStatisticsBackMenu: $("#admin-statistics-back-menu"), adminOpenRegisteredUsers: $("#admin-open-registered-users"), adminOpenConnectedUsers: $("#admin-open-connected-users"), adminRegisteredUsersBack: $("#admin-registered-users-back"), adminConnectedUsersBack: $("#admin-connected-users-back"), adminRegisteredUsersSearch: $("#admin-registered-users-search"), adminRegisteredUsersList: $("#admin-registered-users-list"), adminRegisteredUsersEmpty: $("#admin-registered-users-empty"), adminConnectedUsersList: $("#admin-connected-users-list"), adminConnectedUsersEmpty: $("#admin-connected-users-empty"), adminRegisteredUsersCount: $("#admin-registered-users-count"), adminConnectedUsersCount: $("#admin-connected-users-count"), adminUserProfileBack: $("#admin-user-profile-back"), adminUserProfileTitle: $("#admin-user-profile-title"), adminUserProfileData: $("#admin-user-profile-data"), adminAuthorizedForm: $("#admin-authorized-form"), adminAuthorizedEmail: $("#admin-authorized-email"), adminAuthorizedSearch: $("#admin-authorized-search"), adminAuthorizedList: $("#admin-authorized-list"), adminAuthorizedEmpty: $("#admin-authorized-empty"), adminRolesForm: $("#admin-roles-form"), adminRoleEmail: $("#admin-role-email"), adminRoleSelect: $("#admin-role-select"), adminRolesSearch: $("#admin-roles-search"), adminRolesList: $("#admin-roles-list"), adminRolesEmpty: $("#admin-roles-empty"),
   adminMediaView: $("#admin-media-view"), adminOpenMedia: $("#admin-open-media"), adminMediaBackMenu: $("#admin-media-back-menu"), adminVideoUploadForm: $("#admin-video-upload-form"), adminVideoFile: $("#admin-video-file"), adminVideoUploadStatus: $("#admin-video-upload-status"), adminVideoList: $("#admin-video-list"), adminVideoEmpty: $("#admin-video-empty"), adminSoundUploadForm: $("#admin-sound-upload-form"), adminSoundFile: $("#admin-sound-file"), adminSoundUploadStatus: $("#admin-sound-upload-status"), adminSoundList: $("#admin-sound-list"), adminSoundEmpty: $("#admin-sound-empty"),
   profileModal: $("#profile-modal"), profileForm: $("#profile-form"), profileAvatar: $("#profile-avatar"), profileAvatarEmpty: $("#profile-avatar-empty"), profileAvatarInput: $("#profile-avatar-input"), profileEmail: $("#profile-email"), profilePassword: $("#profile-password"), profilePasswordConfirm: $("#profile-password-confirm"), profileMessage: $("#profile-message"),
   mappingForm: $("#mapping-form"), mappingId: $("#mapping-id"), mappingTriggerType: $("#mapping-trigger-type"), mappingGiftFields: $("#mapping-gift-fields"), giftName: $("#gift-name"), giftId: $("#gift-id"),
@@ -93,23 +93,23 @@ elements.adminOpenConnectedUsers?.addEventListener("click", openConnectedUsers);
 elements.adminRegisteredUsersBack?.addEventListener("click", openStatisticsPanel);
 elements.adminConnectedUsersBack?.addEventListener("click", openStatisticsPanel);
 elements.adminUserProfileBack?.addEventListener("click", () => statisticsProfileOrigin === "connected" ? openConnectedUsers() : openRegisteredUsers());
-elements.adminAuthorizedSearch?.addEventListener("input", () => { authorizedTikTokSearch = elements.adminAuthorizedSearch.value.trim(); renderAuthorizedTikTokUsers(); });
+elements.adminAuthorizedSearch?.addEventListener("input", () => { authorizedAccountSearch = elements.adminAuthorizedSearch.value.trim(); renderAuthorizedAccounts(); });
 elements.adminRolesSearch?.addEventListener("input", () => { accountRolesSearch = elements.adminRolesSearch.value.trim(); renderAccountRoles(); });
 elements.adminRegisteredUsersSearch?.addEventListener("input", () => { statisticsSearch = elements.adminRegisteredUsersSearch.value.trim(); renderRegisteredUsers(); });
 elements.adminAuthorizedForm?.addEventListener("submit", async (event) => {
   event.preventDefault();
-  const username = elements.adminAuthorizedUsername.value.trim();
-  if (!username) return toast("Escribe un nombre de usuario de TikTok.", "error");
+  const email = elements.adminAuthorizedEmail.value.trim();
+  if (!email) return toast("Escribe el correo de una cuenta registrada.", "error");
   const submit = event.submitter;
   submit.disabled = true;
   try {
-    const saved = await request("admin:authorized-tiktok:add", { username });
-    const index = authorizedTikTokUsers.findIndex((entry) => entry.username === saved.username);
-    if (index >= 0) authorizedTikTokUsers[index] = saved;
-    else authorizedTikTokUsers.push(saved);
-    elements.adminAuthorizedUsername.value = "";
-    renderAuthorizedTikTokUsers();
-    toast(`@${saved.username} autorizado`, "success");
+    const saved = await request("admin:authorized-accounts:add", { email });
+    const index = authorizedAccounts.findIndex((entry) => entry.userId === saved.userId);
+    if (index >= 0) authorizedAccounts[index] = saved;
+    else authorizedAccounts.push(saved);
+    elements.adminAuthorizedEmail.value = "";
+    renderAuthorizedAccounts();
+    toast(`${saved.email} autorizado`, "success");
   } catch (error) { toast(error.message, "error"); } finally { submit.disabled = false; }
 });
 elements.adminRolesForm?.addEventListener("submit", async (event) => {
@@ -322,7 +322,7 @@ function openAuthorizationPanel() {
   elements.adminConnectedUsersView.hidden = true;
   elements.adminUserProfileView.hidden = true;
   elements.adminMediaView.hidden = true;
-  elements.adminAuthorizedUsername.focus();
+  elements.adminAuthorizedEmail.focus();
 }
 
 async function openRolesPanel() {
@@ -345,31 +345,31 @@ async function openRolesPanel() {
 
 async function openAdminPanel() {
   if (!appState?.account?.isAdmin) return toast("No tienes permiso para acceder al Panel de Administración.", "error");
-  authorizedTikTokSearch = "";
+  authorizedAccountSearch = "";
   elements.adminAuthorizedSearch.value = "";
   showAdminMenu();
   elements.adminModal.hidden = false;
   document.body.classList.add("modal-open");
   try {
-    authorizedTikTokUsers = await request("admin:authorized-tiktok:list", null);
-    renderAuthorizedTikTokUsers();
+    authorizedAccounts = await request("admin:authorized-accounts:list", null);
+    renderAuthorizedAccounts();
   } catch (error) {
     toast(error.message, "error");
     closeAdminPanel();
   }
 }
 
-function renderAuthorizedTikTokUsers() {
-  const search = authorizedTikTokSearch.toLocaleLowerCase();
-  const entries = authorizedTikTokUsers
-    .filter((entry) => String(entry.username || "").toLocaleLowerCase().includes(search))
-    .sort((left, right) => String(left.username || "").localeCompare(String(right.username || ""), "es"));
+function renderAuthorizedAccounts() {
+  const search = authorizedAccountSearch.toLocaleLowerCase();
+  const entries = authorizedAccounts
+    .filter((entry) => String(entry.email || "").toLocaleLowerCase().includes(search))
+    .sort((left, right) => String(left.email || "").localeCompare(String(right.email || ""), "es"));
   elements.adminAuthorizedList.replaceChildren();
   for (const entry of entries) {
     const row = document.createElement("div");
     row.className = "admin-authorized-row";
     const user = document.createElement("strong");
-    user.textContent = `@${entry.username}`;
+    user.textContent = entry.email;
     const added = document.createElement("small");
     added.textContent = entry.addedAt ? `Autorizado ${new Date(entry.addedAt).toLocaleDateString("es-CO")}` : "Autorizado";
     const remove = document.createElement("button");
@@ -379,10 +379,10 @@ function renderAuthorizedTikTokUsers() {
     remove.addEventListener("click", async () => {
       remove.disabled = true;
       try {
-        await request("admin:authorized-tiktok:remove", { username: entry.username });
-        authorizedTikTokUsers = authorizedTikTokUsers.filter((item) => item.username !== entry.username);
-        renderAuthorizedTikTokUsers();
-        toast(`@${entry.username} revocado`, "success");
+        await request("admin:authorized-accounts:remove", { userId: entry.userId });
+        authorizedAccounts = authorizedAccounts.filter((item) => item.userId !== entry.userId);
+        renderAuthorizedAccounts();
+        toast(`${entry.email} revocado`, "success");
       } catch (error) { toast(error.message, "error"); } finally { remove.disabled = false; }
     });
     const copy = document.createElement("span");
