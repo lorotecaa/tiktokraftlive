@@ -602,21 +602,59 @@ async function openStatisticsPanel() {
 }
 
 function createAdministrativeAccountRow(account, origin) {
-  const row = document.createElement("button");
+  const row = document.createElement("div");
   row.className = "admin-statistics-row";
-  row.type = "button";
+  const open = document.createElement("button");
+  open.className = "admin-statistics-row-main";
+  open.type = "button";
   const detail = document.createElement("span");
   const email = document.createElement("strong");
   email.textContent = account.email;
   const tiktok = document.createElement("small");
   tiktok.textContent = account.tiktokUsername ? `TikTok: @${account.tiktokUsername}` : "TikTok: sin configurar";
-  detail.append(email, tiktok);
+  const verification = document.createElement("small");
+  verification.className = account.emailVerified ? "admin-email-verified" : "admin-email-pending";
+  verification.textContent = account.emailVerified ? "✓ Correo verificado" : "! Correo sin verificar";
+  detail.append(email, tiktok, verification);
   const status = document.createElement("b");
   status.className = account.tiktokStatus === "connected" ? "admin-status-live" : account.active ? "admin-status-panel" : "admin-status-idle";
   status.textContent = account.status;
-  row.append(detail, status);
-  row.addEventListener("click", () => openAdministrativeUserProfile(account.userId, origin));
+  open.append(detail, status);
+  open.addEventListener("click", () => openAdministrativeUserProfile(account.userId, origin));
+  row.append(open);
+  const protectedAccount = account.email.toLocaleLowerCase() === "loroteca98@gmail.com" || account.email.toLocaleLowerCase() === String(appState?.account?.email || "").toLocaleLowerCase();
+  if (origin === "registered" && !protectedAccount) {
+    const remove = document.createElement("button");
+    remove.className = "admin-user-delete";
+    remove.type = "button";
+    remove.textContent = "Eliminar usuario";
+    remove.addEventListener("click", () => deleteAdministrativeUser(account, remove));
+    row.append(remove);
+  }
   return row;
+}
+
+async function deleteAdministrativeUser(account, button) {
+  const confirmation = window.prompt(`Esta acción eliminará permanentemente la cuenta y todos sus datos.\n\nEscribe ${account.email} para confirmar:`);
+  if (confirmation === null) return;
+  if (confirmation.trim().toLocaleLowerCase() !== account.email.toLocaleLowerCase()) {
+    return toast("El correo escrito no coincide. No se eliminó la cuenta.", "error");
+  }
+  button.disabled = true;
+  const previousText = button.textContent;
+  button.textContent = "Eliminando…";
+  try {
+    await request("admin:user:delete", { userId: account.userId });
+    statisticsAccounts = statisticsAccounts.filter((entry) => entry.userId !== account.userId);
+    connectedStatisticsAccounts = connectedStatisticsAccounts.filter((entry) => entry.userId !== account.userId);
+    updateStatisticsCounts();
+    renderRegisteredUsers();
+    toast(`La cuenta ${account.email} fue eliminada.`, "success");
+  } catch (error) {
+    button.disabled = false;
+    button.textContent = previousText;
+    toast(error.message, "error");
+  }
 }
 
 function renderRegisteredUsers() {
@@ -663,6 +701,7 @@ async function openAdministrativeUserProfile(userId, origin) {
     elements.adminUserProfileTitle.textContent = account.email;
     const fields = [
       ["Correo", account.email],
+      ["Correo verificado", account.emailVerified ? `Sí${account.emailConfirmedAt ? ` · ${formatAdministrativeDate(account.emailConfirmedAt)}` : ""}` : "No, todavía está pendiente"],
       ["Fecha de registro", formatAdministrativeDate(account.registeredAt)],
       ["Último inicio de sesión", formatAdministrativeDate(account.lastSignInAt)],
       ["Estado actual", account.status],
@@ -674,6 +713,7 @@ async function openAdministrativeUserProfile(userId, origin) {
     for (const [label, value] of fields) {
       const term = document.createElement("dt"); term.textContent = label;
       const detail = document.createElement("dd"); detail.textContent = value;
+      if (label === "Correo verificado") detail.className = account.emailVerified ? "admin-profile-email-verified" : "admin-profile-email-pending";
       elements.adminUserProfileData.append(term, detail);
     }
   } catch (error) {
@@ -2599,6 +2639,11 @@ elements.simulateForm.addEventListener("submit", async (event) => {
 
 $("#clear-activity").addEventListener("click", () => { hiddenActivity = true; elements.activityLog.innerHTML = ""; elements.activityEmpty.hidden = false; });
 socket.on("state", (next) => { hiddenActivity = false; renderState(next); });
+socket.on("account:deleted", ({ message } = {}) => {
+  window.TikTokraftAuth?.signOut?.();
+  window.alert(message || "Tu cuenta fue eliminada por el administrador.");
+  location.reload();
+});
 socket.on("activity", (entry) => {
   if (hiddenActivity) return;
   if (appState) { appState.activity.unshift(entry); appState.activity = appState.activity.slice(0, 100); renderActivity(appState.activity); }

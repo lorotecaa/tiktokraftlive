@@ -11,7 +11,7 @@ import { WorkspaceRuntime } from "./workspace-runtime.js";
 import { listWorkspaceUserPoints } from "./services/user-points-store.js";
 import { findGiftCatalog, listGiftCatalog } from "./services/gift-catalog-store.js";
 import { assignAccountRole, authorizeTikTokUsername, getAccountRole, isTikTokUsernameAuthorized, listAccountRoles, listAuthorizedTikTokUsers, normalizeAccountEmail, removeAccountRole, revokeTikTokUsername } from "./services/access-store.js";
-import { listRegisteredAccounts } from "./services/admin-statistics-store.js";
+import { deleteRegisteredAccount, listRegisteredAccounts } from "./services/admin-statistics-store.js";
 import { deleteGlobalMedia, listGlobalMedia, normalizeMediaFilename, uploadGlobalMedia } from "./services/media-catalog-store.js";
 
 const directory = path.dirname(fileURLToPath(import.meta.url));
@@ -323,6 +323,25 @@ io.on("connection", (socket) => {
   socket.on("admin:statistics:registered", (_input, done) => acknowledge(done, async () => { await requireAdministrator(session); return administrationAccounts(); }, w));
   socket.on("admin:statistics:connected", (_input, done) => acknowledge(done, async () => { await requireAdministrator(session); return administrationAccounts({ activeOnly: true }); }, w));
   socket.on("admin:statistics:profile", (input, done) => acknowledge(done, async () => { await requireAdministrator(session); const userId = String(input?.userId || ""); const account = (await administrationAccounts()).find((entry) => entry.userId === userId); if (!account) throw new Error("No existe esa cuenta registrada."); return account; }, w));
+  socket.on("admin:user:delete", (input, done) => acknowledge(done, async () => {
+    await requireAdministrator(session);
+    const userId = String(input?.userId || "").trim();
+    const account = (await administrationAccounts()).find((entry) => entry.userId === userId);
+    if (!account) throw new Error("No existe esa cuenta registrada.");
+    if (userId === session.user.id || normalizeAccountEmail(account.email) === administratorEmail) {
+      throw new Error("La cuenta administradora principal no se puede eliminar.");
+    }
+    await deleteRegisteredAccount(userId);
+    const pendingWorkspace = workspaces.get(userId);
+    workspaces.delete(userId);
+    if (pendingWorkspace) await Promise.resolve(pendingWorkspace).then((workspace) => workspace.dispose()).catch(() => {});
+    for (const client of io.sockets.sockets.values()) {
+      if (client.data?.session?.user?.id !== userId) continue;
+      client.emit("account:deleted", { message: "Tu cuenta fue eliminada por el administrador." });
+      client.disconnect(true);
+    }
+    return { userId, email: account.email };
+  }, w));
   socket.on("mapping:save", (input, done) => proAcknowledge(done, session, () => w.saveMapping(input), w));
   socket.on("mapping:save-batch", (input, done) => proAcknowledge(done, session, () => w.saveMappingsBatch(input), w));
   socket.on("mapping:save-survival-effect", (input, done) => proAcknowledge(done, session, () => w.saveSurvivalEffect(input), w));
