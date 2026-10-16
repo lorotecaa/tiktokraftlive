@@ -76,13 +76,15 @@ Si la primera cuenta se creó antes de una actualización del schema y no muestr
 
 En **Authentication → Providers → Email** de Supabase, deja habilitado el proveedor Email. Si mantienes activada la confirmación de email, cada persona debe confirmar su correo antes de iniciar sesión.
 
-En **Authentication → URL Configuration** configura **Site URL** como la URL pública de Render, por ejemplo `https://tiktokraftlive.onrender.com`, y añade esa misma URL en **Redirect URLs**. En Render configura también `APP_URL` con esa URL pública; si no se establece, la aplicación usa `RENDER_EXTERNAL_URL` cuando Render la proporciona.
+En **Authentication → URL Configuration** configura **Site URL** como `https://tiktokraft.loroland.pro` y añade esa misma URL en **Redirect URLs**. En Render configura también `APP_URL` con esa URL pública; si no se establece, la aplicación usa `RENDER_EXTERNAL_URL` cuando Render la proporciona.
 
 ### Cuentas gratis, Pro y administración
 
 Todas las personas pueden crear una cuenta con email y contraseña. Las cuentas nuevas comienzan en el plan **Gratis**, que permite recorrer el panel en modo de solo lectura. Crear acciones o solicitudes, guardar configuraciones y conectar TikTok LIVE o ServerTap requiere el plan **Pro**. El rol **Administrador** incluye Pro y además abre las herramientas administrativas.
 
 Para habilitar la asignación de planes desde el panel, ejecuta el contenido actualizado de `supabase/roles.sql` en Supabase SQL Editor. Después, en **Administración → Roles**, asigna `PRO` al correo de la cuenta que haya adquirido el plan. Quitar ese rol devuelve la cuenta al plan Gratis.
+
+Para autorizar la conexión a TikTok LIVE, ejecuta `supabase/admin.sql` y agrega el correo de una cuenta registrada en **Administración → Autorización**. El servidor comprueba el ID de esa cuenta al conectar; escribir el nombre de TikTok de otra persona no concede acceso. Las autorizaciones antiguas basadas únicamente en nombres de TikTok no se migran automáticamente: vuelve a agregar por correo a cada persona que deba conservar el acceso.
 
 El formulario de registro usa `SUPABASE_PUBLISHABLE_KEY` o `SUPABASE_ANON_KEY` si existe; si no, mantiene compatibilidad con `SUPABASE_SECRET_KEY`. Los permisos Pro siempre se verifican en el servidor y no dependen de que un botón esté oculto o deshabilitado en el navegador.
 
