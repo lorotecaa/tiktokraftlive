@@ -16,6 +16,7 @@ import { deleteGlobalMedia, listGlobalMedia, normalizeMediaFilename, uploadGloba
 import { automaticProPaymentsReady, fetchApprovedWompiTransaction, newProReference, proCheckoutUrl, verifiedApprovedWompiTransaction } from "./services/wompi-pro.js";
 import { completeProOrder, createProOrder, latestProOrder } from "./services/pro-payment-store.js";
 import { latestManualProRequest, listPendingManualProRequests, reviewManualProRequest, startManualProRequest } from "./services/manual-pro-request-store.js";
+import { latestInternationalPaymentRequest, listPendingInternationalPaymentRequests, markInternationalPaymentRequestContacted, startInternationalPaymentRequest } from "./services/international-payment-request-store.js";
 
 const directory = path.dirname(fileURLToPath(import.meta.url));
 const app = express();
@@ -169,9 +170,35 @@ app.post("/api/payments/colombia/manual/start", protectedRoute, async (request, 
     response.json({ paymentRequest, checkoutUrl: manualColombiaPaymentUrl });
   } catch (error) { next(error); }
 });
+app.get("/api/payments/international/status", protectedRoute, async (request, response, next) => {
+  try {
+    response.set("Cache-Control", "no-store");
+    response.json({ request: await latestInternationalPaymentRequest(request.session.user.id) });
+  } catch (error) { next(error); }
+});
+app.post("/api/payments/international/request", protectedRoute, async (request, response, next) => {
+  try {
+    if (request.session.isPro) return response.status(409).json({ error: "Esta cuenta ya tiene acceso Pro." });
+    const contact = await startInternationalPaymentRequest(request.session.user, request.body?.country, request.body?.phone);
+    io.to("administrators").emit("admin:international-payment-request:new");
+    response.set("Cache-Control", "no-store");
+    response.json({ request: contact });
+  } catch (error) { next(error); }
+});
 app.get("/api/admin/payments/pending", protectedRoute, administratorRoute, async (_request, response, next) => {
   try { response.set("Cache-Control", "no-store"); response.json({ requests: await listPendingManualProRequests() }); }
   catch (error) { next(error); }
+});
+app.get("/api/admin/payments/international/pending", protectedRoute, administratorRoute, async (_request, response, next) => {
+  try { response.set("Cache-Control", "no-store"); response.json({ requests: await listPendingInternationalPaymentRequests() }); }
+  catch (error) { next(error); }
+});
+app.post("/api/admin/payments/international/:id/contacted", protectedRoute, administratorRoute, async (request, response, next) => {
+  try {
+    const contact = await markInternationalPaymentRequestContacted(request.params.id, request.session.user.id);
+    response.set("Cache-Control", "no-store");
+    response.json({ request: contact });
+  } catch (error) { next(error); }
 });
 app.post("/api/admin/payments/:id/review", protectedRoute, administratorRoute, async (request, response, next) => {
   try {

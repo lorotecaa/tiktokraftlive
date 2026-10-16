@@ -9,7 +9,7 @@
     <link rel="preconnect" href="https://fonts.googleapis.com" />
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
     <link href="https://fonts.googleapis.com/css2?family=DM+Mono:wght@400;500&family=Press+Start+2P&family=Space+Grotesk:wght@400;500;600;700&display=swap" rel="stylesheet" />
-    <link rel="stylesheet" href="/style.css?v=20261016-colombia-auto-payment" />
+    <link rel="stylesheet" href="/style.css?v=20261016-international-contact" />
     <link rel="stylesheet" href="/dashboard.css?v=20261014-scene-motion" />
     <link rel="stylesheet" href="/action-presets.css?v=20261014-preset-cards" />
     <link rel="stylesheet" href="/workspace-launcher.css?v=20261014-gift-browser" />
@@ -537,7 +537,7 @@
           <div class="admin-menu-grid">
             <button class="admin-menu-card is-active" id="admin-open-authorization" type="button"><span class="admin-menu-icon" aria-hidden="true">🔒</span><strong>Autorización</strong><small>Gestiona el acceso al LIVE</small></button>
             <button class="admin-menu-card is-active" id="admin-open-roles" type="button"><span class="admin-menu-icon" aria-hidden="true">♙</span><strong>Roles</strong><small>Gestiona permisos de cuentas</small></button>
-            <button class="admin-menu-card is-active" id="admin-open-statistics" type="button"><span class="admin-menu-alert" id="admin-menu-payment-count" hidden>0 pendiente</span><span class="admin-menu-icon" aria-hidden="true">▥</span><strong>Estadísticas</strong><small>Consulta cuentas, actividad y pagos</small></button>
+            <button class="admin-menu-card is-active" id="admin-open-statistics" type="button"><span class="admin-menu-alert" id="admin-menu-payment-count" hidden>0 pendiente</span><span class="admin-menu-icon" aria-hidden="true">▥</span><strong>Estadísticas</strong><small>Consulta cuentas, pagos y contactos</small></button>
             <button class="admin-menu-card is-active" id="admin-open-media" type="button"><span class="admin-menu-icon" aria-hidden="true">▶</span><strong>Multimedia</strong><small>Administra videos y sonidos</small></button>
             <button class="admin-menu-card is-placeholder" type="button" aria-disabled="true"><span class="admin-menu-icon" aria-hidden="true">✦</span><strong>Próximamente</strong><small>Nueva herramienta</small></button>
             <button class="admin-menu-card is-placeholder" type="button" aria-disabled="true"><span class="admin-menu-icon" aria-hidden="true">⚙</span><strong>Próximamente</strong><small>Nueva herramienta</small></button>
@@ -571,12 +571,18 @@
             <button class="admin-statistics-card" id="admin-open-registered-users" type="button"><span aria-hidden="true">👥</span><strong id="admin-registered-users-count">—</strong><b>Usuarios registrados</b><small>Ver todas las cuentas</small></button>
             <button class="admin-statistics-card" id="admin-open-connected-users" type="button"><span aria-hidden="true">🟢</span><strong id="admin-connected-users-count">—</strong><b>Usuarios conectados</b><small>Ver actividad actual</small></button>
             <button class="admin-statistics-card admin-payment-card" id="admin-open-pending-payments" type="button"><span aria-hidden="true">◈</span><strong id="admin-pending-payments-count">0</strong><b>Pagos por verificar</b><small>Solicitudes sin pago confirmado</small></button>
+            <button class="admin-statistics-card admin-international-card" id="admin-open-international-contacts" type="button"><span aria-hidden="true">✦</span><strong id="admin-international-contacts-count">0</strong><b>Contactos del exterior</b><small>Personas que esperan coordinar el pago</small></button>
           </div>
         </div>
         <div class="admin-statistics-list-view" id="admin-pending-payments-view" hidden>
           <div class="admin-view-heading"><button class="button text admin-back-button" id="admin-pending-payments-back" type="button">← Estadísticas</button><div><p class="eyebrow">VERIFICACIÓN MANUAL</p><h3>Pagos por verificar</h3><span>Un clic en el enlace no confirma un pago. Comprueba en Wompi o Nequi el importe, estado y referencia antes de activar Pro.</span></div></div>
           <div class="admin-payment-list" id="admin-pending-payments-list"></div>
           <p class="empty-state" id="admin-pending-payments-empty">No hay solicitudes de pago pendientes.</p>
+        </div>
+        <div class="admin-statistics-list-view" id="admin-international-contacts-view" hidden>
+          <div class="admin-view-heading"><button class="button text admin-back-button" id="admin-international-contacts-back" type="button">← Estadísticas</button><div><p class="eyebrow">PAGO EXTERIOR</p><h3>Contactos del exterior</h3><span>Estas personas dejaron su número para coordinar el pago. La solicitud no confirma ningún cobro ni activa Pro.</span></div></div>
+          <div class="admin-payment-list" id="admin-international-contacts-list"></div>
+          <p class="empty-state" id="admin-international-contacts-empty">No hay solicitudes de contacto pendientes.</p>
         </div>
         <div class="admin-statistics-list-view" id="admin-registered-users-view" hidden>
           <div class="admin-view-heading"><button class="button text admin-back-button" id="admin-registered-users-back" type="button">← Estadísticas</button><div><p class="eyebrow">CUENTAS</p><h3>Usuarios registrados</h3><span>Selecciona una cuenta para ver su información administrativa.</span></div></div>
@@ -738,10 +744,20 @@
           </button>
           <button class="pro-payment-option" type="button" data-pro-payment-region="exterior">
             <span class="pro-payment-option-icon" aria-hidden="true">✦</span>
-            <span class="pro-payment-option-copy"><strong>Pago exterior</strong><small>Próximamente</small></span>
+            <span class="pro-payment-option-copy"><strong>Pago exterior</strong><small>Coordinar con un administrador</small></span>
             <span class="pro-payment-option-arrow" aria-hidden="true">→</span>
           </button>
         </div>
+        <form class="international-payment-form" id="international-payment-form" hidden>
+          <strong>Coordinemos tu pago</strong>
+          <p>Un administrador se comunicará contigo para acordar cómo pagar. Completar este formulario no realiza ningún cobro ni activa Pro.</p>
+          <div class="international-payment-fields">
+            <label>País desde donde pagarás<input id="international-payment-country" name="country" type="text" autocomplete="country-name" maxlength="80" placeholder="Ejemplo: España" required /></label>
+            <label>Número personal con indicativo<input id="international-payment-phone" name="phone" type="tel" autocomplete="tel" inputmode="tel" maxlength="30" placeholder="Ejemplo: +34 600 123 456" required /></label>
+          </div>
+          <button class="button primary" type="submit">Enviar mis datos al administrador</button>
+          <p class="international-payment-privacy">Usaremos tu número únicamente para contactarte sobre este pago. No compartas datos de tu tarjeta aquí.</p>
+        </form>
         <p class="pro-payment-status" id="pro-payment-explanation">Debes iniciar sesión para pagar. Al pulsar Pago Colombia se registra una solicitud pendiente y se abre Wompi. El clic no confirma el pago ni activa Pro: el administrador revisará la transacción antes de darte acceso.</p>
         <p class="pro-payment-status" id="pro-payment-status" role="status" aria-live="polite" hidden></p>
         <div class="pro-upgrade-actions"><button class="button text" type="button" data-pro-upgrade-close>Seguir explorando</button></div>
@@ -752,6 +768,6 @@
     <script src="/gift-catalog.js"></script>
     <script src="/tts.js?v=20261010-voices"></script>
     <script src="/gift-browser.js?v=20261015-live-sync-2"></script>
-    <script src="/app.js?v=20261016-manual-payment-review"></script>
+    <script src="/app.js?v=20261016-international-contact"></script>
   </body>
 </html>
