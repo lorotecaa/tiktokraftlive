@@ -76,6 +76,86 @@ elements.logout?.addEventListener("click", () => {
 });
 elements.proAccessDetails?.addEventListener("click", openProUpgrade);
 elements.proUpgradeModal?.querySelectorAll("[data-pro-upgrade-close]").forEach((button) => button.addEventListener("click", closeProUpgrade));
+let colombiaPaymentAutomatic = false;
+let proPaymentCheckTimer = null;
+const colombiaPaymentButton = elements.proUpgradeModal?.querySelector("a.pro-payment-option[href*='checkout.nequi.wompi.co']");
+const proPaymentExplanation = elements.proUpgradeModal?.querySelector("#pro-payment-explanation");
+const proPaymentStatus = elements.proUpgradeModal?.querySelector("#pro-payment-status");
+
+function showProPaymentStatus(message) {
+  if (!proPaymentStatus) return;
+  proPaymentStatus.hidden = !message;
+  proPaymentStatus.textContent = message;
+}
+
+async function colombiaPaymentRequest(path, method = "GET") {
+  const response = await fetch(path, { method, headers: { Authorization: `Bearer ${window.TikTokraftAuth?.accessToken || ""}` }, cache: "no-store" });
+  const data = await response.json().catch(() => ({}));
+  if (!response.ok) throw new Error(data.error || "No se pudo consultar el pago.");
+  return data;
+}
+
+async function checkReturnedProPayment(attempts = 0) {
+  try {
+    const result = await colombiaPaymentRequest("/api/payments/colombia/status");
+    if (result.isPro) {
+      showProPaymentStatus("Pago aprobado. Tu cuenta ya tiene Pro; actualizando el panel…");
+      location.reload();
+      return;
+    }
+    if (attempts >= 59) {
+      showProPaymentStatus("Wompi todavía no confirma el pago. Si lo aprobó, vuelve a cargar la página en unos minutos. No pagues de nuevo.");
+      return;
+    }
+    showProPaymentStatus("Esperando la confirmación segura de Wompi… No pagues de nuevo.");
+    proPaymentCheckTimer = setTimeout(() => checkReturnedProPayment(attempts + 1), 2000);
+  } catch {
+    showProPaymentStatus("No pudimos consultar el estado. Vuelve a cargar la página; no pagues de nuevo sin comprobar antes la transacción.");
+  }
+}
+
+async function initializeColombiaPayment() {
+  if (!window.TikTokraftAuth?.accessToken) return;
+  try {
+    const result = await colombiaPaymentRequest("/api/payments/colombia/status");
+    colombiaPaymentAutomatic = result.automatic === true;
+    if (colombiaPaymentAutomatic) {
+      colombiaPaymentButton?.setAttribute("aria-label", "Pago Colombia: pago único de 90.000 pesos y activación automática tras la confirmación de Wompi.");
+      if (proPaymentExplanation) proPaymentExplanation.textContent = "Un pago por persona, sin mensualidad ni suscripción. Pagas con la cuenta que tienes abierta; Pro se activa automáticamente cuando Wompi confirme el pago aprobado.";
+    }
+    const currentUrl = new URL(location.href);
+    if (currentUrl.searchParams.get("payment") === "return" && colombiaPaymentAutomatic) {
+      currentUrl.searchParams.delete("payment");
+      currentUrl.searchParams.delete("id");
+      history.replaceState(null, "", `${currentUrl.pathname}${currentUrl.search}${currentUrl.hash}`);
+      openProUpgrade();
+      if (result.isPro) {
+        showProPaymentStatus("Pago aprobado. Tu cuenta ya tiene Pro.");
+        location.reload();
+      } else {
+        void checkReturnedProPayment();
+      }
+    }
+  } catch { /* Si no está lista la integración, se conserva el enlace manual actual. */ }
+}
+
+colombiaPaymentButton?.addEventListener("click", async (event) => {
+  if (!colombiaPaymentAutomatic) return;
+  event.preventDefault();
+  if (colombiaPaymentButton.dataset.loading === "true") return;
+  colombiaPaymentButton.dataset.loading = "true";
+  showProPaymentStatus("Preparando el pago seguro para tu cuenta…");
+  try {
+    const result = await colombiaPaymentRequest("/api/payments/colombia/start", "POST");
+    const checkout = new URL(result.checkoutUrl);
+    if (checkout.origin !== "https://checkout.wompi.co") throw new Error("El destino de pago no es válido.");
+    location.assign(checkout.toString());
+  } catch (error) {
+    showProPaymentStatus(error.message);
+    colombiaPaymentButton.dataset.loading = "false";
+  }
+});
+void initializeColombiaPayment();
 elements.proUpgradeModal?.querySelector("[data-pro-payment-region='exterior']")?.addEventListener("click", () => {
   const status = elements.proUpgradeModal.querySelector("#pro-payment-status");
   if (!status) return;
@@ -254,6 +334,8 @@ function closeProUpgrade() {
   if (!elements.proUpgradeModal) return;
   elements.proUpgradeModal.hidden = true;
   document.body.classList.remove("modal-open");
+  if (proPaymentCheckTimer) clearTimeout(proPaymentCheckTimer);
+  proPaymentCheckTimer = null;
 }
 
 function renderAccountAccess() {

@@ -13,6 +13,8 @@ import { findGiftCatalog, listGiftCatalog } from "./services/gift-catalog-store.
 import { assignAccountRole, authorizeAccountEmail, getAccountRole, isAccountAuthorized, listAccountRoles, listAuthorizedAccounts, normalizeAccountEmail, removeAccountRole, revokeAccountAuthorization } from "./services/access-store.js";
 import { deleteRegisteredAccount, listRegisteredAccounts } from "./services/admin-statistics-store.js";
 import { deleteGlobalMedia, listGlobalMedia, normalizeMediaFilename, uploadGlobalMedia } from "./services/media-catalog-store.js";
+import { automaticProPaymentsReady, fetchApprovedWompiTransaction, newProReference, proCheckoutUrl, verifiedApprovedWompiTransaction } from "./services/wompi-pro.js";
+import { completeProOrder, createProOrder, latestProOrder } from "./services/pro-payment-store.js";
 
 const directory = path.dirname(fileURLToPath(import.meta.url));
 const app = express();
@@ -147,6 +149,35 @@ app.post("/api/auth/recover", async (request, response, next) => { try { await r
 app.post("/api/auth/refresh", async (request, response, next) => { try { response.json(await refreshSession(String(request.body?.refresh_token || ""))); } catch (error) { next(error); } });
 app.get("/api/health", (_request, response) => response.json({ ok: true, authConfigured }));
 app.get("/api/state", protectedRoute, (request, response) => response.json({ ...request.session.workspace.publicState(), account: publicAccount(request.session) }));
+app.get("/api/payments/colombia/status", protectedRoute, async (request, response, next) => {
+  try {
+    response.set("Cache-Control", "no-store");
+    response.json({ automatic: automaticProPaymentsReady(), isPro: request.session.isPro,
+      order: automaticProPaymentsReady() ? await latestProOrder(request.session.user.id) : null });
+  } catch (error) { next(error); }
+});
+app.post("/api/payments/colombia/start", protectedRoute, async (request, response, next) => {
+  try {
+    if (!automaticProPaymentsReady()) return response.status(503).json({ error: "Los pagos automáticos todavía no están configurados." });
+    if (request.session.isPro) return response.status(409).json({ error: "Esta cuenta ya tiene acceso Pro." });
+    const reference = newProReference();
+    await createProOrder(request.session.user, reference);
+    response.set("Cache-Control", "no-store");
+    response.json({ checkoutUrl: proCheckoutUrl(reference, request.session.user.email) });
+  } catch (error) { next(error); }
+});
+app.post("/api/payments/wompi/webhook", async (request, response, next) => {
+  let transaction;
+  try { transaction = verifiedApprovedWompiTransaction(request.body, request.headers["x-event-checksum"]); }
+  catch (error) { return response.status(401).json({ error: "Firma de pago no válida." }); }
+  if (!transaction) return response.json({ ok: true, ignored: true });
+  try {
+    const confirmedTransaction = await fetchApprovedWompiTransaction(transaction.id);
+    const completed = await completeProOrder(confirmedTransaction);
+    if (!completed) throw new Error("No se pudo confirmar la activación Pro.");
+    response.json({ ok: true });
+  } catch (error) { next(error); }
+});
 app.post("/api/auth/password", protectedRoute, async (request, response, next) => { try { await changePassword(tokenFrom(request), String(request.body?.password || "")); response.json({ ok: true }); } catch (error) { next(error); } });
 app.get("/api/sounds", protectedRoute, async (_request, response, next) => {
   try {
