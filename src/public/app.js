@@ -18,6 +18,7 @@ let accountRoles = [];
 let accountRolesSearch = "";
 let statisticsAccounts = [];
 let connectedStatisticsAccounts = [];
+let pendingPaymentRequests = [];
 let statisticsSearch = "";
 let statisticsProfileOrigin = "registered";
 let adminMediaCatalog = { sounds: [], videos: [] };
@@ -57,7 +58,7 @@ const elements = {
   tiktokDetail: $("#tiktok-detail"), tiktokDot: $("#tiktok-dot"),
   globalStatus: $("#global-status"), adminPanelButton: $("#admin-panel-button"), profileButton: $("#profile-button"), logout: $("#logout-button"),
   proAccessBanner: $("#pro-access-banner"), proAccessDetails: $("#pro-access-details"), proUpgradeModal: $("#pro-upgrade-modal"),
-  adminModal: $("#admin-modal"), adminMenuView: $("#admin-menu-view"), adminAuthorizationView: $("#admin-authorization-view"), adminRolesView: $("#admin-roles-view"), adminStatisticsView: $("#admin-statistics-view"), adminRegisteredUsersView: $("#admin-registered-users-view"), adminConnectedUsersView: $("#admin-connected-users-view"), adminUserProfileView: $("#admin-user-profile-view"), adminOpenAuthorization: $("#admin-open-authorization"), adminOpenRoles: $("#admin-open-roles"), adminOpenStatistics: $("#admin-open-statistics"), adminBackMenu: $("#admin-back-menu"), adminRolesBackMenu: $("#admin-roles-back-menu"), adminStatisticsBackMenu: $("#admin-statistics-back-menu"), adminOpenRegisteredUsers: $("#admin-open-registered-users"), adminOpenConnectedUsers: $("#admin-open-connected-users"), adminRegisteredUsersBack: $("#admin-registered-users-back"), adminConnectedUsersBack: $("#admin-connected-users-back"), adminRegisteredUsersSearch: $("#admin-registered-users-search"), adminRegisteredUsersList: $("#admin-registered-users-list"), adminRegisteredUsersEmpty: $("#admin-registered-users-empty"), adminConnectedUsersList: $("#admin-connected-users-list"), adminConnectedUsersEmpty: $("#admin-connected-users-empty"), adminRegisteredUsersCount: $("#admin-registered-users-count"), adminConnectedUsersCount: $("#admin-connected-users-count"), adminUserProfileBack: $("#admin-user-profile-back"), adminUserProfileTitle: $("#admin-user-profile-title"), adminUserProfileData: $("#admin-user-profile-data"), adminAuthorizedForm: $("#admin-authorized-form"), adminAuthorizedEmail: $("#admin-authorized-email"), adminAuthorizedSearch: $("#admin-authorized-search"), adminAuthorizedList: $("#admin-authorized-list"), adminAuthorizedEmpty: $("#admin-authorized-empty"), adminRolesForm: $("#admin-roles-form"), adminRoleEmail: $("#admin-role-email"), adminRoleSelect: $("#admin-role-select"), adminRolesSearch: $("#admin-roles-search"), adminRolesList: $("#admin-roles-list"), adminRolesEmpty: $("#admin-roles-empty"),
+  adminModal: $("#admin-modal"), adminMenuView: $("#admin-menu-view"), adminAuthorizationView: $("#admin-authorization-view"), adminRolesView: $("#admin-roles-view"), adminStatisticsView: $("#admin-statistics-view"), adminRegisteredUsersView: $("#admin-registered-users-view"), adminConnectedUsersView: $("#admin-connected-users-view"), adminUserProfileView: $("#admin-user-profile-view"), adminOpenAuthorization: $("#admin-open-authorization"), adminOpenRoles: $("#admin-open-roles"), adminOpenStatistics: $("#admin-open-statistics"), adminBackMenu: $("#admin-back-menu"), adminRolesBackMenu: $("#admin-roles-back-menu"), adminStatisticsBackMenu: $("#admin-statistics-back-menu"), adminOpenRegisteredUsers: $("#admin-open-registered-users"), adminOpenConnectedUsers: $("#admin-open-connected-users"), adminOpenPendingPayments: $("#admin-open-pending-payments"), adminPendingPaymentsView: $("#admin-pending-payments-view"), adminPendingPaymentsBack: $("#admin-pending-payments-back"), adminPendingPaymentsList: $("#admin-pending-payments-list"), adminPendingPaymentsEmpty: $("#admin-pending-payments-empty"), adminPendingPaymentsCount: $("#admin-pending-payments-count"), adminMenuPaymentCount: $("#admin-menu-payment-count"), adminRegisteredUsersBack: $("#admin-registered-users-back"), adminConnectedUsersBack: $("#admin-connected-users-back"), adminRegisteredUsersSearch: $("#admin-registered-users-search"), adminRegisteredUsersList: $("#admin-registered-users-list"), adminRegisteredUsersEmpty: $("#admin-registered-users-empty"), adminConnectedUsersList: $("#admin-connected-users-list"), adminConnectedUsersEmpty: $("#admin-connected-users-empty"), adminRegisteredUsersCount: $("#admin-registered-users-count"), adminConnectedUsersCount: $("#admin-connected-users-count"), adminUserProfileBack: $("#admin-user-profile-back"), adminUserProfileTitle: $("#admin-user-profile-title"), adminUserProfileData: $("#admin-user-profile-data"), adminAuthorizedForm: $("#admin-authorized-form"), adminAuthorizedEmail: $("#admin-authorized-email"), adminAuthorizedSearch: $("#admin-authorized-search"), adminAuthorizedList: $("#admin-authorized-list"), adminAuthorizedEmpty: $("#admin-authorized-empty"), adminRolesForm: $("#admin-roles-form"), adminRoleEmail: $("#admin-role-email"), adminRoleSelect: $("#admin-role-select"), adminRolesSearch: $("#admin-roles-search"), adminRolesList: $("#admin-roles-list"), adminRolesEmpty: $("#admin-roles-empty"),
   adminMediaView: $("#admin-media-view"), adminOpenMedia: $("#admin-open-media"), adminMediaBackMenu: $("#admin-media-back-menu"), adminVideoUploadForm: $("#admin-video-upload-form"), adminVideoFile: $("#admin-video-file"), adminVideoUploadStatus: $("#admin-video-upload-status"), adminVideoList: $("#admin-video-list"), adminVideoEmpty: $("#admin-video-empty"), adminSoundUploadForm: $("#admin-sound-upload-form"), adminSoundFile: $("#admin-sound-file"), adminSoundUploadStatus: $("#admin-sound-upload-status"), adminSoundList: $("#admin-sound-list"), adminSoundEmpty: $("#admin-sound-empty"),
   profileModal: $("#profile-modal"), profileForm: $("#profile-form"), profileAvatar: $("#profile-avatar"), profileAvatarEmpty: $("#profile-avatar-empty"), profileAvatarInput: $("#profile-avatar-input"), profileEmail: $("#profile-email"), profilePassword: $("#profile-password"), profilePasswordConfirm: $("#profile-password-confirm"), profileMessage: $("#profile-message"),
   mappingForm: $("#mapping-form"), mappingId: $("#mapping-id"), mappingTriggerType: $("#mapping-trigger-type"), mappingGiftFields: $("#mapping-gift-fields"), giftName: $("#gift-name"), giftId: $("#gift-id"),
@@ -78,7 +79,8 @@ elements.proAccessDetails?.addEventListener("click", openProUpgrade);
 elements.proUpgradeModal?.querySelectorAll("[data-pro-upgrade-close]").forEach((button) => button.addEventListener("click", closeProUpgrade));
 let colombiaPaymentAutomatic = false;
 let proPaymentCheckTimer = null;
-const colombiaPaymentButton = elements.proUpgradeModal?.querySelector("a.pro-payment-option[href*='checkout.nequi.wompi.co']");
+let manualPaymentPending = false;
+const colombiaPaymentButton = elements.proUpgradeModal?.querySelector("#colombia-payment-button");
 const proPaymentExplanation = elements.proUpgradeModal?.querySelector("#pro-payment-explanation");
 const proPaymentStatus = elements.proUpgradeModal?.querySelector("#pro-payment-status");
 
@@ -88,11 +90,31 @@ function showProPaymentStatus(message) {
   proPaymentStatus.textContent = message;
 }
 
-async function colombiaPaymentRequest(path, method = "GET") {
-  const response = await fetch(path, { method, headers: { Authorization: `Bearer ${window.TikTokraftAuth?.accessToken || ""}` }, cache: "no-store" });
+async function colombiaPaymentRequest(path, method = "GET", payload) {
+  const headers = { Authorization: `Bearer ${window.TikTokraftAuth?.accessToken || ""}` };
+  if (payload !== undefined) headers["Content-Type"] = "application/json";
+  const response = await fetch(path, { method, headers, body: payload === undefined ? undefined : JSON.stringify(payload), cache: "no-store" });
   const data = await response.json().catch(() => ({}));
   if (!response.ok) throw new Error(data.error || "No se pudo consultar el pago.");
   return data;
+}
+
+function showManualPaymentState(paymentRequest) {
+  manualPaymentPending = paymentRequest?.status === "pending";
+  if (paymentRequest?.status === "pending") {
+    showProPaymentStatus("Tu solicitud está pendiente de verificación. Esto no confirma un pago. Si ya pagaste, espera a que el administrador compruebe la transacción en Wompi/Nequi; no pagues de nuevo.");
+  } else if (paymentRequest?.status === "rejected") {
+    showProPaymentStatus("La solicitud anterior fue descartada. Si ya pagaste, contacta al administrador con el comprobante; si no, puedes iniciar otra solicitud.");
+  }
+}
+
+async function refreshManualPaymentState() {
+  if (!manualPaymentPending || colombiaPaymentAutomatic) return;
+  try {
+    const result = await colombiaPaymentRequest("/api/payments/colombia/status");
+    if (result.isPro) { showProPaymentStatus("Tu acceso Pro fue activado. Actualizando el panel…"); location.reload(); return; }
+    showManualPaymentState(result.manualRequest);
+  } catch { /* Se volverá a intentar; un error de red no confirma ni rechaza el pago. */ }
 }
 
 async function checkReturnedProPayment(attempts = 0) {
@@ -122,6 +144,8 @@ async function initializeColombiaPayment() {
     if (colombiaPaymentAutomatic) {
       colombiaPaymentButton?.setAttribute("aria-label", "Pago Colombia: pago único de 90.000 pesos y activación automática tras la confirmación de Wompi.");
       if (proPaymentExplanation) proPaymentExplanation.textContent = "Un pago por persona, sin mensualidad ni suscripción. Pagas con la cuenta que tienes abierta; Pro se activa automáticamente cuando Wompi confirme el pago aprobado.";
+    } else {
+      showManualPaymentState(result.manualRequest);
     }
     const currentUrl = new URL(location.href);
     if (currentUrl.searchParams.get("payment") === "return" && colombiaPaymentAutomatic) {
@@ -136,26 +160,36 @@ async function initializeColombiaPayment() {
         void checkReturnedProPayment();
       }
     }
-  } catch { /* Si no está lista la integración, se conserva el enlace manual actual. */ }
+  } catch { showProPaymentStatus("No pudimos consultar las solicitudes. Recarga la página antes de intentar pagar."); }
 }
 
 colombiaPaymentButton?.addEventListener("click", async (event) => {
-  if (!colombiaPaymentAutomatic) return;
   event.preventDefault();
   if (colombiaPaymentButton.dataset.loading === "true") return;
+  if (!window.TikTokraftAuth?.accessToken) return showProPaymentStatus("Inicia sesión o crea tu cuenta antes de pagar.");
   colombiaPaymentButton.dataset.loading = "true";
-  showProPaymentStatus("Preparando el pago seguro para tu cuenta…");
+  const manualTab = !colombiaPaymentAutomatic ? window.open("about:blank", "_blank") : null;
+  if (manualTab) manualTab.opener = null;
+  showProPaymentStatus(colombiaPaymentAutomatic ? "Preparando el pago seguro para tu cuenta…" : "Registrando tu solicitud antes de abrir Wompi…");
   try {
-    const result = await colombiaPaymentRequest("/api/payments/colombia/start", "POST");
+    const result = await colombiaPaymentRequest(colombiaPaymentAutomatic ? "/api/payments/colombia/start" : "/api/payments/colombia/manual/start", "POST");
     const checkout = new URL(result.checkoutUrl);
-    if (checkout.origin !== "https://checkout.wompi.co") throw new Error("El destino de pago no es válido.");
-    location.assign(checkout.toString());
+    const expectedUrl = "https://checkout.nequi.wompi.co/l/XO6cz4";
+    if (colombiaPaymentAutomatic ? checkout.origin !== "https://checkout.wompi.co" : checkout.toString() !== expectedUrl) throw new Error("El destino de pago no es válido.");
+    if (colombiaPaymentAutomatic) location.assign(checkout.toString());
+    else {
+      showManualPaymentState(result.paymentRequest);
+      if (manualTab && !manualTab.closed) manualTab.location.replace(checkout.toString());
+      else location.assign(checkout.toString());
+    }
   } catch (error) {
+    manualTab?.close();
     showProPaymentStatus(error.message);
-    colombiaPaymentButton.dataset.loading = "false";
-  }
+  } finally { colombiaPaymentButton.dataset.loading = "false"; }
 });
 void initializeColombiaPayment();
+setInterval(() => { if (!document.hidden) void refreshManualPaymentState(); }, 20000);
+window.addEventListener("focus", () => { void refreshManualPaymentState(); });
 elements.proUpgradeModal?.querySelector("[data-pro-payment-region='exterior']")?.addEventListener("click", () => {
   const status = elements.proUpgradeModal.querySelector("#pro-payment-status");
   if (!status) return;
@@ -176,6 +210,8 @@ elements.adminStatisticsBackMenu?.addEventListener("click", showAdminMenu);
 elements.adminMediaBackMenu?.addEventListener("click", showAdminMenu);
 elements.adminOpenRegisteredUsers?.addEventListener("click", openRegisteredUsers);
 elements.adminOpenConnectedUsers?.addEventListener("click", openConnectedUsers);
+elements.adminOpenPendingPayments?.addEventListener("click", openPendingPayments);
+elements.adminPendingPaymentsBack?.addEventListener("click", openStatisticsPanel);
 elements.adminRegisteredUsersBack?.addEventListener("click", openStatisticsPanel);
 elements.adminConnectedUsersBack?.addEventListener("click", openStatisticsPanel);
 elements.adminUserProfileBack?.addEventListener("click", () => statisticsProfileOrigin === "connected" ? openConnectedUsers() : openRegisteredUsers());
@@ -395,6 +431,7 @@ function showAdminMenu() {
   elements.adminAuthorizationView.hidden = true;
   elements.adminRolesView.hidden = true;
   elements.adminStatisticsView.hidden = true;
+  elements.adminPendingPaymentsView.hidden = true;
   elements.adminRegisteredUsersView.hidden = true;
   elements.adminConnectedUsersView.hidden = true;
   elements.adminUserProfileView.hidden = true;
@@ -406,6 +443,7 @@ function openAuthorizationPanel() {
   elements.adminAuthorizationView.hidden = false;
   elements.adminRolesView.hidden = true;
   elements.adminStatisticsView.hidden = true;
+  elements.adminPendingPaymentsView.hidden = true;
   elements.adminRegisteredUsersView.hidden = true;
   elements.adminConnectedUsersView.hidden = true;
   elements.adminUserProfileView.hidden = true;
@@ -418,6 +456,7 @@ async function openRolesPanel() {
   elements.adminAuthorizationView.hidden = true;
   elements.adminRolesView.hidden = false;
   elements.adminStatisticsView.hidden = true;
+  elements.adminPendingPaymentsView.hidden = true;
   elements.adminRegisteredUsersView.hidden = true;
   elements.adminConnectedUsersView.hidden = true;
   elements.adminUserProfileView.hidden = true;
@@ -660,6 +699,7 @@ function hideAdministrativeViews() {
   elements.adminAuthorizationView.hidden = true;
   elements.adminRolesView.hidden = true;
   elements.adminStatisticsView.hidden = true;
+  elements.adminPendingPaymentsView.hidden = true;
   elements.adminRegisteredUsersView.hidden = true;
   elements.adminConnectedUsersView.hidden = true;
   elements.adminUserProfileView.hidden = true;
@@ -686,7 +726,94 @@ async function loadStatisticsAccounts() {
 async function openStatisticsPanel() {
   hideAdministrativeViews();
   elements.adminStatisticsView.hidden = false;
-  try { await loadStatisticsAccounts(); } catch (error) { toast(error.message, "error"); }
+  try { await Promise.all([loadStatisticsAccounts(), refreshPendingManualPayments()]); } catch (error) { toast(error.message, "error"); }
+}
+
+function updatePendingPaymentAlert() {
+  const count = pendingPaymentRequests.length;
+  elements.adminPendingPaymentsCount.textContent = String(count);
+  elements.adminMenuPaymentCount.hidden = count === 0;
+  elements.adminMenuPaymentCount.textContent = `${count} pendiente${count === 1 ? "" : "s"}`;
+  elements.adminOpenPendingPayments.classList.toggle("has-pending", count > 0);
+}
+
+async function refreshPendingManualPayments() {
+  if (!appState?.account?.isAdmin) return;
+  const previousIds = pendingPaymentRequests.map((entry) => entry.id).join(",");
+  const result = await colombiaPaymentRequest("/api/admin/payments/pending");
+  pendingPaymentRequests = Array.isArray(result.requests) ? result.requests : [];
+  updatePendingPaymentAlert();
+  if (!elements.adminPendingPaymentsView.hidden && previousIds !== pendingPaymentRequests.map((entry) => entry.id).join(",")) renderPendingManualPayments();
+}
+
+function renderPendingManualPayments() {
+  const list = elements.adminPendingPaymentsList;
+  list.replaceChildren();
+  for (const payment of pendingPaymentRequests) {
+    const row = document.createElement("article");
+    row.className = "admin-payment-row";
+    const heading = document.createElement("div");
+    heading.className = "admin-payment-row-heading";
+    const email = document.createElement("strong");
+    email.textContent = payment.email;
+    const badge = document.createElement("b");
+    badge.textContent = "PENDIENTE · NO CONFIRMADO";
+    heading.append(email, badge);
+    const details = document.createElement("small");
+    details.textContent = `${formatAdministrativeDate(payment.createdAt)} · COP $90.000 · Solicitud ${payment.id.slice(0, 8)}`;
+    const referenceLabel = document.createElement("label");
+    referenceLabel.textContent = "Referencia de transacción verificada en Wompi/Nequi";
+    const reference = document.createElement("input");
+    reference.type = "text";
+    reference.maxLength = 128;
+    reference.autocomplete = "off";
+    reference.placeholder = "Pega aquí el ID o referencia del pago aprobado";
+    referenceLabel.append(reference);
+    const actions = document.createElement("div");
+    actions.className = "admin-payment-actions";
+    const approve = document.createElement("button");
+    approve.type = "button";
+    approve.className = "button primary";
+    approve.textContent = "Activar Pro";
+    approve.disabled = true;
+    reference.addEventListener("input", () => { approve.disabled = reference.value.trim().length < 4; });
+    approve.addEventListener("click", async () => {
+      const transactionReference = reference.value.trim();
+      if (!window.confirm(`¿Comprobaste en Wompi/Nequi un pago APROBADO de COP $90.000 para ${payment.email}, con referencia ${transactionReference}? Esta acción activará Pro inmediatamente.`)) return;
+      approve.disabled = true;
+      reject.disabled = true;
+      try {
+        await colombiaPaymentRequest(`/api/admin/payments/${encodeURIComponent(payment.id)}/review`, "POST", { decision: "approved", transactionReference });
+        await refreshPendingManualPayments();
+        toast(`Pro activado para ${payment.email}.`, "success");
+      } catch (error) { toast(error.message, "error"); approve.disabled = false; reject.disabled = false; }
+    });
+    const reject = document.createElement("button");
+    reject.type = "button";
+    reject.className = "button text danger";
+    reject.textContent = "Descartar intento";
+    reject.addEventListener("click", async () => {
+      if (!window.confirm(`¿Descartar la solicitud de ${payment.email}? No se activará Pro y podrá iniciar otra solicitud.`)) return;
+      approve.disabled = true;
+      reject.disabled = true;
+      try {
+        await colombiaPaymentRequest(`/api/admin/payments/${encodeURIComponent(payment.id)}/review`, "POST", { decision: "rejected" });
+        await refreshPendingManualPayments();
+        toast("Solicitud descartada.", "success");
+      } catch (error) { toast(error.message, "error"); approve.disabled = reference.value.trim().length < 4; reject.disabled = false; }
+    });
+    actions.append(approve, reject);
+    row.append(heading, details, referenceLabel, actions);
+    list.append(row);
+  }
+  elements.adminPendingPaymentsEmpty.hidden = pendingPaymentRequests.length > 0;
+}
+
+async function openPendingPayments() {
+  hideAdministrativeViews();
+  elements.adminPendingPaymentsView.hidden = false;
+  try { await refreshPendingManualPayments(); renderPendingManualPayments(); }
+  catch (error) { toast(error.message, "error"); }
 }
 
 function createAdministrativeAccountRow(account, origin) {
@@ -2732,6 +2859,13 @@ socket.on("account:deleted", ({ message } = {}) => {
   window.alert(message || "Tu cuenta fue eliminada por el administrador.");
   location.reload();
 });
+socket.on("account:pro-activated", () => location.reload());
+socket.on("admin:payment-request:new", () => {
+  if (appState?.account?.isAdmin) void refreshPendingManualPayments().catch(() => {});
+});
+setInterval(() => {
+  if (appState?.account?.isAdmin && !document.hidden) void refreshPendingManualPayments().catch(() => {});
+}, 30000);
 socket.on("activity", (entry) => {
   if (hiddenActivity) return;
   if (appState) { appState.activity.unshift(entry); appState.activity = appState.activity.slice(0, 100); renderActivity(appState.activity); }
@@ -2844,6 +2978,7 @@ socket.on("media-catalog:update", async () => {
 });
 void (async () => {
   await loadPanelState();
+  if (appState?.account?.isAdmin) void refreshPendingManualPayments().catch(() => {});
   // La lista está protegida por autenticación. Esperar a que el estado del
   // panel renueve una sesión vencida evita dejar el selector vacío tras un
   // despliegue o una recarga con un token antiguo.

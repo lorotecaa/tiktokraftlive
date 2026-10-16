@@ -537,7 +537,7 @@
           <div class="admin-menu-grid">
             <button class="admin-menu-card is-active" id="admin-open-authorization" type="button"><span class="admin-menu-icon" aria-hidden="true">🔒</span><strong>Autorización</strong><small>Gestiona el acceso al LIVE</small></button>
             <button class="admin-menu-card is-active" id="admin-open-roles" type="button"><span class="admin-menu-icon" aria-hidden="true">♙</span><strong>Roles</strong><small>Gestiona permisos de cuentas</small></button>
-            <button class="admin-menu-card is-active" id="admin-open-statistics" type="button"><span class="admin-menu-icon" aria-hidden="true">▥</span><strong>Estadísticas</strong><small>Consulta cuentas y actividad</small></button>
+            <button class="admin-menu-card is-active" id="admin-open-statistics" type="button"><span class="admin-menu-alert" id="admin-menu-payment-count" hidden>0 pendiente</span><span class="admin-menu-icon" aria-hidden="true">▥</span><strong>Estadísticas</strong><small>Consulta cuentas, actividad y pagos</small></button>
             <button class="admin-menu-card is-active" id="admin-open-media" type="button"><span class="admin-menu-icon" aria-hidden="true">▶</span><strong>Multimedia</strong><small>Administra videos y sonidos</small></button>
             <button class="admin-menu-card is-placeholder" type="button" aria-disabled="true"><span class="admin-menu-icon" aria-hidden="true">✦</span><strong>Próximamente</strong><small>Nueva herramienta</small></button>
             <button class="admin-menu-card is-placeholder" type="button" aria-disabled="true"><span class="admin-menu-icon" aria-hidden="true">⚙</span><strong>Próximamente</strong><small>Nueva herramienta</small></button>
@@ -570,7 +570,13 @@
           <div class="admin-statistics-cards">
             <button class="admin-statistics-card" id="admin-open-registered-users" type="button"><span aria-hidden="true">👥</span><strong id="admin-registered-users-count">—</strong><b>Usuarios registrados</b><small>Ver todas las cuentas</small></button>
             <button class="admin-statistics-card" id="admin-open-connected-users" type="button"><span aria-hidden="true">🟢</span><strong id="admin-connected-users-count">—</strong><b>Usuarios conectados</b><small>Ver actividad actual</small></button>
+            <button class="admin-statistics-card admin-payment-card" id="admin-open-pending-payments" type="button"><span aria-hidden="true">◈</span><strong id="admin-pending-payments-count">0</strong><b>Pagos por verificar</b><small>Solicitudes sin pago confirmado</small></button>
           </div>
+        </div>
+        <div class="admin-statistics-list-view" id="admin-pending-payments-view" hidden>
+          <div class="admin-view-heading"><button class="button text admin-back-button" id="admin-pending-payments-back" type="button">← Estadísticas</button><div><p class="eyebrow">VERIFICACIÓN MANUAL</p><h3>Pagos por verificar</h3><span>Un clic en el enlace no confirma un pago. Comprueba en Wompi o Nequi el importe, estado y referencia antes de activar Pro.</span></div></div>
+          <div class="admin-payment-list" id="admin-pending-payments-list"></div>
+          <p class="empty-state" id="admin-pending-payments-empty">No hay solicitudes de pago pendientes.</p>
         </div>
         <div class="admin-statistics-list-view" id="admin-registered-users-view" hidden>
           <div class="admin-view-heading"><button class="button text admin-back-button" id="admin-registered-users-back" type="button">← Estadísticas</button><div><p class="eyebrow">CUENTAS</p><h3>Usuarios registrados</h3><span>Selecciona una cuenta para ver su información administrativa.</span></div></div>
@@ -725,18 +731,18 @@
         <p>Tu cuenta gratuita sirve para recorrer y conocer la aplicación. Para usar las funciones interactivas debes adquirir la versión Pro.</p>
         <ul><li>Crear acciones y solicitudes de regalos</li><li>Conectar un TikTok LIVE</li><li>Conectar Minecraft mediante ServerTap</li><li>Guardar y ejecutar configuraciones del LIVE</li></ul>
         <div class="pro-payment-options" role="group" aria-label="Opciones de pago">
-          <a class="pro-payment-option" href="https://checkout.nequi.wompi.co/l/XO6cz4" target="_blank" rel="noopener noreferrer" aria-label="Pago Colombia: pago único de 90.000 pesos. Abre el pago en una pestaña nueva.">
+          <button class="pro-payment-option" id="colombia-payment-button" type="button" aria-label="Pago Colombia: pago único de 90.000 pesos. Guarda una solicitud y abre Wompi para pagar.">
             <span class="pro-payment-option-icon" aria-hidden="true">CO</span>
             <span class="pro-payment-option-copy"><strong>Pago Colombia</strong><small>Pago único · $90.000 COP</small></span>
             <span class="pro-payment-option-arrow" aria-hidden="true">→</span>
-          </a>
+          </button>
           <button class="pro-payment-option" type="button" data-pro-payment-region="exterior">
             <span class="pro-payment-option-icon" aria-hidden="true">✦</span>
             <span class="pro-payment-option-copy"><strong>Pago exterior</strong><small>Próximamente</small></span>
             <span class="pro-payment-option-arrow" aria-hidden="true">→</span>
           </button>
         </div>
-        <p class="pro-payment-status" id="pro-payment-explanation">Un pago por persona, sin mensualidad ni suscripción. El pago no activa Pro automáticamente: después de pagar, envía el correo de tu cuenta TikTokraft y la referencia de la transacción a <a href="mailto:loroteca98@gmail.com?subject=Activacion%20TikTokraft%20Pro">loroteca98@gmail.com</a>. Activaremos Pro tras verificarlo.</p>
+        <p class="pro-payment-status" id="pro-payment-explanation">Debes iniciar sesión para pagar. Al pulsar Pago Colombia se registra una solicitud pendiente y se abre Wompi. El clic no confirma el pago ni activa Pro: el administrador revisará la transacción antes de darte acceso.</p>
         <p class="pro-payment-status" id="pro-payment-status" role="status" aria-live="polite" hidden></p>
         <div class="pro-upgrade-actions"><button class="button text" type="button" data-pro-upgrade-close>Seguir explorando</button></div>
       </section>
@@ -746,6 +752,6 @@
     <script src="/gift-catalog.js"></script>
     <script src="/tts.js?v=20261010-voices"></script>
     <script src="/gift-browser.js?v=20261015-live-sync-2"></script>
-    <script src="/app.js?v=20261016-colombia-auto-payment"></script>
+    <script src="/app.js?v=20261016-manual-payment-review"></script>
   </body>
 </html>

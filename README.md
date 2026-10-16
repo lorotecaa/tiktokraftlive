@@ -84,9 +84,15 @@ Todas las personas pueden crear una cuenta con email y contraseña. Las cuentas 
 
 Para habilitar la asignación de planes desde el panel, ejecuta el contenido actualizado de `supabase/roles.sql` en Supabase SQL Editor. Después, en **Administración → Roles**, asigna `PRO` al correo de la cuenta que haya adquirido el plan. Quitar ese rol devuelve la cuenta al plan Gratis.
 
+### Solicitudes de pago y revisión manual
+
+Ejecuta `supabase/manual-pro-requests.sql` en Supabase SQL Editor después de `supabase/roles.sql`. Mientras no existan llaves de integración de Wompi, **Pago Colombia** registra una solicitud ligada a la cuenta autenticada y abre el enlace de Nequi Negocios. El clic solo significa **intención de pago**: no verifica un cobro y nunca activa Pro.
+
+En **Administración → Estadísticas → Pagos por verificar** aparece una alerta roja con cada solicitud. Verifica en Wompi o Nequi que haya una transacción **aprobada por $90.000 COP** para esa persona; copia la referencia real de la transacción y pulsa **Activar Pro**. La referencia queda registrada y no puede reutilizarse para aprobar dos solicitudes. Si no hubo pago, usa **Descartar intento**. Una persona no acumula solicitudes pendientes duplicadas al pulsar varias veces.
+
 ### Activación automática con Wompi Colombia
 
-El enlace reutilizable de Nequi Negocios (`checkout.nequi.wompi.co/l/...`) no identifica de forma segura qué cuenta de TikTokraft inició el pago. Hasta configurar la integración, el botón **Pago Colombia** conserva ese enlace y la activación sigue siendo manual.
+El enlace reutilizable de Nequi Negocios (`checkout.nequi.wompi.co/l/...`) no identifica de forma segura qué cuenta de TikTokraft inició el pago. Hasta configurar la integración, el botón **Pago Colombia** sigue usando ese enlace con la revisión manual descrita arriba.
 
 Para habilitar la activación automática, primero confirma que el comercio de [Wompi](https://comercios.wompi.co/) que ofrece las llaves de integración liquida los pagos a la cuenta de destino correcta; **no supongas que comparte la configuración del enlace creado en Nequi Negocios**. En Supabase SQL Editor ejecuta `supabase/pro-payments.sql` después de `supabase/roles.sql`. En Render añade `APP_URL=https://tiktokraft.loroland.pro` y cuatro variables del mismo comercio Wompi de producción: `WOMPI_PUBLIC_KEY`, `WOMPI_INTEGRITY_SECRET`, `WOMPI_EVENTS_SECRET` y `WOMPI_PRIVATE_KEY`. Nunca compartas las llaves secretas por chat ni las incluyas en el código. En el dashboard de Wompi configura la URL de eventos `https://tiktokraft.loroland.pro/api/payments/wompi/webhook` para `transaction.updated`.
 

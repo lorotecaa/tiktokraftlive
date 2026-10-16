@@ -15,6 +15,7 @@ import { deleteRegisteredAccount, listRegisteredAccounts } from "./services/admi
 import { deleteGlobalMedia, listGlobalMedia, normalizeMediaFilename, uploadGlobalMedia } from "./services/media-catalog-store.js";
 import { automaticProPaymentsReady, fetchApprovedWompiTransaction, newProReference, proCheckoutUrl, verifiedApprovedWompiTransaction } from "./services/wompi-pro.js";
 import { completeProOrder, createProOrder, latestProOrder } from "./services/pro-payment-store.js";
+import { latestManualProRequest, listPendingManualProRequests, reviewManualProRequest, startManualProRequest } from "./services/manual-pro-request-store.js";
 
 const directory = path.dirname(fileURLToPath(import.meta.url));
 const app = express();
@@ -25,6 +26,7 @@ const port = Number(process.env.PORT || 3180);
 const host = process.env.HOST || "0.0.0.0";
 const commandRate = Number(process.env.COMMANDS_PER_SECOND || 5);
 const administratorEmail = "loroteca98@gmail.com";
+const manualColombiaPaymentUrl = "https://checkout.nequi.wompi.co/l/XO6cz4";
 app.use(express.json({ limit: "32kb" }));
 const mediaUploadBody = express.raw({ type: "*/*", limit: "200mb" });
 
@@ -153,7 +155,36 @@ app.get("/api/payments/colombia/status", protectedRoute, async (request, respons
   try {
     response.set("Cache-Control", "no-store");
     response.json({ automatic: automaticProPaymentsReady(), isPro: request.session.isPro,
-      order: automaticProPaymentsReady() ? await latestProOrder(request.session.user.id) : null });
+      order: automaticProPaymentsReady() ? await latestProOrder(request.session.user.id) : null,
+      manualRequest: await latestManualProRequest(request.session.user.id) });
+  } catch (error) { next(error); }
+});
+app.post("/api/payments/colombia/manual/start", protectedRoute, async (request, response, next) => {
+  try {
+    if (request.session.isPro) return response.status(409).json({ error: "Esta cuenta ya tiene acceso Pro." });
+    if (automaticProPaymentsReady()) return response.status(409).json({ error: "Usa el pago automático disponible para tu cuenta." });
+    const paymentRequest = await startManualProRequest(request.session.user);
+    io.to("administrators").emit("admin:payment-request:new");
+    response.set("Cache-Control", "no-store");
+    response.json({ paymentRequest, checkoutUrl: manualColombiaPaymentUrl });
+  } catch (error) { next(error); }
+});
+app.get("/api/admin/payments/pending", protectedRoute, administratorRoute, async (_request, response, next) => {
+  try { response.set("Cache-Control", "no-store"); response.json({ requests: await listPendingManualProRequests() }); }
+  catch (error) { next(error); }
+});
+app.post("/api/admin/payments/:id/review", protectedRoute, administratorRoute, async (request, response, next) => {
+  try {
+    const decision = String(request.body?.decision || "");
+    const transactionReference = String(request.body?.transactionReference || "");
+    const reviewed = await reviewManualProRequest(request.params.id, request.session.user.id, decision, transactionReference);
+    if (reviewed.status === "approved") {
+      for (const client of io.sockets.sockets.values()) {
+        if (client.data?.session?.user?.id === reviewed.userId) client.emit("account:pro-activated");
+      }
+    }
+    response.set("Cache-Control", "no-store");
+    response.json({ request: reviewed });
   } catch (error) { next(error); }
 });
 app.post("/api/payments/colombia/start", protectedRoute, async (request, response, next) => {
@@ -319,6 +350,7 @@ publicIo.on("connection", (socket) => {
 io.use(async (socket, next) => { try { const session = await identity(socket.handshake.auth?.token); socket.data.session = session; next(); } catch (error) { next(new Error(error.message)); } });
 io.on("connection", (socket) => {
   const session = socket.data.session;
+  if (session.isAdmin) socket.join("administrators");
   const w = session.workspace; socket.join(w.room()); socket.emit("state", { ...w.publicState(), account: publicAccount(session) });
   socket.on("settings:save", (input, done) => proAcknowledge(done, session, () => w.save(sanitizeConfig({ ...w.config, tiktokUsername: input.tiktokUsername ?? w.config.tiktokUsername, eulerStreamApiKey: input.eulerStreamApiKey || w.config.eulerStreamApiKey, serverTap: { ...w.config.serverTap, url: serverTapUrl(input, w.config.serverTap.url), key: input.serverTapKey || w.config.serverTap.key } })), w));
   socket.on("tts:save", (input, done) => proAcknowledge(done, session, async () => { await w.save({ ...w.config, tts: { ...w.config.tts, ...input } }); return w.config.tts; }, w));

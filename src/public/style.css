@@ -159,6 +159,24 @@ main { width:min(1180px,calc(100% - 44px)); margin:auto; padding-bottom:70px; }.
 .pro-upgrade-dialog .pro-payment-status[hidden]{display:none}.pro-payment-status a{color:#89c0ff;text-decoration:underline;text-underline-offset:2px}
 @media(max-width:520px){.pro-payment-options{grid-template-columns:1fr}.pro-payment-option{min-height:66px}}
 @media(prefers-reduced-motion:reduce){.pro-payment-option{transition:none}.pro-payment-option:hover{transform:none}}
+
+.admin-menu-card{position:relative}
+.admin-menu-alert{position:absolute;right:8px;top:8px;padding:4px 7px;border:1px solid #f26e80;border-radius:999px;background:#4d1727;color:#ffdbe0;font:700 10px "DM Mono",monospace}
+.admin-menu-alert[hidden]{display:none}
+.admin-payment-card{grid-column:1/-1;border-color:rgba(242,110,128,.48)}
+.admin-payment-card.has-pending{border-color:#f26e80;background:linear-gradient(120deg,#361d2c,#17253b)}
+.admin-payment-card.has-pending strong,.admin-payment-card.has-pending>span{color:#ff8492}
+.admin-payment-list{display:grid;gap:10px;max-height:440px;overflow:auto;margin-top:18px}
+.admin-payment-row{display:grid;gap:9px;padding:14px;border:1px solid rgba(242,110,128,.40);border-radius:8px;background:#111c2b}
+.admin-payment-row-heading{display:flex;align-items:center;justify-content:space-between;gap:10px;flex-wrap:wrap}
+.admin-payment-row-heading strong{overflow-wrap:anywhere;font-size:13px}
+.admin-payment-row-heading b{padding:4px 7px;border:1px solid #f26e80;border-radius:4px;background:#471827;color:#ffdbe0;font:700 9px "DM Mono",monospace}
+.admin-payment-row>small{color:#9fb4cf;font:10px "DM Mono",monospace}
+.admin-payment-row label{display:grid;gap:6px;color:#dce6f5;font-size:11px}
+.admin-payment-row input{width:100%;min-height:34px;padding:7px 9px;border:1px solid #354866;border-radius:4px;background:#0b1523;color:#f2f7ff;font:11px "DM Mono",monospace}
+.admin-payment-row input:focus{border-color:#6aabff;outline:0}
+.admin-payment-actions{display:flex;gap:8px;flex-wrap:wrap}
+.admin-payment-actions .button:disabled{opacity:.5;cursor:not-allowed}
 body.is-free-plan [data-pro-state]{opacity:.7}
 .pro-locked-control{position:relative;filter:saturate(.45)}.pro-locked-control::after{content:"PRO";display:inline-flex;margin-left:7px;padding:2px 4px;border:1px solid currentColor;border-radius:2px;font:700 7px "DM Mono",monospace;letter-spacing:.05em;vertical-align:middle}
 @media(max-width:720px){.pro-access-banner{grid-template-columns:1fr;gap:10px}.pro-access-badge{justify-self:start}.pro-access-banner .button{justify-self:start}.pro-upgrade-dialog{padding:26px 20px}.pro-upgrade-actions{display:grid}.pro-upgrade-actions .button{width:100%}}
