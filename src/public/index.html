@@ -724,7 +724,20 @@
         <h2 id="pro-upgrade-title">Desbloquea tu LIVE interactivo</h2>
         <p>Tu cuenta gratuita sirve para recorrer y conocer la aplicación. Para usar las funciones interactivas debes adquirir la versión Pro.</p>
         <ul><li>Crear acciones y solicitudes de regalos</li><li>Conectar un TikTok LIVE</li><li>Conectar Minecraft mediante ServerTap</li><li>Guardar y ejecutar configuraciones del LIVE</li></ul>
-        <div class="pro-upgrade-actions"><a class="button primary" href="mailto:loroteca98@gmail.com?subject=Quiero%20TikTokraft%20Pro">Quiero TikTokraft Pro</a><button class="button text" type="button" data-pro-upgrade-close>Seguir explorando</button></div>
+        <div class="pro-payment-options" role="group" aria-label="Opciones de pago">
+          <button class="pro-payment-option" type="button" data-pro-payment-region="colombia" aria-pressed="false">
+            <span class="pro-payment-option-icon" aria-hidden="true">CO</span>
+            <span class="pro-payment-option-copy"><strong>Pago Colombia</strong><small>Próximamente</small></span>
+            <span class="pro-payment-option-arrow" aria-hidden="true">→</span>
+          </button>
+          <button class="pro-payment-option" type="button" data-pro-payment-region="exterior" aria-pressed="false">
+            <span class="pro-payment-option-icon" aria-hidden="true">✦</span>
+            <span class="pro-payment-option-copy"><strong>Pago exterior</strong><small>Próximamente</small></span>
+            <span class="pro-payment-option-arrow" aria-hidden="true">→</span>
+          </button>
+        </div>
+        <p class="pro-payment-status" id="pro-payment-status" role="status" aria-live="polite">Los enlaces de pago se agregarán más adelante. Por ahora no se realiza ningún cobro.</p>
+        <div class="pro-upgrade-actions"><button class="button text" type="button" data-pro-upgrade-close>Seguir explorando</button></div>
       </section>
     </div>
     <script src="/auth.js?v=20261016-password-recovery"></script>
@@ -732,6 +745,6 @@
     <script src="/gift-catalog.js"></script>
     <script src="/tts.js?v=20261010-voices"></script>
     <script src="/gift-browser.js?v=20261015-live-sync-2"></script>
-    <script src="/app.js?v=20261016-email-authorization"></script>
+    <script src="/app.js?v=20261016-pro-payment-choices"></script>
   </body>
 </html>

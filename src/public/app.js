@@ -76,6 +76,16 @@ elements.logout?.addEventListener("click", () => {
 });
 elements.proAccessDetails?.addEventListener("click", openProUpgrade);
 elements.proUpgradeModal?.querySelectorAll("[data-pro-upgrade-close]").forEach((button) => button.addEventListener("click", closeProUpgrade));
+elements.proUpgradeModal?.querySelectorAll("[data-pro-payment-region]").forEach((button) => button.addEventListener("click", () => {
+  elements.proUpgradeModal.querySelectorAll("[data-pro-payment-region]").forEach((option) => {
+    const selected = option === button;
+    option.classList.toggle("is-selected", selected);
+    option.setAttribute("aria-pressed", String(selected));
+  });
+  const region = button.dataset.proPaymentRegion === "colombia" ? "Colombia" : "exterior";
+  const status = elements.proUpgradeModal.querySelector("#pro-payment-status");
+  if (status) status.textContent = `El pago ${region} todavía no está habilitado. No se ha realizado ningún cobro.`;
+}));
 elements.profileButton?.addEventListener("click", openProfileModal);
 elements.profileModal?.querySelectorAll("[data-profile-modal-close]").forEach((button) => button.addEventListener("click", closeProfileModal));
 elements.adminPanelButton?.addEventListener("click", openAdminPanel);
