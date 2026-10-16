@@ -9,7 +9,7 @@
     <link rel="preconnect" href="https://fonts.googleapis.com" />
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
     <link href="https://fonts.googleapis.com/css2?family=DM+Mono:wght@400;500&family=Press+Start+2P&family=Space+Grotesk:wght@400;500;600;700&display=swap" rel="stylesheet" />
-    <link rel="stylesheet" href="/style.css?v=20261016-pro-payment-choices" />
+    <link rel="stylesheet" href="/style.css?v=20261016-colombia-payment-link" />
     <link rel="stylesheet" href="/dashboard.css?v=20261014-scene-motion" />
     <link rel="stylesheet" href="/action-presets.css?v=20261014-preset-cards" />
     <link rel="stylesheet" href="/workspace-launcher.css?v=20261014-gift-browser" />
@@ -725,18 +725,19 @@
         <p>Tu cuenta gratuita sirve para recorrer y conocer la aplicación. Para usar las funciones interactivas debes adquirir la versión Pro.</p>
         <ul><li>Crear acciones y solicitudes de regalos</li><li>Conectar un TikTok LIVE</li><li>Conectar Minecraft mediante ServerTap</li><li>Guardar y ejecutar configuraciones del LIVE</li></ul>
         <div class="pro-payment-options" role="group" aria-label="Opciones de pago">
-          <button class="pro-payment-option" type="button" data-pro-payment-region="colombia" aria-pressed="false">
+          <a class="pro-payment-option" href="https://checkout.nequi.wompi.co/l/XO6cz4" target="_blank" rel="noopener noreferrer" aria-label="Pago Colombia: pago único de 90.000 pesos. Abre el pago en una pestaña nueva.">
             <span class="pro-payment-option-icon" aria-hidden="true">CO</span>
-            <span class="pro-payment-option-copy"><strong>Pago Colombia</strong><small>Próximamente</small></span>
+            <span class="pro-payment-option-copy"><strong>Pago Colombia</strong><small>Pago único · $90.000 COP</small></span>
             <span class="pro-payment-option-arrow" aria-hidden="true">→</span>
-          </button>
-          <button class="pro-payment-option" type="button" data-pro-payment-region="exterior" aria-pressed="false">
+          </a>
+          <button class="pro-payment-option" type="button" data-pro-payment-region="exterior">
             <span class="pro-payment-option-icon" aria-hidden="true">✦</span>
             <span class="pro-payment-option-copy"><strong>Pago exterior</strong><small>Próximamente</small></span>
             <span class="pro-payment-option-arrow" aria-hidden="true">→</span>
           </button>
         </div>
-        <p class="pro-payment-status" id="pro-payment-status" role="status" aria-live="polite">Los enlaces de pago se agregarán más adelante. Por ahora no se realiza ningún cobro.</p>
+        <p class="pro-payment-status">Un pago por persona, sin mensualidad ni suscripción. El pago no activa Pro automáticamente: después de pagar, envía el correo de tu cuenta TikTokraft y la referencia de la transacción a <a href="mailto:loroteca98@gmail.com?subject=Activacion%20TikTokraft%20Pro">loroteca98@gmail.com</a>. Activaremos Pro tras verificarlo.</p>
+        <p class="pro-payment-status" id="pro-payment-status" role="status" aria-live="polite" hidden></p>
         <div class="pro-upgrade-actions"><button class="button text" type="button" data-pro-upgrade-close>Seguir explorando</button></div>
       </section>
     </div>
@@ -745,6 +746,6 @@
     <script src="/gift-catalog.js"></script>
     <script src="/tts.js?v=20261010-voices"></script>
     <script src="/gift-browser.js?v=20261015-live-sync-2"></script>
-    <script src="/app.js?v=20261016-pro-payment-choices"></script>
+    <script src="/app.js?v=20261016-colombia-payment-link"></script>
   </body>
 </html>

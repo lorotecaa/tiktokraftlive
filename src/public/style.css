@@ -150,11 +150,13 @@ main { width:min(1180px,calc(100% - 44px)); margin:auto; padding-bottom:70px; }.
 .pro-upgrade-dialog{max-height:calc(100vh - 40px);max-height:calc(100dvh - 40px);overflow-y:auto}
 .pro-payment-options{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:10px;margin-top:24px}
 .pro-payment-option{display:flex;align-items:center;gap:12px;min-width:0;min-height:78px;padding:12px;border:1px solid rgba(111,170,245,.36);border-radius:10px;background:linear-gradient(135deg,rgba(29,53,85,.85),rgba(15,27,44,.96));color:#f2f7ff;text-align:left;font:inherit;cursor:pointer;transition:border-color .15s ease,background .15s ease,transform .15s ease}
+.pro-payment-option[href]{text-decoration:none}
 .pro-payment-option:hover,.pro-payment-option:focus-visible,.pro-payment-option.is-selected{border-color:#6aabff;background:linear-gradient(135deg,rgba(43,85,133,.95),rgba(17,39,68,.98));outline:0}
 .pro-payment-option:hover{transform:translateY(-2px)}
 .pro-payment-option-icon{display:grid;flex:none;place-items:center;width:42px;height:42px;border:1px solid rgba(111,170,245,.35);border-radius:9px;background:rgba(74,159,255,.15);color:#89c0ff;font:700 14px "DM Mono",monospace}
 .pro-payment-option-copy{display:grid;gap:4px;min-width:0}.pro-payment-option-copy strong{font-size:13px;line-height:1.15}.pro-payment-option-copy small{color:#9fb4cf;font-size:11px}.pro-payment-option-arrow{margin-left:auto;color:#89c0ff;font-size:19px}
 .pro-upgrade-dialog .pro-payment-status{margin-top:12px;color:#9fb4cf;font-size:12px}.pro-upgrade-dialog .pro-upgrade-actions{margin-top:12px}
+.pro-upgrade-dialog .pro-payment-status[hidden]{display:none}.pro-payment-status a{color:#89c0ff;text-decoration:underline;text-underline-offset:2px}
 @media(max-width:520px){.pro-payment-options{grid-template-columns:1fr}.pro-payment-option{min-height:66px}}
 @media(prefers-reduced-motion:reduce){.pro-payment-option{transition:none}.pro-payment-option:hover{transform:none}}
 body.is-free-plan [data-pro-state]{opacity:.7}
