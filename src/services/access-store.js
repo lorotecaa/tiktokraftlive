@@ -19,7 +19,7 @@ export function normalizeAccountEmail(value) {
 
 export function normalizeAccountRole(value) {
   const role = String(value || "").trim().toLocaleLowerCase();
-  if (role !== "administrator") throw new Error("El rol seleccionado no es válido.");
+  if (!["administrator", "pro"].includes(role)) throw new Error("El rol seleccionado no es válido.");
   return role;
 }
 
@@ -47,6 +47,20 @@ async function request(path, options = {}) {
     throw error;
   }
   return response;
+}
+
+async function registeredAccountByEmail(email) {
+  const response = await fetch(`${url}/auth/v1/admin/users?page=1&per_page=1000`, {
+    headers: { apikey: key, Authorization: `Bearer ${key}` }
+  });
+  if (!response.ok) {
+    const detail = await response.text();
+    throw new Error(`Supabase no pudo consultar la cuenta (${response.status})${detail ? `: ${detail}` : ""}`);
+  }
+  const data = await response.json();
+  const user = (Array.isArray(data) ? data : data?.users || []).find((entry) => normalizeAccountEmail(entry?.email) === email);
+  if (!user?.id) throw new Error("No existe una cuenta registrada con ese correo.");
+  return user;
 }
 
 export async function listAuthorizedTikTokUsers() {
@@ -104,14 +118,15 @@ export async function assignAccountRole(email, role, assignedBy) {
   const normalizedEmail = normalizeAccountEmail(email);
   const normalizedRole = normalizeAccountRole(role);
   if (!normalizedEmail || !normalizedEmail.includes("@")) throw new Error("Escribe un correo válido.");
-  const response = await request("rpc/tiktokraft_assign_account_role", {
+  const targetUser = await registeredAccountByEmail(normalizedEmail);
+  const response = await request("tiktokraft_account_roles?on_conflict=user_id", {
     method: "POST",
-    headers: headers({ "Content-Type": "application/json", "Content-Profile": "public" }),
-    body: JSON.stringify({ p_email: normalizedEmail, p_role: normalizedRole, p_assigned_by: assignedBy })
+    headers: headers({ "Content-Type": "application/json", "Content-Profile": "public", Prefer: "resolution=merge-duplicates,return=representation,missing=default" }),
+    body: JSON.stringify({ user_id: targetUser.id, role: normalizedRole, assigned_by: assignedBy, updated_at: new Date().toISOString() })
   });
   const [row] = await response.json();
   if (!row) throw new Error("No se pudo guardar el rol.");
-  return normalizeAccountRoleRow(row);
+  return normalizeAccountRoleRow({ ...row, email: normalizedEmail });
 }
 
 export async function removeAccountRole(email) {

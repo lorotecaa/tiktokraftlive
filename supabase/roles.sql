@@ -1,4 +1,4 @@
--- Roles administrativos de TikTokraft Live.
+-- Planes Pro y roles administrativos de TikTokraft Live.
 -- Ejecutar una sola vez en Supabase SQL Editor, después de admin.sql.
 
 create table if not exists public.tiktokraft_account_roles (
@@ -55,7 +55,7 @@ begin
   if nullif(trim(p_email), '') is null then
     raise exception 'El correo es obligatorio.';
   end if;
-  if lower(trim(p_role)) <> 'administrator' then
+  if lower(trim(p_role)) not in ('administrator', 'pro') then
     raise exception 'El rol seleccionado no es válido.';
   end if;
 

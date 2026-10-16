@@ -56,6 +56,7 @@ const elements = {
   minecraftDetail: $("#minecraft-detail"), minecraftDot: $("#minecraft-dot"),
   tiktokDetail: $("#tiktok-detail"), tiktokDot: $("#tiktok-dot"),
   globalStatus: $("#global-status"), adminPanelButton: $("#admin-panel-button"), profileButton: $("#profile-button"), logout: $("#logout-button"),
+  proAccessBanner: $("#pro-access-banner"), proAccessDetails: $("#pro-access-details"), proUpgradeModal: $("#pro-upgrade-modal"),
   adminModal: $("#admin-modal"), adminMenuView: $("#admin-menu-view"), adminAuthorizationView: $("#admin-authorization-view"), adminRolesView: $("#admin-roles-view"), adminStatisticsView: $("#admin-statistics-view"), adminRegisteredUsersView: $("#admin-registered-users-view"), adminConnectedUsersView: $("#admin-connected-users-view"), adminUserProfileView: $("#admin-user-profile-view"), adminOpenAuthorization: $("#admin-open-authorization"), adminOpenRoles: $("#admin-open-roles"), adminOpenStatistics: $("#admin-open-statistics"), adminBackMenu: $("#admin-back-menu"), adminRolesBackMenu: $("#admin-roles-back-menu"), adminStatisticsBackMenu: $("#admin-statistics-back-menu"), adminOpenRegisteredUsers: $("#admin-open-registered-users"), adminOpenConnectedUsers: $("#admin-open-connected-users"), adminRegisteredUsersBack: $("#admin-registered-users-back"), adminConnectedUsersBack: $("#admin-connected-users-back"), adminRegisteredUsersSearch: $("#admin-registered-users-search"), adminRegisteredUsersList: $("#admin-registered-users-list"), adminRegisteredUsersEmpty: $("#admin-registered-users-empty"), adminConnectedUsersList: $("#admin-connected-users-list"), adminConnectedUsersEmpty: $("#admin-connected-users-empty"), adminRegisteredUsersCount: $("#admin-registered-users-count"), adminConnectedUsersCount: $("#admin-connected-users-count"), adminUserProfileBack: $("#admin-user-profile-back"), adminUserProfileTitle: $("#admin-user-profile-title"), adminUserProfileData: $("#admin-user-profile-data"), adminAuthorizedForm: $("#admin-authorized-form"), adminAuthorizedUsername: $("#admin-authorized-username"), adminAuthorizedSearch: $("#admin-authorized-search"), adminAuthorizedList: $("#admin-authorized-list"), adminAuthorizedEmpty: $("#admin-authorized-empty"), adminRolesForm: $("#admin-roles-form"), adminRoleEmail: $("#admin-role-email"), adminRoleSelect: $("#admin-role-select"), adminRolesSearch: $("#admin-roles-search"), adminRolesList: $("#admin-roles-list"), adminRolesEmpty: $("#admin-roles-empty"),
   adminMediaView: $("#admin-media-view"), adminOpenMedia: $("#admin-open-media"), adminMediaBackMenu: $("#admin-media-back-menu"), adminVideoUploadForm: $("#admin-video-upload-form"), adminVideoFile: $("#admin-video-file"), adminVideoUploadStatus: $("#admin-video-upload-status"), adminVideoList: $("#admin-video-list"), adminVideoEmpty: $("#admin-video-empty"), adminSoundUploadForm: $("#admin-sound-upload-form"), adminSoundFile: $("#admin-sound-file"), adminSoundUploadStatus: $("#admin-sound-upload-status"), adminSoundList: $("#admin-sound-list"), adminSoundEmpty: $("#admin-sound-empty"),
   profileModal: $("#profile-modal"), profileForm: $("#profile-form"), profileAvatar: $("#profile-avatar"), profileAvatarEmpty: $("#profile-avatar-empty"), profileAvatarInput: $("#profile-avatar-input"), profileEmail: $("#profile-email"), profilePassword: $("#profile-password"), profilePasswordConfirm: $("#profile-password-confirm"), profileMessage: $("#profile-message"),
@@ -73,6 +74,8 @@ elements.logout?.addEventListener("click", () => {
   socket.disconnect();
   location.reload();
 });
+elements.proAccessDetails?.addEventListener("click", openProUpgrade);
+elements.proUpgradeModal?.querySelectorAll("[data-pro-upgrade-close]").forEach((button) => button.addEventListener("click", closeProUpgrade));
 elements.profileButton?.addEventListener("click", openProfileModal);
 elements.profileModal?.querySelectorAll("[data-profile-modal-close]").forEach((button) => button.addEventListener("click", closeProfileModal));
 elements.adminPanelButton?.addEventListener("click", openAdminPanel);
@@ -123,7 +126,7 @@ elements.adminRolesForm?.addEventListener("submit", async (event) => {
     else accountRoles.push(saved);
     elements.adminRoleEmail.value = "";
     renderAccountRoles();
-    toast(`${saved.email} ahora tiene el rol ADMINISTRADOR.`, "success");
+    toast(`${saved.email} ahora tiene acceso ${saved.role === "administrator" ? "de ADMINISTRADOR" : "PRO"}.`, "success");
   } catch (error) { toast(error.message, "error"); } finally { submit.disabled = false; }
 });
 elements.adminVideoUploadForm?.addEventListener("submit", (event) => uploadAdminMedia(event, "videos"));
@@ -225,7 +228,54 @@ const defaultCustomization = {
   titleTextEffect: "none", titleWaveAnimation: false, usernameTextEffect: "none", usernameWaveAnimation: false, coinsAlias: "coins", itemLimit: 10
 };
 
+const proOnlyClickSelector = [
+  "#minecraft-connect", "#minecraft-disconnect", "#tiktok-connect", "#tiktok-disconnect",
+  "#settings-form button", "#tts-settings-form button", "#allowed-users-form button",
+  "#mapping-form button", "#simulate-form button", ".goal-form button[type=submit]",
+  "#timer-panel button:not(#timer-overlay-copy):not(#timer-overlay-preview-button):not(.overlay-customize)",
+  "#gift-overlays-form button", "#gift-overlays-reset-now", "#user-points-add",
+  ".overlay-customize", ".mapping-list button[data-action]", ".mapping-audio-select"
+].join(",");
+
+function openProUpgrade() {
+  if (!elements.proUpgradeModal) return;
+  elements.proUpgradeModal.hidden = false;
+  document.body.classList.add("modal-open");
+  elements.proUpgradeModal.querySelector("[data-pro-upgrade-close]")?.focus();
+}
+
+function closeProUpgrade() {
+  if (!elements.proUpgradeModal) return;
+  elements.proUpgradeModal.hidden = true;
+  document.body.classList.remove("modal-open");
+}
+
+function renderAccountAccess() {
+  const isFree = Boolean(appState?.account) && !appState.account.isPro;
+  document.body.classList.toggle("is-free-plan", isFree);
+  if (elements.proAccessBanner) elements.proAccessBanner.hidden = !isFree;
+  document.querySelectorAll(proOnlyClickSelector).forEach((control) => {
+    control.classList.toggle("pro-locked-control", isFree);
+    control.toggleAttribute("data-pro-state", isFree);
+    if (isFree) control.setAttribute("aria-description", "Requiere TikTokraft Pro");
+    else control.removeAttribute("aria-description");
+  });
+}
+
+document.addEventListener("click", (event) => {
+  if (appState?.account?.isPro || !appState?.account) return;
+  const control = event.target.closest?.(proOnlyClickSelector);
+  if (!control) return;
+  event.preventDefault();
+  event.stopImmediatePropagation();
+  openProUpgrade();
+}, true);
+
 function request(event, payload) {
+  if (appState?.account && !appState.account.isPro && event !== "profile:save") {
+    openProUpgrade();
+    return Promise.reject(new Error("Esta función requiere TikTokraft Pro. Tu cuenta gratuita es de solo lectura."));
+  }
   return new Promise((resolve, reject) => {
     socket.emit(event, payload, (result) => result?.ok ? resolve(result.data) : reject(new Error(result?.error || "No se pudo completar la acción.")));
   });
@@ -486,7 +536,7 @@ function renderAccountRoles() {
     role.className = "admin-role-badge";
     role.textContent = entry.role === "administrator" ? "ADMINISTRADOR" : String(entry.role || "USUARIO").toUpperCase();
     const permissions = document.createElement("small");
-    permissions.textContent = entry.role === "administrator" ? "Gestiona autorización, roles, estadísticas y multimedia." : "Usuario normal.";
+    permissions.textContent = entry.role === "administrator" ? "Gestiona autorización, roles, estadísticas y multimedia." : entry.role === "pro" ? "Puede crear acciones, solicitudes y conectar TikTok LIVE y ServerTap." : "Cuenta gratuita de solo lectura.";
     details.append(email, role, permissions);
     row.append(details);
     if (entry.email === "loroteca98@gmail.com") {
@@ -500,7 +550,8 @@ function renderAccountRoles() {
       remove.type = "button";
       remove.textContent = "Quitar rol";
       remove.addEventListener("click", async () => {
-        if (!window.confirm(`¿Quitar el rol de ADMINISTRADOR a ${entry.email}? Esta cuenta volverá a ser un usuario normal.`)) return;
+        const accessName = entry.role === "administrator" ? "ADMINISTRADOR" : "PRO";
+        if (!window.confirm(`¿Quitar el acceso ${accessName} a ${entry.email}? Esta cuenta volverá al plan gratis de solo lectura.`)) return;
         remove.disabled = true;
         try {
           await request("admin:roles:remove", { email: entry.email });
@@ -755,6 +806,7 @@ function renderState(next) {
   renderGoals(config.goals || []);
   renderGiftHistory(next.giftHistory || []);
   if (!hiddenActivity) renderActivity(next.activity || []);
+  renderAccountAccess();
 }
 
 function numberFormat(value) {

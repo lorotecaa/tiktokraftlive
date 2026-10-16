@@ -91,9 +91,16 @@ async function workspaceFor(id) {
   } catch (error) { workspaces.delete(id); throw error; }
 }
 function isPrimaryAdministrator(user) { return normalizeAccountEmail(user?.email) === administratorEmail; }
-async function accountRole(user) { return isPrimaryAdministrator(user) ? "administrator" : await getAccountRole(user?.id); }
+async function accountRole(user) { return isPrimaryAdministrator(user) ? "administrator" : (await getAccountRole(user?.id) || "free"); }
 async function requireAdministrator(session) { if (!session?.user || (await accountRole(session.user)) !== "administrator") throw new Error("No tienes permiso para acceder al Panel de Administración."); }
-async function identity(token) { const user = await userFromAccessToken(token); const role = await accountRole(user); return { user, role, isAdmin: role === "administrator", workspace: await workspaceFor(user.id) }; }
+function requirePro(session) { if (!session?.isPro) throw new Error("Esta función requiere TikTokraft Pro. Tu cuenta gratuita es de solo lectura."); }
+function publicAccount(session) { return { email: session.user.email, role: session.role, plan: session.isAdmin ? "administrator" : session.isPro ? "pro" : "free", isAdmin: session.isAdmin, isPro: session.isPro }; }
+async function identity(token) {
+  const user = await userFromAccessToken(token);
+  const role = await accountRole(user);
+  const isAdmin = role === "administrator";
+  return { user, role, isAdmin, isPro: isAdmin || role === "pro", workspace: await workspaceFor(user.id) };
+}
 async function activeWorkspaceStates() {
   const panelConnections = new Map();
   for (const socket of io.sockets.sockets.values()) {
@@ -132,12 +139,13 @@ function serverTapUrl(input, current) { if (input.serverTapHost === undefined) r
 async function protectedRoute(request, response, next) { try { request.session = await identity(tokenFrom(request)); next(); } catch (error) { response.status(401).json({ error: error.message }); } }
 async function administratorRoute(request, response, next) { try { await requireAdministrator(request.session); next(); } catch (error) { response.status(403).json({ error: error.message }); } }
 function acknowledge(done, action, workspace) { Promise.resolve().then(action).then((data) => done?.({ ok: true, data })).catch((error) => { workspace.error(error.message); done?.({ ok: false, error: error.message }); }); }
+function proAcknowledge(done, session, action, workspace) { acknowledge(done, () => { requirePro(session); return action(); }, workspace); }
 
 app.post("/api/auth/signup", async (request, response, next) => { try { response.json(await signUp(String(request.body?.email || "").trim(), String(request.body?.password || ""))); } catch (error) { next(error); } });
 app.post("/api/auth/signin", async (request, response, next) => { try { response.json(await signIn(String(request.body?.email || "").trim(), String(request.body?.password || ""))); } catch (error) { next(error); } });
 app.post("/api/auth/refresh", async (request, response, next) => { try { response.json(await refreshSession(String(request.body?.refresh_token || ""))); } catch (error) { next(error); } });
 app.get("/api/health", (_request, response) => response.json({ ok: true, authConfigured }));
-app.get("/api/state", protectedRoute, (request, response) => response.json({ ...request.session.workspace.publicState(), account: { email: request.session.user.email, isAdmin: request.session.isAdmin } }));
+app.get("/api/state", protectedRoute, (request, response) => response.json({ ...request.session.workspace.publicState(), account: publicAccount(request.session) }));
 app.post("/api/auth/password", protectedRoute, async (request, response, next) => { try { await changePassword(tokenFrom(request), String(request.body?.password || "")); response.json({ ok: true }); } catch (error) { next(error); } });
 app.get("/api/sounds", protectedRoute, async (_request, response, next) => {
   try {
@@ -279,33 +287,33 @@ publicIo.on("connection", (socket) => {
 io.use(async (socket, next) => { try { const session = await identity(socket.handshake.auth?.token); socket.data.session = session; next(); } catch (error) { next(new Error(error.message)); } });
 io.on("connection", (socket) => {
   const session = socket.data.session;
-  const w = session.workspace; socket.join(w.room()); socket.emit("state", { ...w.publicState(), account: { email: session.user.email, isAdmin: session.isAdmin } });
-  socket.on("settings:save", (input, done) => acknowledge(done, () => w.save(sanitizeConfig({ ...w.config, tiktokUsername: input.tiktokUsername ?? w.config.tiktokUsername, eulerStreamApiKey: input.eulerStreamApiKey || w.config.eulerStreamApiKey, serverTap: { ...w.config.serverTap, url: serverTapUrl(input, w.config.serverTap.url), key: input.serverTapKey || w.config.serverTap.key } })), w));
-  socket.on("tts:save", (input, done) => acknowledge(done, async () => { await w.save({ ...w.config, tts: { ...w.config.tts, ...input } }); return w.config.tts; }, w));
+  const w = session.workspace; socket.join(w.room()); socket.emit("state", { ...w.publicState(), account: publicAccount(session) });
+  socket.on("settings:save", (input, done) => proAcknowledge(done, session, () => w.save(sanitizeConfig({ ...w.config, tiktokUsername: input.tiktokUsername ?? w.config.tiktokUsername, eulerStreamApiKey: input.eulerStreamApiKey || w.config.eulerStreamApiKey, serverTap: { ...w.config.serverTap, url: serverTapUrl(input, w.config.serverTap.url), key: input.serverTapKey || w.config.serverTap.key } })), w));
+  socket.on("tts:save", (input, done) => proAcknowledge(done, session, async () => { await w.save({ ...w.config, tts: { ...w.config.tts, ...input } }); return w.config.tts; }, w));
   socket.on("profile:save", (input, done) => acknowledge(done, async () => { const profile = sanitizeConfig({ profile: input }).profile; await w.save({ ...w.config, profile }); return profile; }, w));
-  socket.on("user-points:transaction", (input, done) => acknowledge(done, async () => { const entry = await w.pointsEngine.addTransaction(input); w.activity({ type: "user-points", message: `Transacción manual: ${entry.nickname || entry.username}` }); return entry; }, w));
-  socket.on("user-points:delete", (username, done) => acknowledge(done, async () => { const deleted = await w.pointsEngine.delete(username); w.activity({ type: "user-points", message: `Usuario eliminado: ${deleted.username}` }); return deleted; }, w));
-  socket.on("gift-overlays:save", (input, done) => acknowledge(done, async () => { await w.save({ ...w.config, giftOverlays: { ...w.config.giftOverlays, resetOnNewLive: input?.resetOnNewLive === true } }); return w.config.giftOverlays; }, w));
-  socket.on("gift-overlays:reset", (_input, done) => acknowledge(done, async () => { w.giftEngine.reset(); await w.saveNow(); return w.config.giftOverlays; }, w));
-  socket.on("overlay-customization:save", (input, done) => acknowledge(done, async () => { const key = String(input?.key || ""); const customization = sanitizeConfig({ overlayCustomizations: { [key]: input?.customization } }).overlayCustomizations[key]; if (!customization) throw new Error("Overlay inválido."); await w.save({ ...w.config, overlayCustomizations: { ...w.config.overlayCustomizations, [key]: customization } }); w.emit("overlay-customization:update", { key, customization }); if (key === "timer:main") w.emitTimer(); return { key, customization }; }, w));
-  socket.on("goal:save", (input, done) => acknowledge(done, () => w.saveGoal(input), w));
+  socket.on("user-points:transaction", (input, done) => proAcknowledge(done, session, async () => { const entry = await w.pointsEngine.addTransaction(input); w.activity({ type: "user-points", message: `Transacción manual: ${entry.nickname || entry.username}` }); return entry; }, w));
+  socket.on("user-points:delete", (username, done) => proAcknowledge(done, session, async () => { const deleted = await w.pointsEngine.delete(username); w.activity({ type: "user-points", message: `Usuario eliminado: ${deleted.username}` }); return deleted; }, w));
+  socket.on("gift-overlays:save", (input, done) => proAcknowledge(done, session, async () => { await w.save({ ...w.config, giftOverlays: { ...w.config.giftOverlays, resetOnNewLive: input?.resetOnNewLive === true } }); return w.config.giftOverlays; }, w));
+  socket.on("gift-overlays:reset", (_input, done) => proAcknowledge(done, session, async () => { w.giftEngine.reset(); await w.saveNow(); return w.config.giftOverlays; }, w));
+  socket.on("overlay-customization:save", (input, done) => proAcknowledge(done, session, async () => { const key = String(input?.key || ""); const customization = sanitizeConfig({ overlayCustomizations: { [key]: input?.customization } }).overlayCustomizations[key]; if (!customization) throw new Error("Overlay inválido."); await w.save({ ...w.config, overlayCustomizations: { ...w.config.overlayCustomizations, [key]: customization } }); w.emit("overlay-customization:update", { key, customization }); if (key === "timer:main") w.emitTimer(); return { key, customization }; }, w));
+  socket.on("goal:save", (input, done) => proAcknowledge(done, session, () => w.saveGoal(input), w));
   socket.on("timer:sync", (_input, done) => acknowledge(done, () => w.timerState(), w));
-  socket.on("timer:settings:save", (input, done) => acknowledge(done, () => w.saveTimerSettings(input), w));
-  socket.on("timer:start", (_input, done) => acknowledge(done, () => w.timerEngine.start(), w));
-  socket.on("timer:pause", (_input, done) => acknowledge(done, () => w.timerEngine.pause(), w));
-  socket.on("timer:reset", (_input, done) => acknowledge(done, () => w.timerEngine.reset(), w));
-  socket.on("timer:set", (input, done) => acknowledge(done, () => w.timerEngine.setMinutes(input?.minutes), w));
-  socket.on("timer:adjust", (input, done) => acknowledge(done, () => w.timerEngine.adjustMinutes(input?.minutes, { immediate: true }), w));
-  socket.on("minecraft:connect", (_input, done) => acknowledge(done, () => w.serverTap.connect(w.config.serverTap), w));
-  socket.on("minecraft:disconnect", (_input, done) => acknowledge(done, () => w.serverTap.disconnect(), w));
-  socket.on("tiktok:connect", (_input, done) => acknowledge(done, async () => {
+  socket.on("timer:settings:save", (input, done) => proAcknowledge(done, session, () => w.saveTimerSettings(input), w));
+  socket.on("timer:start", (_input, done) => proAcknowledge(done, session, () => w.timerEngine.start(), w));
+  socket.on("timer:pause", (_input, done) => proAcknowledge(done, session, () => w.timerEngine.pause(), w));
+  socket.on("timer:reset", (_input, done) => proAcknowledge(done, session, () => w.timerEngine.reset(), w));
+  socket.on("timer:set", (input, done) => proAcknowledge(done, session, () => w.timerEngine.setMinutes(input?.minutes), w));
+  socket.on("timer:adjust", (input, done) => proAcknowledge(done, session, () => w.timerEngine.adjustMinutes(input?.minutes, { immediate: true }), w));
+  socket.on("minecraft:connect", (_input, done) => proAcknowledge(done, session, () => w.serverTap.connect(w.config.serverTap), w));
+  socket.on("minecraft:disconnect", (_input, done) => proAcknowledge(done, session, () => w.serverTap.disconnect(), w));
+  socket.on("tiktok:connect", (_input, done) => proAcknowledge(done, session, async () => {
     if (!(await isTikTokUsernameAuthorized(w.config.tiktokUsername))) {
       throw new Error("🔒 Tu cuenta aún no tiene acceso a TikTokraft Live.\nContacta al administrador.");
     }
     return w.connectTikTok();
   }, w));
-  socket.on("tiktok:disconnect", (_input, done) => acknowledge(done, async () => { w.tiktok.disconnect(); w.giftEngine.reset(); w.rankingEngine.reset(); await w.saveNow(); return w.config.giftOverlays; }, w));
-  socket.on("gift-catalog:sync", (_input, done) => acknowledge(done, () => w.syncGiftCatalog(), w));
+  socket.on("tiktok:disconnect", (_input, done) => proAcknowledge(done, session, async () => { w.tiktok.disconnect(); w.giftEngine.reset(); w.rankingEngine.reset(); await w.saveNow(); return w.config.giftOverlays; }, w));
+  socket.on("gift-catalog:sync", (_input, done) => proAcknowledge(done, session, () => w.syncGiftCatalog(), w));
   socket.on("admin:authorized-tiktok:list", (_input, done) => acknowledge(done, async () => { await requireAdministrator(session); return listAuthorizedTikTokUsers(); }, w));
   socket.on("admin:authorized-tiktok:add", (input, done) => acknowledge(done, async () => { await requireAdministrator(session); return authorizeTikTokUsername(input?.username, session.user.id); }, w));
   socket.on("admin:authorized-tiktok:remove", (input, done) => acknowledge(done, async () => { await requireAdministrator(session); return revokeTikTokUsername(input?.username); }, w));
@@ -315,19 +323,19 @@ io.on("connection", (socket) => {
   socket.on("admin:statistics:registered", (_input, done) => acknowledge(done, async () => { await requireAdministrator(session); return administrationAccounts(); }, w));
   socket.on("admin:statistics:connected", (_input, done) => acknowledge(done, async () => { await requireAdministrator(session); return administrationAccounts({ activeOnly: true }); }, w));
   socket.on("admin:statistics:profile", (input, done) => acknowledge(done, async () => { await requireAdministrator(session); const userId = String(input?.userId || ""); const account = (await administrationAccounts()).find((entry) => entry.userId === userId); if (!account) throw new Error("No existe esa cuenta registrada."); return account; }, w));
-  socket.on("mapping:save", (input, done) => acknowledge(done, () => w.saveMapping(input), w));
-  socket.on("mapping:save-batch", (input, done) => acknowledge(done, () => w.saveMappingsBatch(input), w));
-  socket.on("mapping:save-survival-effect", (input, done) => acknowledge(done, () => w.saveSurvivalEffect(input), w));
-  socket.on("mapping:save-preset-effect", (input, done) => acknowledge(done, () => w.savePresetEffect(input), w));
-  socket.on("mapping:delete-preset-group", (id, done) => acknowledge(done, () => w.deletePresetGroup(id), w));
-  socket.on("mapping:delete", (id, done) => acknowledge(done, async () => { const timer = w.config.timer?.actionMappingId === id ? { ...w.config.timer, actionMappingId: "" } : w.config.timer; await w.save({ ...w.config, timer, mappings: w.config.mappings.filter((item) => item.id !== id) }); return { id }; }, w));
-  socket.on("mapping:test", (id, done) => acknowledge(done, () => {
+  socket.on("mapping:save", (input, done) => proAcknowledge(done, session, () => w.saveMapping(input), w));
+  socket.on("mapping:save-batch", (input, done) => proAcknowledge(done, session, () => w.saveMappingsBatch(input), w));
+  socket.on("mapping:save-survival-effect", (input, done) => proAcknowledge(done, session, () => w.saveSurvivalEffect(input), w));
+  socket.on("mapping:save-preset-effect", (input, done) => proAcknowledge(done, session, () => w.savePresetEffect(input), w));
+  socket.on("mapping:delete-preset-group", (id, done) => proAcknowledge(done, session, () => w.deletePresetGroup(id), w));
+  socket.on("mapping:delete", (id, done) => proAcknowledge(done, session, async () => { const timer = w.config.timer?.actionMappingId === id ? { ...w.config.timer, actionMappingId: "" } : w.config.timer; await w.save({ ...w.config, timer, mappings: w.config.mappings.filter((item) => item.id !== id) }); return { id }; }, w));
+  socket.on("mapping:test", (id, done) => proAcknowledge(done, session, () => {
     const mapping = w.config.mappings.find((item) => item.id === id);
     if (!mapping) throw new Error("No existe esa acción.");
     const event = { triggerType: mapping.triggerType || "gift", eventName: "Prueba", giftId: mapping.giftId || "demo", giftName: mapping.giftName || "Evento de prueba", repeatCount: 1, username: "prueba", nickname: "Prueba" };
     return w.rules.executeSelected(mapping, event, { context: { test: true }, message: "Prueba de acción ejecutada" });
   }, w));
-  socket.on("gift:simulate", (input, done) => acknowledge(done, () => w.rules.process({ giftId: String(input?.giftId || "demo"), giftName: String(input?.giftName || "Regalo de prueba"), repeatCount: Math.max(1, Number(input?.repeatCount) || 1), username: "prueba", nickname: "Prueba" }, w.config.mappings), w));
+  socket.on("gift:simulate", (input, done) => proAcknowledge(done, session, () => w.rules.process({ giftId: String(input?.giftId || "demo"), giftName: String(input?.giftName || "Regalo de prueba"), repeatCount: Math.max(1, Number(input?.repeatCount) || 1), username: "prueba", nickname: "Prueba" }, w.config.mappings), w));
 });
 app.use((error, _request, response, _next) => { console.error(error); response.status(500).json({ error: error.message || "Error interno." }); });
 server.listen(port, host, () => console.log(`TikTokraft Live disponible en http://${host}:${port}`));

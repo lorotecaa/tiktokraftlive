@@ -78,6 +78,14 @@ En **Authentication → Providers → Email** de Supabase, deja habilitado el pr
 
 En **Authentication → URL Configuration** configura **Site URL** como la URL pública de Render, por ejemplo `https://tiktokraftlive.onrender.com`, y añade esa misma URL en **Redirect URLs**. En Render configura también `APP_URL` con esa URL pública; si no se establece, la aplicación usa `RENDER_EXTERNAL_URL` cuando Render la proporciona.
 
+### Cuentas gratis, Pro y administración
+
+Todas las personas pueden crear una cuenta con email y contraseña. Las cuentas nuevas comienzan en el plan **Gratis**, que permite recorrer el panel en modo de solo lectura. Crear acciones o solicitudes, guardar configuraciones y conectar TikTok LIVE o ServerTap requiere el plan **Pro**. El rol **Administrador** incluye Pro y además abre las herramientas administrativas.
+
+Para habilitar la asignación de planes desde el panel, ejecuta el contenido actualizado de `supabase/roles.sql` en Supabase SQL Editor. Después, en **Administración → Roles**, asigna `PRO` al correo de la cuenta que haya adquirido el plan. Quitar ese rol devuelve la cuenta al plan Gratis.
+
+El formulario de registro usa `SUPABASE_PUBLISHABLE_KEY` o `SUPABASE_ANON_KEY` si existe; si no, mantiene compatibilidad con `SUPABASE_SECRET_KEY`. Los permisos Pro siempre se verifican en el servidor y no dependen de que un botón esté oculto o deshabilitado en el navegador.
+
 ## Crear acciones
 
 Añade una acción para cada regalo. Lo más fiable es indicar el ID del regalo, pues el nombre puede variar por idioma. Puedes dejar el ID vacío si prefieres comparar por nombre.

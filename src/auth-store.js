@@ -3,10 +3,18 @@ function projectUrl(value) {
 }
 
 const url = projectUrl(process.env.SUPABASE_URL);
-const key = String(process.env.SUPABASE_SECRET_KEY || process.env.SUPABASE_SERVICE_ROLE_KEY || "").trim();
+const key = String(process.env.SUPABASE_PUBLISHABLE_KEY || process.env.SUPABASE_ANON_KEY || process.env.SUPABASE_SECRET_KEY || process.env.SUPABASE_SERVICE_ROLE_KEY || "").trim();
 const applicationUrl = String(process.env.APP_URL || process.env.RENDER_EXTERNAL_URL || "").trim().replace(/\/+$/, "");
 
 export const authConfigured = Boolean(url && key);
+
+function credentials(email, password) {
+  const normalizedEmail = String(email || "").trim().toLocaleLowerCase();
+  const normalizedPassword = String(password || "");
+  if (!normalizedEmail || !normalizedEmail.includes("@")) throw new Error("Escribe un correo electrónico válido.");
+  if (normalizedPassword.length < 6) throw new Error("La contraseña debe tener al menos 6 caracteres.");
+  return { email: normalizedEmail, password: normalizedPassword };
+}
 
 function headers(extra = {}) {
   return { apikey: key, "Content-Type": "application/json", ...extra };
@@ -22,11 +30,11 @@ async function authRequest(path, options) {
 
 export function signUp(email, password) {
   const redirect = applicationUrl ? `?redirect_to=${encodeURIComponent(applicationUrl)}` : "";
-  return authRequest(`signup${redirect}`, { method: "POST", headers: headers(), body: JSON.stringify({ email, password }) });
+  return authRequest(`signup${redirect}`, { method: "POST", headers: headers(), body: JSON.stringify(credentials(email, password)) });
 }
 
 export function signIn(email, password) {
-  return authRequest("token?grant_type=password", { method: "POST", headers: headers(), body: JSON.stringify({ email, password }) });
+  return authRequest("token?grant_type=password", { method: "POST", headers: headers(), body: JSON.stringify(credentials(email, password)) });
 }
 
 export function refreshSession(refreshToken) {
